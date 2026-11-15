@@ -56,7 +56,15 @@ pub(crate) fn run(
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let mut output_generation = 1;
-    let (mut producer, output) = Output::start(format, state.clone(), audio_id, output_generation)?;
+    let Some((mut producer, output)) =
+        Output::start(format, state.clone(), audio_id, output_generation)?
+    else {
+        return if state.stopped.load(Ordering::Acquire) {
+            Ok(())
+        } else {
+            Err(Error::Output)
+        };
+    };
     let mut output = Some(output);
     let mut buffering = Buffering::new(producer.buffer().capacity());
     let _ = ready.send(Ok(format));
@@ -287,19 +295,22 @@ fn restart<T>(
     generation: &mut u64,
     resets: &mut u32,
     reported: u64,
-    mut attempt: impl FnMut(u64) -> Result<T>,
+    mut attempt: impl FnMut(u64) -> Result<Option<T>>,
 ) -> Result<Option<T>> {
     loop {
         if state.stopped.load(Ordering::Acquire) {
             return Ok(None);
         }
-        match attempt(*generation) {
-            Ok(started) => return Ok(Some(started)),
-            Err(_) if state.stopped.load(Ordering::Acquire) => return Ok(None),
-            Err(error)
-                if state.error().is_none()
-                    && state.rebuild_request.load(Ordering::Acquire) == *generation =>
-            {
+        let outcome = attempt(*generation);
+        if state.stopped.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        if let Some(error) = state.error() {
+            return Err(error);
+        }
+        match outcome {
+            Ok(Some(started)) => return Ok(Some(started)),
+            Ok(None) if state.rebuild_request.load(Ordering::Acquire) == *generation => {
                 *resets += 1;
                 if *resets > 3 {
                     tracing::warn!(
@@ -312,10 +323,11 @@ fn restart<T>(
                         terminal = true,
                         "Audio output recovery could not continue"
                     );
-                    return Err(error);
+                    return Err(Error::Output);
                 }
                 *generation += 1;
             }
+            Ok(None) => return Err(Error::Output),
             Err(error) => return Err(error),
         }
     }
@@ -500,7 +512,7 @@ mod tests {
     fn attempts(
         state: &State,
         resets: u32,
-        outcome: impl Fn(&State, u64) -> Result<()>,
+        outcome: impl Fn(&State, u64) -> Result<Option<()>>,
     ) -> (Result<Option<Owned>>, Vec<u64>, u32) {
         let mut generation = 2;
         let mut resets = resets;
@@ -508,15 +520,15 @@ mod tests {
         let result = restart(state, 1, &mut generation, &mut resets, 1, |generation| {
             seen.push(generation);
             state.rebuild_request.store(0, Ordering::Release);
-            outcome(state, generation).map(|()| Owned(generation))
+            outcome(state, generation).map(|started| started.map(|()| Owned(generation)))
         });
         (result, seen, resets)
     }
 
-    fn requested(state: &State, generation: u64) -> Result<()> {
+    fn requested(state: &State, generation: u64) -> Result<Option<()>> {
         state.rebuild_request.store(generation, Ordering::Release);
         state.rebuild_request.store(generation, Ordering::Release);
-        Err(Error::Output)
+        Ok(None)
     }
 
     #[test]
@@ -535,7 +547,7 @@ mod tests {
             if generation < 4 {
                 requested(state, generation)
             } else {
-                Ok(())
+                Ok(Some(()))
             }
         });
         assert!(matches!(result, Ok(Some(Owned(4)))));
@@ -566,7 +578,7 @@ mod tests {
     fn a_stopped_player_starts_no_replacement_output() {
         let state = State::new();
         state.stopped.store(true, Ordering::Release);
-        let (result, seen, _) = attempts(&state, 1, |_, _| Ok(()));
+        let (result, seen, _) = attempts(&state, 1, |_, _| Ok(Some(())));
         assert!(matches!(result, Ok(None)));
         assert!(seen.is_empty());
     }
@@ -577,6 +589,17 @@ mod tests {
         let (result, seen, _) = attempts(&state, 1, |state, generation| {
             let _ = requested(state, generation);
             state.fail(Error::Output);
+            Ok(None)
+        });
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2]);
+    }
+
+    #[test]
+    fn a_fatal_start_error_is_not_retried_while_a_rebuild_is_pending() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            let _ = requested(state, generation);
             Err(Error::Output)
         });
         assert!(matches!(result, Err(Error::Output)));

@@ -17,8 +17,14 @@ use std::{
 
 pub(crate) struct Output {
     stream: cpal::Stream,
+    state: Arc<State>,
     audio_id: u64,
     generation: u64,
+}
+
+enum Startup {
+    Running,
+    Interrupted,
 }
 
 fn playable(format: SampleFormat) -> bool {
@@ -85,13 +91,13 @@ impl Output {
         state: Arc<State>,
         audio_id: u64,
         generation: u64,
-    ) -> Result<(rtrb::Producer<Frame>, Self)> {
+    ) -> Result<Option<(rtrb::Producer<Frame>, Self)>> {
         state.callbacks.store(0, Ordering::Release);
         state.rebuild_request.store(0, Ordering::Release);
         state.output_generation.store(generation, Ordering::Release);
         let (producer, consumer) = rtrb::RingBuffer::new((format.sample_rate / 10) as usize);
         let output = Self::open(format, consumer, state, audio_id, generation)?;
-        Ok((producer, output))
+        Ok(output.map(|output| (producer, output)))
     }
 
     fn open(
@@ -100,7 +106,7 @@ impl Output {
         state: Arc<State>,
         audio_id: u64,
         generation: u64,
-    ) -> Result<Self> {
+    ) -> Result<Option<Self>> {
         let opening = Instant::now();
         if format.channels > 2 {
             return Err(Error::Unsupported);
@@ -172,7 +178,13 @@ impl Output {
             ),
             _ => return Err(Error::OutputUnavailable),
         }?;
-        if let Err(error) = stream.play() {
+        let output = Self {
+            stream,
+            state: state.clone(),
+            audio_id,
+            generation,
+        };
+        if let Err(error) = output.stream.play() {
             tracing::warn!(
                 event = "audio_output_failed",
                 audio_id,
@@ -184,7 +196,11 @@ impl Output {
             );
             return Err(Error::Output);
         }
-        await_callbacks(&state, generation, Instant::now() + Duration::from_secs(2))?;
+        if let Startup::Interrupted =
+            await_callbacks(&state, generation, Instant::now() + Duration::from_secs(2))?
+        {
+            return Ok(None);
+        }
         if let Some(error) = state.error() {
             return Err(error);
         }
@@ -194,17 +210,13 @@ impl Output {
             requested_quantum_ms = request.milliseconds,
             requested_quantum_frames = request.frames,
             configured_quantum_frames, buffer_constraint = request.constraint,
-            reported_callback_frames = stream.buffer_size().ok(),
+            reported_callback_frames = output.stream.buffer_size().ok(),
             open_us = opening.elapsed().as_micros() as u64,
             sample_rate = format.sample_rate,
             channels = format.channels,
             "Audio output opened"
         );
-        Ok(Self {
-            stream,
-            audio_id,
-            generation,
-        })
+        Ok(Some(output))
     }
 }
 
@@ -240,7 +252,7 @@ where
         .map_err(|_| Error::OutputUnavailable)
 }
 
-fn await_callbacks(state: &State, generation: u64, deadline: Instant) -> Result<()> {
+fn await_callbacks(state: &State, generation: u64, deadline: Instant) -> Result<Startup> {
     while state.callbacks.load(Ordering::Acquire) < 2 {
         if let Some(error) = state.error() {
             return Err(error);
@@ -248,14 +260,23 @@ fn await_callbacks(state: &State, generation: u64, deadline: Instant) -> Result<
         if state.rebuild_request.load(Ordering::Acquire) == generation
             || state.stopped.load(Ordering::Acquire)
         {
-            return Err(Error::Output);
+            return Ok(Startup::Interrupted);
         }
         if Instant::now() >= deadline {
             return Err(Error::OutputUnavailable);
         }
         thread::sleep(Duration::from_millis(1));
     }
-    Ok(())
+    Ok(Startup::Running)
+}
+
+fn retire(state: &State, generation: u64) {
+    let _ = state.output_generation.compare_exchange(
+        generation,
+        0,
+        Ordering::AcqRel,
+        Ordering::Acquire,
+    );
 }
 
 fn failure_kind(kind: cpal::ErrorKind) -> &'static str {
@@ -347,6 +368,7 @@ fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind
 
 impl Drop for Output {
     fn drop(&mut self) {
+        retire(&self.state, self.generation);
         let _ = self.stream.pause();
         tracing::info!(
             event = "audio_output_closed",
@@ -441,7 +463,7 @@ mod tests {
         let started = Instant::now();
         let result = await_callbacks(&state, 2, started + Duration::from_secs(2));
         let waited = started.elapsed();
-        assert!(matches!(result, Err(Error::Output)), "{result:?}");
+        assert!(matches!(result, Ok(Startup::Interrupted)));
         assert!(waited < Duration::from_secs(1), "{waited:?}");
     }
 
@@ -452,8 +474,31 @@ mod tests {
         let started = Instant::now();
         let result = await_callbacks(&state, 2, started + Duration::from_secs(2));
         let waited = started.elapsed();
-        assert!(result.is_err());
+        assert!(matches!(result, Ok(Startup::Interrupted)));
         assert!(waited < Duration::from_secs(1), "{waited:?}");
+    }
+
+    #[test]
+    fn a_closing_output_cannot_fail_or_rebuild_its_replacement() {
+        for kind in [
+            cpal::ErrorKind::BackendError,
+            cpal::ErrorKind::DeviceNotAvailable,
+            cpal::ErrorKind::StreamInvalidated,
+        ] {
+            let state = active(2, 1);
+            retire(&state, 2);
+            report(&state, &Origin::capture((1, 2)), 1, kind);
+            assert_eq!(state.error(), None, "{kind:?}");
+            assert_eq!(state.rebuild_request.load(Ordering::Acquire), 0);
+            assert_eq!(state.xruns.load(Ordering::Acquire), 1);
+        }
+    }
+
+    #[test]
+    fn retiring_an_older_output_leaves_the_current_generation_active() {
+        let state = active(3, 1);
+        retire(&state, 2);
+        assert_eq!(state.output_generation.load(Ordering::Acquire), 3);
     }
 
     #[test]
