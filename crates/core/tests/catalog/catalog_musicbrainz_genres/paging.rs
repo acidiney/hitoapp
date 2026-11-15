@@ -1,6 +1,6 @@
 use super::fixture::{A, GROUP, Ids, World, paged_tracks_match_preview, pairs, two_artists};
 use hito_core::test_support::musicbrainz::Reply;
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 #[tokio::test]
 async fn genre_track_pages_deduplicate_tagged_sources_before_the_next_candidate() {
@@ -101,7 +101,7 @@ async fn artist_and_release_group_genres_page_one_recording_once() {
                     ..Ids::default()
                 },
             );
-            world.artist_genres(A, &[("fado", 1)]);
+            world.artist_genres(A, &[("fado", 1), ("folk", 1)]);
             world.fake.genres_of(
                 "release-group",
                 GROUP,
@@ -127,6 +127,11 @@ async fn artist_and_release_group_genres_page_one_recording_once() {
     );
     let fado = paged_tracks_match_preview(&world, "fado").await;
     assert_eq!(fado.len(), 2);
+    let fado_ids: HashSet<_> = fado.iter().map(|track| track.id.clone()).collect();
+    let folk = paged_tracks_match_preview(&world, "folk").await;
+    assert_eq!(folk.len(), 2);
+    let folk_ids: HashSet<_> = folk.iter().map(|track| track.id.clone()).collect();
+    assert_eq!(fado_ids, folk_ids);
     let grouped = fado
         .iter()
         .find(|track| track.title == "artist-and-group")
