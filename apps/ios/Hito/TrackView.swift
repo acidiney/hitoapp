@@ -3,7 +3,8 @@ import SwiftUI
 
 struct TrackView: View {
     @Environment(AppModel.self) private var model
-    let track: Track
+    let opened: Track
+    @State private var refreshed: Track?
     @State private var choice: TrackSources.Choice?
     @State private var staged: String?
     @State private var saving = false
@@ -11,12 +12,19 @@ struct TrackView: View {
     @State private var details: TrackMetadata.Details?
     @State private var changingLyrics = false
 
+    init(track: Track) {
+        opened = track
+    }
+
+    private var track: Track { refreshed ?? opened }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 sources
-                FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
+                FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) { updated in
+                    refreshed = updated
                     Task { await load() }
                 }
                 if choice?.entries.contains(where: { !$0.local }) == true {

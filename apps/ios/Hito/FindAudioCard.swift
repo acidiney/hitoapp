@@ -5,7 +5,7 @@ struct FindAudioCard: View {
     @Environment(AppModel.self) private var model
     let track: Track
     let prominent: Bool
-    let attached: () -> Void
+    let attached: (Track) -> Void
     @State private var services: [PluginConnection]?
     @State private var service: PluginConnection?
     @State private var links: [PluginConnection] = []
@@ -209,12 +209,12 @@ struct FindAudioCard: View {
         busy = true
         defer { busy = false }
         do {
-            _ = try await SourceAttachment(api: api).attach(track.id, item.candidate, stamp: item.review.stamp)
+            let updated = try await SourceAttachment(api: api).attach(track.id, item.candidate, stamp: item.review.stamp)
             reviewing = nil
             results = []
             done = true
             problem = nil
-            attached()
+            attached(updated)
         } catch let refused as SourceAttachment.Problem {
             reviewing = nil
             problem = refused.message
