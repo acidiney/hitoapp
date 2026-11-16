@@ -70,6 +70,7 @@ check-scale:
 	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
 	$(RUST) cargo test --locked -p hito-core --test provider_bindings_upgrade -- --ignored --exact populated_binding_upgrade_preserves_one_hundred_thousand_provider_recordings
 	$(RUST) cargo test --locked -p hito-server --test artwork -- --ignored --exact artwork_thousand::one_thousand_distinct_album_covers_survive_beside_protected_artwork
+	$(RUST) cargo test --locked -p hito-plugin-torbox --test restart_capacity --test restart_capacity_uncertain -- --ignored
 
 check-rest:
 	$(RUST) cargo test --workspace --locked $(CORE_PACKAGES:-p=--exclude) --exclude hito-server
