@@ -19,13 +19,64 @@ jobs:
           name: desktop-evidence
           path: test-results/desktop/
           retention-days: 7
-  docker:
+  rust-style:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Verify in Docker
-        run: ./scripts/verify.sh
+      - name: Check formatting
+        run: make fmt-check
+      - name: Lint
+        run: make lint
+  rust-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test core
+        run: make check-core
+  rust-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test server
+        run: make check-server
+  rust-rest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the other crates
+        run: make check-rest
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: make web-install
+      - name: Lint
+        run: make web-lint
+      - name: Test
+        run: make test-web
+      - name: Build
+        run: make web-build
+      - name: Audit
+        run: make web-audit
+      - name: Check contracts
+        run: make contracts
+      - name: Check setup
+        run: make setup-check
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: make web-install
+      - name: Browser tests
+        run: make e2e
       - name: Upload browser evidence
         if: failure()
         uses: actions/upload-artifact@v4
