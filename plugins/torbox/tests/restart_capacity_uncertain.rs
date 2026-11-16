@@ -26,6 +26,7 @@ use workflow::{
 pub const COOKIE: &str = "owned-private-torbox-capacity-uncertain-cookie";
 
 #[tokio::test]
+#[ignore = "Scale check: run by make check-scale"]
 async fn sqlite_capacity_retains_unknown_without_remint_after_owner_replacement() {
     tokio::time::timeout(Duration::from_secs(300), async {
         let started = tokio::time::Instant::now();
