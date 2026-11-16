@@ -19,7 +19,7 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make fmt-check` | `cargo fmt --all --check` |
 | `make test-rust` | `cargo test --workspace --locked`, then the ignored `storage_walk_stalls` test alone, then `make check-scale` |
 | `make check-core` | Tests for `hito-core`, `hito-audio`, `hito-testkit`, `hito-metadata-musicbrainz` and `hito-remote-audio`, then the ignored `storage_walk_stalls` test alone |
-| `make check-scale` | The ignored scale checks, each run alone: the 100k replication snapshot and provider binding upgrade in `hito-core`, and the thousand-cover artwork test in `hito-server`. CI runs them nightly and on demand, not on every pull request |
+| `make check-scale` | The ignored scale checks, each run alone: the 100k replication snapshot and provider binding upgrade in `hito-core`, the thousand-cover artwork test in `hito-server`, and the TorBox SQLite capacity tests. CI runs them nightly and on demand, not on every pull request |
 | `make check-server` | Tests for `hito-server` |
 | `make check-community` | Tests for `hito-community` |
 | `make check-playback` | Tests for `hito-playback` without the `device` feature. Device audio checks stay in `scripts/check-playback.sh` |
