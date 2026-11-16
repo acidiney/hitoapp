@@ -107,8 +107,7 @@ struct FindAudioCard: View {
 
     @ViewBuilder private var paste: some View {
         HStack(spacing: 8) {
-            TextField(linkService.map { "Paste a link from \($0.name)" } ?? "Paste a link", text: $link)
-                .accessibilityLabel("Paste a link")
+            TextField("Paste a link", text: $link)
                 .keyboardType(.URL)
                 .textContentType(.URL)
                 .textInputAutocapitalization(.never)
