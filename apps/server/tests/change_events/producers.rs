@@ -117,8 +117,8 @@ async fn provider_source_changes_reach_only_accounts_that_can_read_the_recording
 }
 
 #[tokio::test]
-async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_and_no_outsider() {
-    let (_dir, app, owner, recording) = support::indexed_app().await;
+async fn attaching_a_source_to_a_personal_recording_notifies_only_its_owner() {
+    let (_dir, app, owner, _) = support::indexed_app().await;
     let (status, member) = call(
         &app,
         "POST",
@@ -138,13 +138,21 @@ async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_
     .await;
     assert_eq!(status, StatusCode::CREATED);
     let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&owner)).await;
-    let library = libraries[0]["id"].as_str().unwrap();
+    let shared = libraries
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|library| library["personal"] != true)
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     assert_eq!(
         call(
             &app,
             "PUT",
             &format!(
-                "/api/v1/libraries/{library}/members/{}",
+                "/api/v1/libraries/{shared}/members/{}",
                 member["id"].as_str().unwrap()
             ),
             Value::Null,
@@ -156,10 +164,21 @@ async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_
     );
     let member = login(&app, "member").await;
     let outsider = login(&app, "outsider").await;
+    let (_adopted_server, adopted_from) = provider(&app, &owner).await;
+    let (status, adopted) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/plugins/{}/recordings", adopted_from["id"].as_str().unwrap()),
+        json!({"installation_revision": adopted_from["revision"], "provider_recording_id": "owned"}),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let recording = adopted["id"].as_str().unwrap().to_owned();
+    let (_server, installation) = provider(&app, &owner).await;
     let mut owner_changes = stream(&app, &owner).await;
     let mut member_changes = stream(&app, &member).await;
     let mut outsider_changes = stream(&app, &outsider).await;
-    let (_server, installation) = provider(&app, &owner).await;
     let candidate = json!({
         "installation_id": installation["id"], "installation_revision": installation["revision"],
         "provider_recording_id": "owned"
@@ -183,13 +202,9 @@ async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_
     .await;
     assert_eq!(status, StatusCode::OK, "{attached}");
     assert_eq!(notice(&mut owner_changes).await, sources_notice(&recording));
-    assert_eq!(
-        notice(&mut member_changes).await,
-        sources_notice(&recording)
-    );
+    quiet(&mut member_changes).await;
     quiet(&mut outsider_changes).await;
     quiet(&mut owner_changes).await;
-    quiet(&mut member_changes).await;
 }
 
 async fn imported(
