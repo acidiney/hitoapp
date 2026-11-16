@@ -1,0 +1,19 @@
+x-sccache-environment: &sccache-environment
+  RUSTC_WRAPPER: /usr/local/bin/sccache
+  SCCACHE_GHA_ENABLED: "true"
+  ACTIONS_CACHE_SERVICE_V2: ${ACTIONS_CACHE_SERVICE_V2:-}
+  ACTIONS_RESULTS_URL: ${ACTIONS_RESULTS_URL:-}
+  ACTIONS_RUNTIME_TOKEN: ${ACTIONS_RUNTIME_TOKEN:-}
+  CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
+
+x-sccache-binary: &sccache-binary ${SCCACHE_PATH:?set SCCACHE_PATH to the sccache binary}:/usr/local/bin/sccache:ro
+
+services:
+  rust:
+    environment: *sccache-environment
+    volumes:
+      - *sccache-binary
+  desktop:
+    environment: *sccache-environment
+    volumes:
+      - *sccache-binary

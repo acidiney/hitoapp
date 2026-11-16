@@ -17,8 +17,9 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make build-tools` | Build the Rust tools image |
 | `make fmt` | `cargo fmt --all`, which rewrites files |
 | `make fmt-check` | `cargo fmt --all --check` |
-| `make test-rust` | `cargo test --workspace --locked`, then the ignored `storage_walk_stalls` test and the ignored 100k replication snapshot test in `hito-core`, each run alone |
-| `make check-core` | Tests for `hito-core`, `hito-audio`, `hito-testkit`, `hito-metadata-musicbrainz` and `hito-remote-audio`, then the ignored `storage_walk_stalls` test and the ignored 100k replication snapshot test, each run alone |
+| `make test-rust` | `cargo test --workspace --locked`, then the ignored `storage_walk_stalls` test alone, then `make check-scale` |
+| `make check-core` | Tests for `hito-core`, `hito-audio`, `hito-testkit`, `hito-metadata-musicbrainz` and `hito-remote-audio`, then the ignored `storage_walk_stalls` test alone |
+| `make check-scale` | The ignored scale checks, each run alone: the 100k replication snapshot and provider binding upgrade in `hito-core`, and the thousand-cover artwork test in `hito-server`. CI runs them nightly and on demand, not on every pull request |
 | `make check-server` | Tests for `hito-server` |
 | `make check-community` | Tests for `hito-community` |
 | `make check-playback` | Tests for `hito-playback` without the `device` feature. Device audio checks stay in `scripts/check-playback.sh` |
@@ -99,7 +100,7 @@ make COMPOSE_PROJECT=hito-arch COMPOSE_EXTRA='path/override.yaml:path/more.yaml'
 
 ## Disk and CPU budget
 
-The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0` and `CARGO_BUILD_JOBS=2`. Do not turn debug information or incremental compilation back on.
+The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0` and `CARGO_BUILD_JOBS=2`. CI raises `CARGO_BUILD_JOBS` to 4 and adds `scripts/ci/sccache.compose.yaml`, which shares compiled crates between jobs through the GitHub Actions cache. Do not turn debug information or incremental compilation back on.
 
 - Run compiler-heavy checks one at a time.
 - Keep at least 40 GiB free on the host.

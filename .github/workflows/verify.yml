@@ -4,12 +4,17 @@ on:
   pull_request:
 permissions:
   contents: read
+env:
+  CARGO_BUILD_JOBS: "4"
+  COMPOSE_EXTRA: scripts/ci/sccache.compose.yaml
+  COMPOSE_FILE: compose.yaml:scripts/ci/sccache.compose.yaml
 jobs:
   desktop-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Verify Linux desktop in Docker
         run: ./scripts/check-desktop.sh
       - name: Upload desktop evidence
@@ -24,6 +29,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Check formatting
         run: make fmt-check
       - name: Lint
@@ -33,6 +39,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Test core
         run: make check-core
   rust-server:
@@ -40,6 +47,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Test server
         run: make check-server
   rust-rest:
@@ -47,6 +55,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Test the other crates
         run: make check-rest
   web:
@@ -54,6 +63,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Install
         run: make web-install
       - name: Lint
@@ -73,6 +83,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Install
         run: make web-install
       - name: Browser tests
