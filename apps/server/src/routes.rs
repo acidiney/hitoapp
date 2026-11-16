@@ -61,7 +61,28 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 struct Contract;
 
 fn api_routes() -> OpenApiRouter<Services> {
-    let mut router = OpenApiRouter::with_openapi(Contract::openapi())
+    let mut router = OpenApiRouter::with_openapi(Contract::openapi());
+    router = plugin_routes(router);
+    router = account_routes(router);
+    router = library_routes(router);
+    router = metadata_routes(router);
+    router = collection_routes(router);
+    router = player_routes(router);
+    if let Some(components) = router.get_openapi_mut().components.as_mut() {
+        components.add_security_scheme(
+            "session",
+            SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::new("hito_session"))),
+        );
+        components.add_security_scheme(
+            "bearer",
+            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+        );
+    }
+    router
+}
+
+fn plugin_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(plugins::settings, plugins::install))
         .routes(routes!(plugins::preview))
         .routes(routes!(plugins::offer))
@@ -80,6 +101,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugin_authorization::callback))
         .routes(routes!(providers::search))
         .routes(routes!(providers::adopt))
+}
+
+fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(api::health))
         .routes(routes!(api::contract))
         .routes(routes!(identity::setup_status, identity::setup))
@@ -111,6 +136,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
+}
+
+fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(podcasts::subscriptions, podcasts::subscribe))
         .routes(routes!(podcasts::episodes))
         .routes(routes!(podcasts::refresh))
@@ -165,6 +194,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         ))
         .routes(routes!(source_refresh::refresh_sources))
         .routes(routes!(source_resolution::resolve_source))
+}
+
+fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(
             api::artist_catalog::settings,
             api::artist_catalog::update_settings
@@ -257,6 +290,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::playlist_artwork::enqueue))
         .routes(routes!(api::playlist_artwork::receipt))
         .routes(routes!(api::playlist_artwork::image))
+}
+
+fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(catalog::audio, catalog::audio_head))
         .routes(routes!(jobs::scan))
         .routes(routes!(jobs::job))
@@ -285,8 +322,11 @@ fn api_routes() -> OpenApiRouter<Services> {
             collection::history_preference,
             collection::update_history_preference
         ))
-        .routes(routes!(collection::delete_history));
-    router = router
+        .routes(routes!(collection::delete_history))
+}
+
+fn player_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+    router
         .routes(routes!(player::inspect))
         .routes(routes!(player::claim))
         .routes(routes!(player::submit))
@@ -294,18 +334,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(player::audiobooks::prepare))
         .routes(routes!(player::audiobooks::cancel))
         .routes(routes!(player::observations::state))
-        .routes(routes!(player::observations::position));
-    if let Some(components) = router.get_openapi_mut().components.as_mut() {
-        components.add_security_scheme(
-            "session",
-            SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::new("hito_session"))),
-        );
-        components.add_security_scheme(
-            "bearer",
-            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
-        );
-    }
-    router
+        .routes(routes!(player::observations::position))
 }
 
 pub fn openapi() -> openapi::OpenApi {

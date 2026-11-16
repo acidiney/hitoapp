@@ -2,7 +2,7 @@ use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;
 use hito_core::test_support::content_service as fixture;
 use hito_core::test_support::provider_audio as audio_fixture;
-use hito_core::{AudioRequest, ByteRange, OpenedAudio};
+use hito_core::{AudioRequest, ByteRange, OpenedAudio, PlaybackFailureReason};
 
 #[tokio::test]
 async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_leaking_slots() {
@@ -95,12 +95,18 @@ async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_
             response.insert(name, value.parse().unwrap());
         }
         f.server.audio(status, response, vec![0; length]).await;
+        let expected = if status == StatusCode::UNAUTHORIZED {
+            PlaybackFailureReason::CredentialsRequired
+        } else {
+            PlaybackFailureReason::InvalidProviderResponse
+        };
         assert!(matches!(
             f.hito
                 .playback
                 .open_audio(&f.actor, &f.source.id, AudioRequest { head: false, range })
                 .await,
-            Err(hito_core::Error::Upstream(_))
+            Err(hito_core::Error::PlaybackProvider { reason, original })
+                if reason == expected && matches!(*original, hito_core::Error::Upstream(_))
         ));
     }
     f.ready().await;
