@@ -43,6 +43,12 @@ public struct Profile: Sendable {
             .map { Device(id: $0.id, name: $0.client ?? "Unknown device", current: $0.current, lastSeen: Date(timeIntervalSince1970: TimeInterval($0.lastSeenAt))) }
     }
 
+    struct SignedOut: Decodable { let revoked: Int }
+
+    public func signOutOthers() async throws -> Int {
+        try await api.delete(["api", "v1", "account", "sessions"], as: SignedOut.self).revoked
+    }
+
     public func signOut(device id: String) async throws {
         _ = try await api.delete(["api", "v1", "account", "sessions", id], as: Nothing.self)
     }

@@ -15,15 +15,19 @@ enum Theme {
     static let coverMark = Color(red: 0x8f / 255, green: 0x8e / 255, blue: 0x88 / 255)
     static let warning = Color(red: 0xe5 / 255, green: 0xb5 / 255, blue: 0x67 / 255)
     static let raised = Color(red: 0x26 / 255, green: 0x26 / 255, blue: 0x24 / 255)
+    static let header = Color(red: 0x24 / 255, green: 0x24 / 255, blue: 0x22 / 255)
+    static let chosen = Color(red: 0x1f / 255, green: 0x1f / 255, blue: 0x1d / 255)
     static let menu = Color(red: 0x2e / 255, green: 0x2e / 255, blue: 0x2b / 255)
     static let bar = Color(red: 0x0c / 255, green: 0x0c / 255, blue: 0x0b / 255)
     static let barLine = Color(red: 0x2a / 255, green: 0x2a / 255, blue: 0x27 / 255)
     static let stage = Color(red: 0x16 / 255, green: 0x16 / 255, blue: 0x15 / 255)
     static let selected = Color(red: 0x1c / 255, green: 0x21 / 255, blue: 0x40 / 255)
+    static let selectedAction = Color(red: 0xcf / 255, green: 0xd6 / 255, blue: 0xff / 255)
     static let danger = Color(red: 0xf6 / 255, green: 0xb8 / 255, blue: 0xa8 / 255)
     static let liked = Color(red: 0xf0 / 255, green: 0xb4 / 255, blue: 0x9a / 255)
     static let rest = Color(red: 0x4a / 255, green: 0x4a / 255, blue: 0x46 / 255)
     static let missing = Color(red: 0x8a / 255, green: 0x89 / 255, blue: 0x84 / 255)
+    static let missingRing = Color(red: 0x6b / 255, green: 0x6a / 255, blue: 0x65 / 255)
     static let avatar = Color(red: 0x1f / 255, green: 0x4a / 255, blue: 0x43 / 255)
 
     static let body = Font.custom("Figtree-Regular", size: 16, relativeTo: .body)
@@ -33,7 +37,13 @@ enum Theme {
     static let small = Font.custom("Figtree-Regular", size: 14, relativeTo: .subheadline)
     static let smallMedium = Font.custom("Figtree-Medium", size: 14, relativeTo: .subheadline)
     static let smallStrong = Font.custom("Figtree-SemiBold", size: 14, relativeTo: .subheadline)
+    static let smallBold = Font.custom("Figtree-Bold", size: 14, relativeTo: .subheadline)
+    static let titleTracking: CGFloat = -0.28
     static let title = Font.custom("Figtree-ExtraBold", size: 28, relativeTo: .largeTitle)
+    static let display = Font.custom("Figtree-ExtraBold", size: 34, relativeTo: .largeTitle)
+    static let avatarLetter = Font.custom("Figtree-SemiBold", size: 19, relativeTo: .title3)
+    static let badgeLetter = Font.custom("Figtree-SemiBold", size: 22, relativeTo: .title2)
+    static let pin = Font.custom("Figtree-Regular", size: 22, relativeTo: .title2)
     static let pageTitle = Font.custom("Figtree-ExtraBold", size: 22, relativeTo: .title)
     static let section = Font.custom("Figtree-Bold", size: 20, relativeTo: .title2)
     static let playing = Font.custom("Figtree-Bold", size: 24, relativeTo: .title)
@@ -48,11 +58,12 @@ enum Theme {
 }
 
 struct Screen<Content: View>: View {
+    var gap: CGFloat = 40
     @ViewBuilder let content: Content
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 40) {
+            VStack(alignment: .leading, spacing: gap) {
                 Logo()
                 VStack(alignment: .leading, spacing: 18) { content }
             }
@@ -86,7 +97,7 @@ struct Heading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(Theme.title)
+                .font(Theme.title).tracking(Theme.titleTracking)
                 .accessibilityAddTraits(.isHeader)
             if let address { AddressLine(text: address) }
         }
@@ -153,6 +164,7 @@ struct TextAction: View {
     let title: String
     var icon: String?
     var color = Theme.focus
+    var inset: CGFloat = 0
     let action: () -> Void
 
     var body: some View {
@@ -162,6 +174,7 @@ struct TextAction: View {
                 Text(title)
             }
             .font(Theme.smallMedium)
+            .padding(.horizontal, inset)
             .frame(minHeight: 44)
             .foregroundStyle(color)
             .contentShape(Rectangle())

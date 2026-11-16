@@ -41,11 +41,12 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Settings").font(Theme.title).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Settings").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 HStack(spacing: 10) {
                     Icon("search").foregroundStyle(Theme.quiet)
-                    TextField("", text: $search, prompt: Text("Search settings").foregroundStyle(Theme.quiet))
+                    TextField("", text: $search, prompt: Text("Search settings").foregroundStyle(Theme.missing))
+                        .font(Theme.small)
                         .accessibilityLabel("Search settings")
                         .autocorrectionDisabled()
                 }
@@ -54,7 +55,7 @@ struct SettingsView: View {
                 .background(Capsule().fill(Theme.field))
                 if case let .signedIn(_, user) = model.step {
                     account(user)
-                    rows
+                    rows.padding(.top, -8)
                 }
             }
             .padding(.horizontal, 16)
@@ -65,12 +66,13 @@ struct SettingsView: View {
 
     private func account(_ user: User) -> some View {
         HStack(spacing: 14) {
-            AccountPicture(user: user, size: 48, fill: Theme.tile, font: Theme.playing)
+            AccountPicture(user: user, size: 48, fill: Theme.tile, font: Theme.avatarLetter, ink: Theme.soft)
             VStack(alignment: .leading, spacing: 0) {
                 Text(user.displayName ?? user.username).font(Theme.bodyStrong)
                 Text("\(user.username) · \(user.admin ? "Administrator" : "Member")").font(Theme.small).foregroundStyle(Theme.quiet)
             }
         }
+        .frame(minHeight: 72)
         .accessibilityElement(children: .combine)
     }
 
@@ -114,6 +116,7 @@ struct PrivacyView: View {
         let id = UUID()
         let pin: Bool
         let idleMinutes: Int
+        var remove = false
     }
 
     var body: some View {
@@ -122,11 +125,18 @@ struct PrivacyView: View {
                 if let settings {
                     group("Screen lock") {
                         SettingRow(title: "PIN", detail: settings.pinEnabled ? "On" : "Off", divided: true) {
-                            OutlineButton(title: settings.pinEnabled ? "Change" : "Set a PIN") {
-                                lockChange = LockChange(pin: true, idleMinutes: settings.idleMinutes == 0 ? 15 : settings.idleMinutes)
+                            HStack(spacing: 8) {
+                                if settings.pinEnabled {
+                                    TextAction(title: "Remove", color: Theme.danger, inset: 8) {
+                                        lockChange = LockChange(pin: false, idleMinutes: settings.idleMinutes, remove: true)
+                                    }
+                                }
+                                OutlineButton(title: settings.pinEnabled ? "Change" : "Set a PIN") {
+                                    lockChange = LockChange(pin: true, idleMinutes: settings.idleMinutes == 0 ? 15 : settings.idleMinutes)
+                                }
                             }
                         }
-                        SettingRow(title: "Lock when idle", detail: settings.pinEnabled ? nil : "Set a PIN first.") {
+                        SettingRow(title: "Lock when idle", detail: settings.pinEnabled ? nil : "Set a PIN first.", divided: settings.pinEnabled) {
                             Menu {
                                 ForEach(Privacy.idleChoices, id: \.self) { minutes in
                                     Button(idleLabel(minutes)) {
@@ -136,8 +146,8 @@ struct PrivacyView: View {
                                 }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Text(idleLabel(settings.idleMinutes)).font(Theme.bodyMedium)
-                                    Icon("chevron-down", size: 16)
+                                    Text(idleLabel(settings.idleMinutes)).font(Theme.smallMedium)
+                                    Icon("chevron-down", size: 14)
                                 }
                                 .foregroundStyle(Theme.text)
                                 .padding(.leading, 16)
@@ -147,6 +157,11 @@ struct PrivacyView: View {
                             }
                             .disabled(!settings.pinEnabled)
                             .accessibilityLabel("Lock when idle: \(idleLabel(settings.idleMinutes))")
+                        }
+                        if settings.pinEnabled {
+                            SettingRow(title: "Lock now", detail: "Stops the music and asks for your PIN.") {
+                                OutlineButton(title: "Lock now") { Task { await lockNow() } }
+                            }
                         }
                     }
                     group("Listening history") {
@@ -207,7 +222,8 @@ struct PrivacyView: View {
             LockChangeSheet(change: change) { pin, password in
                 guard let api = model.api else { return nil }
                 do {
-                    let lock = try await Privacy(api: api).saveLock(pin: pin, idleMinutes: change.idleMinutes, password: password)
+                    let privacy = Privacy(api: api)
+                    let lock = change.remove ? try await privacy.removePin(password: password) : try await privacy.saveLock(pin: pin, idleMinutes: change.idleMinutes, password: password)
                     settings?.pinEnabled = lock.pinEnabled
                     settings?.idleMinutes = lock.idleMinutes
                     return nil
@@ -218,6 +234,18 @@ struct PrivacyView: View {
                     return "This didn't save. Try again."
                 }
             }
+        }
+    }
+
+    private func lockNow() async {
+        guard let api = model.api else { return }
+        do {
+            guard try await Privacy(api: api).lockNow() else { return }
+            model.player?.stop()
+            await model.checkLock()
+        } catch {
+            problem = "Hito didn't lock. Try again."
+            model.handle(error)
         }
     }
 
@@ -314,7 +342,7 @@ struct Switch: View {
         } label: {
             ZStack(alignment: on ? .trailing : .leading) {
                 Capsule().fill(on ? Theme.accent : Theme.line)
-                Circle().fill(on ? Theme.onAccent : Theme.soft).padding(3)
+                Circle().fill(on ? Theme.onAccent : Theme.soft).frame(width: 18, height: 18).padding(4)
             }
             .frame(width: 44, height: 26)
             .frame(minHeight: 44)
@@ -340,8 +368,8 @@ struct LockChangeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(change.pin ? "Choose a PIN" : "Confirm it's you").font(Theme.playing).accessibilityAddTraits(.isHeader)
-            Text(change.pin ? "Use 4 to 8 digits. The screen locks after a while without use, and the PIN opens it." : "Enter your password to change when the screen locks.")
+            Text(change.remove ? "Remove the PIN?" : change.pin ? "Choose a PIN" : "Confirm it's you").font(Theme.playing).accessibilityAddTraits(.isHeader)
+            Text(change.remove ? "Enter your password. The screen won't lock until you set a PIN again." : change.pin ? "Use 4 to 8 digits. The screen locks after a while without use, and the PIN opens it." : "Enter your password to change when the screen locks.")
                 .font(Theme.small)
                 .foregroundStyle(Theme.soft)
             if change.pin {
@@ -370,11 +398,12 @@ struct LockChangeSheet: View {
                     if problem == nil { dismiss() }
                 }
             } label: {
-                Text(saving ? "Saving…" : "Save")
+                Text(change.remove ? (saving ? "Removing…" : "Remove PIN") : (saving ? "Saving…" : "Save"))
                     .font(Theme.bodyStrong)
-                    .foregroundStyle(Theme.onAccent)
+                    .foregroundStyle(change.remove ? Theme.danger : Theme.onAccent)
                     .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(Capsule().fill(Theme.accent))
+                    .background(Capsule().fill(change.remove ? Color.clear : Theme.accent))
+                    .overlay(Capsule().strokeBorder(change.remove ? Theme.danger.opacity(0.5) : .clear))
             }
             .buttonStyle(.plain)
             .disabled(saving || password.isEmpty || (change.pin && pin.isEmpty))

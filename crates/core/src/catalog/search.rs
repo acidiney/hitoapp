@@ -1,9 +1,9 @@
 use super::credit_members;
 use super::{
-    Catalog, CatalogSort, Page, Recording, Search, push_available, push_plays_from_services,
-    push_primary_artist,
+    Catalog, CatalogSort, Page, Recording, RecordingAvailability, Search, push_available,
+    push_plays_from_services, push_primary_artist,
 };
-use crate::{Actor, Error, Library, Result, identity::recording_access};
+use crate::{Actor, Error, HostDeviceId, Library, Result, identity::recording_access};
 use sqlx::{QueryBuilder, Sqlite};
 
 impl Catalog {
@@ -62,6 +62,8 @@ impl Catalog {
             CatalogSort::Title => "title COLLATE NOCASE, r.id",
             CatalogSort::Recent => "added_rank DESC, r.id",
             CatalogSort::Artist => "artist COLLATE NOCASE, title COLLATE NOCASE, r.id",
+            CatalogSort::Album => "album_missing, album COLLATE NOCASE, title COLLATE NOCASE, r.id",
+            CatalogSort::Duration => "duration_ms, title COLLATE NOCASE, r.id",
             CatalogSort::Year => {
                 return Err(Error::Invalid("Tracks cannot be sorted by year".into()));
             }
@@ -70,9 +72,9 @@ impl Catalog {
         let limit = search.limit.unwrap_or(100).clamp(1, 200);
         let terms = search_terms(search.q.as_deref().unwrap_or_default())?;
         let mut count = QueryBuilder::new("SELECT sum(n) FROM (SELECT count(*) AS n");
-        filters(&mut count, actor, &search, &terms, false, false);
+        filters(&mut count, &self.host, actor, &search, &terms, false, false);
         count.push(" UNION ALL SELECT count(*) AS n");
-        filters(&mut count, actor, &search, &terms, true, false);
+        filters(&mut count, &self.host, actor, &search, &terms, true, false);
         count.push(")");
         let total = count
             .build_query_scalar()
@@ -89,9 +91,11 @@ impl Catalog {
                 .push(if personal { "p.title" } else { "r.title" })
                 .push(" AS title, r.title AS inherited_title, ")
                 .push(if personal { "p.artist" } else { "r.artist" })
-                .push(
-                    " AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ",
-                );
+                .push(" AS artist, r.artist AS inherited_artist, a.title AS album, (a.title IS NULL OR (a.title = ")
+                .push_bind(crate::library_storage::UNKNOWN_ALBUM)
+                .push(" AND NOT EXISTS (SELECT 1 FROM personal_release_metadata untagged WHERE untagged.release_id = r.release_id AND untagged.override_title IS NOT NULL AND untagged.user_id = ")
+                .push_bind(actor.id().to_owned())
+                .push(") AND EXISTS (SELECT 1 FROM metadata_observations observed WHERE observed.id = r.metadata_observation_id AND observed.origin = 'file_inspection' AND json_extract(observed.tags, '$.album') IS NULL))) AS album_missing, r.duration_ms, ");
             push_available(&mut query, &self.host, actor.id());
             query.push(" AS available, ");
             push_primary_artist(&mut query, actor.id());
@@ -100,7 +104,9 @@ impl Catalog {
             query.push(
                 " AS plays_from_services, COALESCE(l.liked, 0) AS liked, r.rowid AS added_rank",
             );
-            filters(&mut query, actor, &search, &terms, personal, true);
+            filters(
+                &mut query, &self.host, actor, &search, &terms, personal, true,
+            );
         }
         query
             .push(" ORDER BY ")
@@ -135,6 +141,7 @@ pub(crate) fn search_terms(query: &str) -> Result<String> {
 
 fn filters(
     query: &mut QueryBuilder<'_, Sqlite>,
+    host: &HostDeviceId,
     actor: &Actor,
     search: &Search,
     terms: &str,
@@ -199,6 +206,16 @@ fn filters(
         query
             .push(" AND r.library_id = ")
             .push_bind(library.clone());
+    }
+    if let Some(availability) = search.availability {
+        query.push(match availability {
+            RecordingAvailability::AvailableOrService => " AND (",
+            RecordingAvailability::NoSource => " AND NOT (",
+        });
+        push_available(query, host, actor.id());
+        query.push(" OR ");
+        push_plays_from_services(query, actor.id());
+        query.push(")");
     }
 }
 

@@ -10,6 +10,7 @@ struct NowPlayingView: View {
     let player: Player
     let openQueue: () -> Void
     @State private var panel = Panel.artwork
+    @State private var details: Track?
 
     var body: some View {
         Group {
@@ -30,6 +31,9 @@ struct NowPlayingView: View {
         }
         .background(Theme.stage.ignoresSafeArea())
         .foregroundStyle(Theme.text)
+        .sheet(item: $details) { track in
+            NavigationStack { TrackView(track: track).pushed().browsing() }
+        }
     }
 
     private func artwork(_ track: Track) -> some View {
@@ -38,10 +42,24 @@ struct NowPlayingView: View {
                 IconButton(icon: "chevron-down", label: "Close now playing", glyph: 22) { dismiss() }
                 Spacer()
                 Menu {
+                    Picker("Playback speed", selection: Binding(get: { player.speed }, set: player.setSpeed)) {
+                        ForEach(PlaybackSpeed.choices, id: \.self) { Text(PlaybackSpeed.label($0)).tag($0) }
+                    }
+                } label: {
+                    Text(PlaybackSpeed.label(player.speed))
+                        .font(Theme.smallStrong)
+                        .foregroundStyle(player.speed == 1 ? Theme.soft : Theme.focus)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(PlaybackSpeed.label(player.speed))
+                Menu {
                     Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
                     Button("Up next", action: openQueue)
+                    Button("Track details") { details = track }
                 } label: {
-                    Icon("more").foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
+                    Icon("more", size: 20).foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
                 }
                 .accessibilityLabel("More actions")
             }
@@ -53,7 +71,7 @@ struct NowPlayingView: View {
                     if let context = player.queue.context {
                         Text("Playing from \(context)").font(Theme.label).foregroundStyle(Theme.soft).lineLimit(1)
                     }
-                    Text(track.title).font(Theme.playing).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Text(track.title).font(Theme.playing).fixedSize(horizontal: false, vertical: true)
                     Text(track.artist).foregroundStyle(Theme.soft).lineLimit(1)
                     HStack(spacing: 8) {
                         Circle().fill(player.notice == nil ? Theme.text : Theme.warning).frame(width: 9, height: 9)
@@ -79,14 +97,14 @@ struct NowPlayingView: View {
                 .accessibilityHidden(true)
             }
             HStack {
-                IconButton(icon: "shuffle", label: "Shuffle", size: 48, glyph: 22, color: player.shuffled ? Theme.focus : Theme.soft, action: player.toggleShuffle)
+                IconButton(icon: "shuffle", label: "Shuffle", size: 48, glyph: 20, color: player.shuffled ? Theme.focus : Theme.soft, action: player.toggleShuffle)
                     .accessibilityAddTraits(player.shuffled ? .isSelected : [])
                 Spacer()
-                IconButton(icon: "previous", label: "Previous track", size: 56, glyph: 24, action: player.previous)
+                IconButton(icon: "previous", label: "Previous track", size: 56, glyph: 26, action: player.previous)
                 Spacer()
-                PlayButton(player: player, size: 72, light: true, glyph: 28)
+                PlayButton(player: player, size: 72, light: true, glyph: 26)
                 Spacer()
-                IconButton(icon: "next", label: "Next track", size: 56, glyph: 24, action: player.next)
+                IconButton(icon: "next", label: "Next track", size: 56, glyph: 26, action: player.next)
                     .disabled(!player.queue.hasNext)
                 Spacer()
                 RepeatButton(player: player)
@@ -138,8 +156,9 @@ struct NowPlayingView: View {
     }
 
     private var status: String {
+        if player.retrying != nil { return player.searching }
         if let notice = player.notice { return notice }
-        if player.state == .loading { return "Finding a source…" }
+        if player.state == .loading { return player.searching }
         return player.sourceLabel.map { "Ready · from \($0)" } ?? "Ready"
     }
 }
@@ -187,7 +206,7 @@ struct LikeButton: View {
 
     var body: some View {
         let liked = player.isLiked(track)
-        IconButton(icon: liked ? "heart-filled" : "heart", label: "Like", glyph: 22, color: liked ? Theme.liked : Theme.soft) {
+        IconButton(icon: liked ? "heart-filled" : "heart", label: "Like", glyph: 24, color: liked ? Theme.liked : Theme.soft) {
             player.toggleLike(track)
         }
         .accessibilityAddTraits(liked ? .isSelected : [])
@@ -200,7 +219,7 @@ struct RepeatButton: View {
     var body: some View {
         Button(action: player.cycleRepeat) {
             ZStack(alignment: .topTrailing) {
-                Icon("repeat", size: 22)
+                Icon("repeat", size: 20)
                 if player.repeatMode == .track {
                     Text("1").font(Theme.tabCurrent).offset(x: 6, y: -6)
                 }
@@ -259,19 +278,23 @@ struct LyricsPanel: View {
     let track: Track
     @State private var result: LyricsResult?
     @State private var failed = false
+    @State private var failure = "Lyrics didn't load."
     @State private var following = true
+    @State private var changing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             switch result {
             case let .some(.lines(lines, provider)):
-                let current = lines.lastIndex { $0.start <= player.position } ?? 0
+                let synced = lines.contains { $0.start >= 0 }
+                let current = synced ? lines.lastIndex { $0.start <= player.position } ?? 0 : -1
                 ScrollViewReader { reader in
                     ZStack(alignment: .bottom) {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                                     Button {
+                                        guard synced else { return }
                                         player.seek(to: line.start)
                                         following = true
                                     } label: {
@@ -289,7 +312,7 @@ struct LyricsPanel: View {
                         }
                         .scrollIndicators(.hidden)
                         .simultaneousGesture(DragGesture().onChanged { _ in following = false })
-                        if !following {
+                        if synced, !following {
                             Button {
                                 following = true
                                 withAnimation { reader.scrollTo(current, anchor: .center) }
@@ -309,11 +332,15 @@ struct LyricsPanel: View {
                         }
                     }
                     .onChange(of: current) { _, line in
-                        guard following else { return }
+                        guard following, synced else { return }
                         withAnimation { reader.scrollTo(line, anchor: .center) }
                     }
                 }
-                Text("from \(provider)").font(Theme.caption).foregroundStyle(Theme.soft)
+                HStack(spacing: 8) {
+                    Text("from \(provider)").font(Theme.caption).foregroundStyle(Theme.soft)
+                    Spacer()
+                    TextAction(title: "Change lyrics") { changing = true }
+                }
             case .some(.none):
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
@@ -321,13 +348,14 @@ struct LyricsPanel: View {
                     Text("Lyrics come from a plugin that offers them. None of your plugins has these.")
                         .font(Theme.small)
                         .foregroundStyle(Theme.soft)
+                    TextAction(title: "Find lyrics") { changing = true }
                 }
                 Spacer()
             case .none:
                 Spacer()
                 if failed {
                     HStack(spacing: 8) {
-                        Text("Lyrics didn't load.").foregroundStyle(Theme.soft)
+                        Text(failure).foregroundStyle(Theme.soft)
                         TextAction(title: "Try again") { Task { await load() } }
                     }
                     .font(Theme.small)
@@ -339,6 +367,7 @@ struct LyricsPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .task(id: track.id) { await load() }
+        .sheet(isPresented: $changing) { LyricsSheet(track: track) { Task { await load() } } }
     }
 
     private func load() async {
@@ -346,8 +375,13 @@ struct LyricsPanel: View {
         result = nil
         failed = false
         do {
-            result = try await Lyrics(api: api).load(track.id)
+            do {
+                result = try await LyricChoices(api: api).best(track.id, automatic: LyricChoices.automaticEnabled(account: player.account))
+            } catch HitoAPI.Problem.refused(404) {
+                result = try await Lyrics(api: api).load(track.id)
+            }
         } catch {
+            failure = PluginTrouble.message(error, otherwise: "Lyrics didn't load.")
             failed = true
             model.handle(error)
         }
@@ -360,10 +394,6 @@ struct SourcePanel: View {
     let track: Track
     @State private var sources: [PlaybackSource]?
     @State private var failed = false
-    @State private var copy: SavedCopy?
-    @State private var copyBusy = false
-    @State private var copyProblem: String?
-    @State private var copyRequest = UUID()
 
     var body: some View {
         ScrollView {
@@ -379,15 +409,32 @@ struct SourcePanel: View {
                                 .foregroundStyle(Theme.soft)
                         }
                         Spacer(minLength: 0)
-                        Text("Current").font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                        if player.pickedSource {
+                            Button { player.useAutomaticSource() } label: {
+                                Text("Automatic")
+                                    .font(Theme.smallMedium)
+                                    .foregroundStyle(Theme.text)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: 44)
+                                    .overlay(Capsule().strokeBorder(Theme.text.opacity(0.4)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Go back to the automatic source")
+                        } else {
+                            Text("Current").font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(RoundedRectangle(cornerRadius: 16).fill(Theme.text.opacity(0.1)))
                 }
                 let others = (sources ?? []).filter { $0.id != player.sourceId }
-                if !others.isEmpty {
+                let copyable = sources?.contains(where: { $0.provider != "local" }) ?? false
+                if !others.isEmpty || copyable {
                     Text("Other sources for this track").font(Theme.label).foregroundStyle(Theme.soft).padding(.top, 6)
+                    if copyable {
+                        SavedCopyCard(track: track, fill: Theme.text.opacity(0.06))
+                    }
                     ForEach(others) { source in
                         HStack(spacing: 12) {
                             if source.ready {
@@ -420,9 +467,6 @@ struct SourcePanel: View {
                         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.text.opacity(0.06)))
                     }
                 }
-                if let sources, sources.contains(where: { $0.provider != "local" }) || copy != nil {
-                    savedCopy
-                }
                 if sources == nil {
                     if failed {
                         HStack(spacing: 8) {
@@ -438,95 +482,6 @@ struct SourcePanel: View {
         }
         .scrollIndicators(.hidden)
         .task(id: "\(track.id)-\(player.sourceId ?? "")") { await load() }
-        .task(id: track.id) { await followCopy() }
-    }
-
-    private var savedCopy: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                if copy?.state == .ready {
-                    Circle().fill(Theme.text).frame(width: 10, height: 10)
-                } else {
-                    Circle().strokeBorder(copy?.state == .failed ? Theme.warning : Theme.soft, lineWidth: 1.5).frame(width: 10, height: 10)
-                }
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Saved copy").font(Theme.bodyBold)
-                    Text(copy?.summary ?? "Save a copy on your server to listen when the music service can't play it.")
-                        .font(Theme.small)
-                        .foregroundStyle(copy?.state == .failed ? Theme.warning : Theme.soft)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-                Button { Task { await (copy == nil ? saveCopy() : removeCopy()) } } label: {
-                    Text(copy == nil ? "Save" : copy?.transferring == true ? "Cancel" : "Remove")
-                        .font(Theme.smallMedium)
-                        .foregroundStyle(copy == nil ? Theme.stage : Theme.text)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .background(Capsule().fill(copy == nil ? Theme.text : .clear))
-                        .overlay(Capsule().strokeBorder(copy == nil ? .clear : Theme.text.opacity(0.4)))
-                        .opacity(copyBusy ? 0.5 : 1)
-                }
-                .buttonStyle(.plain)
-                .disabled(copyBusy)
-                .accessibilityLabel(copy == nil ? "Save a copy on your server" : copy?.transferring == true ? "Cancel saving the copy" : "Remove the saved copy")
-            }
-            if let copy, copy.transferring {
-                if let progress = copy.progress {
-                    ProgressView(value: progress).tint(Theme.text)
-                } else {
-                    ProgressView().progressViewStyle(.linear).tint(Theme.text)
-                }
-            }
-            if let copyProblem {
-                Text(copyProblem).font(Theme.small).foregroundStyle(Theme.warning)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.text.opacity(0.06)))
-    }
-
-    private func followCopy() async {
-        guard let api = model.api else { return }
-        let copies = SavedCopies(api: api)
-        while !Task.isCancelled {
-            copy = try? await copies.status(track.id)
-            guard copy?.transferring == true else { return }
-            try? await Task.sleep(for: .seconds(2))
-        }
-    }
-
-    private func saveCopy() async {
-        guard let api = model.api else { return }
-        copyBusy = true
-        copyProblem = nil
-        defer { copyBusy = false }
-        do {
-            _ = try await SavedCopies(api: api).save(track.id, request: copyRequest)
-            copyRequest = UUID()
-            await followCopy()
-        } catch let refused as SavedCopies.Refused {
-            copyRequest = UUID()
-            copyProblem = refused.reason
-        } catch {
-            copyProblem = "The copy didn't start. Try again."
-            model.handle(error)
-        }
-    }
-
-    private func removeCopy() async {
-        guard let api = model.api, let intent = copy?.intentId else { return }
-        copyBusy = true
-        copyProblem = nil
-        defer { copyBusy = false }
-        do {
-            try await SavedCopies(api: api).remove(intent)
-            copy = nil
-        } catch {
-            copyProblem = "The copy is still there. Try again."
-            model.handle(error)
-        }
     }
 
     private func note(_ source: PlaybackSource) -> String {
@@ -549,6 +504,8 @@ struct SourcePanel: View {
 struct QueueSheet: View {
     @Environment(\.dismiss) private var dismiss
     let player: Player
+    @State private var showingPlayed = false
+    @State private var confirmingClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -557,9 +514,9 @@ struct QueueSheet: View {
                 Text("Queue").font(Theme.playing).accessibilityAddTraits(.isHeader)
                 Spacer()
                 if player.queue.hasNext {
-                    TextAction(title: "Clear upcoming") { player.clearUpcoming() }
+                    TextAction(title: "Clear upcoming", inset: 12) { confirmingClear = true }
                 }
-                IconButton(icon: "close", label: "Close queue") { dismiss() }
+                IconButton(icon: "close", label: "Close queue", glyph: 20) { dismiss() }
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
@@ -575,6 +532,18 @@ struct QueueSheet: View {
                         }
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 10).fill(Theme.raised))
+                        .padding(.trailing, 8)
+                    }
+                    if !player.queue.played.isEmpty {
+                        DisclosureGroup(isExpanded: $showingPlayed) {
+                            VStack(spacing: 0) {
+                                ForEach(player.queue.played) { QueueRow(track: $0, player: player, strong: false, among: [], played: true) }
+                            }
+                        } label: {
+                            Text("Played (\(player.queue.played.count))").font(Theme.label).foregroundStyle(Theme.quiet)
+                        }
+                        .tint(Theme.quiet)
+                        .padding(.top, 4)
                         .padding(.trailing, 8)
                     }
                     if !player.queue.queued.isEmpty {
@@ -597,22 +566,27 @@ struct QueueSheet: View {
             .scrollIndicators(.hidden)
             if let removed = player.removed {
                 HStack {
-                    Text("Removed \(removed.track.title) from the queue").lineLimit(2)
+                    Text("Removed \(removed.track.title) from the queue").font(Theme.small).lineLimit(2)
                     Spacer(minLength: 8)
-                    TextAction(title: "Undo") { player.undoRemove() }
+                    TextAction(title: "Undo", inset: 14) { player.undoRemove() }
                 }
                 .padding(.leading, 14)
-                .padding(.trailing, 10)
-                .padding(.vertical, 8)
+                .padding(.trailing, 6)
+                .padding(.vertical, 6)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Theme.menu))
                 .padding(.trailing, 8)
             }
-            Text("Tracks without a source are skipped.").font(Theme.small).foregroundStyle(Theme.quiet)
+            Text("Tap a track to play it. Tracks without a source are looked up when they come up.").font(Theme.small).foregroundStyle(Theme.quiet).padding(.trailing, 8)
         }
         .padding(EdgeInsets(top: 10, leading: 16, bottom: 24, trailing: 8))
         .background(Theme.field.ignoresSafeArea())
         .foregroundStyle(Theme.text)
-        .presentationDetents([.large])
+        .confirmationDialog("Clear the queue?", isPresented: $confirmingClear, titleVisibility: .visible) {
+            Button("Clear upcoming", role: .destructive) { player.clearUpcoming() }
+        } message: {
+            Text("The track playing now keeps playing. Everything after it is removed from the queue.")
+        }
+        .presentationDetents([.fraction(0.9)])
         .presentationCornerRadius(24)
     }
 }
@@ -622,15 +596,29 @@ struct QueueRow: View {
     let player: Player
     let strong: Bool
     let among: [Track]
+    var played = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Cover(path: track.artworkPath, size: 44)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(track.title).font(strong ? Theme.bodyStrong : Theme.body).lineLimit(1)
-                Text(track.artist).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+            Button { player.jump(to: track) } label: {
+                HStack(spacing: 12) {
+                    Cover(path: track.artworkPath, size: 44)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(track.title).font(strong ? Theme.bodyStrong : Theme.body).foregroundStyle(played ? Theme.soft : Theme.text).lineLimit(1)
+                        Text(track.artist).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 0)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Play \(track.title), \(track.artist)")
+            if !played { actions }
+        }
+        .frame(minHeight: 60)
+    }
+
+    private var actions: some View {
             Menu {
                 Button("Move up") { player.move(upcoming: track.id, by: -1) }
                     .disabled(among.first?.id == track.id)
@@ -641,7 +629,5 @@ struct QueueRow: View {
                 Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
             }
             .accessibilityLabel("Actions for \(track.title): move up, move down, remove")
-        }
-        .frame(minHeight: 60)
     }
 }
