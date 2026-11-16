@@ -40,6 +40,7 @@ fmt-check:
 test-rust:
 	$(RUST) cargo test --workspace --locked
 	$(COMPOSE) --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
+	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
 
 test-web:
 	$(NODE) npm test
@@ -51,6 +52,7 @@ PLUGIN_PACKAGES := -p hito-plugin-sdk -p hito-plugin-folder -p hito-plugin-spoti
 check-core:
 	$(RUST) cargo test --locked $(CORE_PACKAGES)
 	$(COMPOSE) --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
+	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
 
 check-server:
 	$(RUST) cargo test --locked $(SERVER_PACKAGES)

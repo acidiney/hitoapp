@@ -140,6 +140,7 @@ async fn public_snapshot_sql_work_grows_with_catalog_size() {
 }
 
 #[tokio::test]
+#[ignore = "Run alone by make test-rust because snapshot construction has a wall-clock deadline"]
 async fn one_hundred_thousand_local_history_facts_fit_the_snapshot_budget() {
     for statistics in ["absent", "stale", "fresh"] {
         let (_dir, services, actor, library, music) = support::library("catalog-scale").await;

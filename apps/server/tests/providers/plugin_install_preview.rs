@@ -243,7 +243,8 @@ async fn exercise_acceptance(
         Some(token),
     )
     .await;
-    assert_eq!(response.status, StatusCode::BAD_GATEWAY);
+    assert_eq!(response.status, StatusCode::CONFLICT);
+    assert_eq!(response.json()["code"], "plugin_credentials_required");
     assert_private_error(&response.json(), provider);
     assert!(account_state(address, token).await == *before);
     requests.push(false);
