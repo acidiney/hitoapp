@@ -8,6 +8,8 @@ import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
 import { useRefreshArtworkAvailability } from "../../artwork/components/ArtworkProvider";
 import { onCredentialRecovered } from "../model/credentialRequirements";
+import { credentialsRequiredCode } from "../model/credentialError";
+import { HttpError } from "../../../shared/http";
 
 export function usePlugins(account: string) {
   const scope = useRequestScope(account);
@@ -227,7 +229,14 @@ export function usePlugins(account: string) {
       const request = scope.capture();
       const result = await perform(
         "refresh",
-        (signal) => pluginsApi.refresh(account, plugin, body, signal),
+        (signal) =>
+          pluginsApi
+            .refresh(account, plugin, body, signal)
+            .catch((error: unknown) => {
+              throw body.credential?.action === "replace"
+                ? refusedToken(error)
+                : error;
+            }),
         (data, result) =>
           result.kind === "updated" ? replace(data, result.installation) : data,
       );
@@ -244,3 +253,13 @@ export function usePlugins(account: string) {
   };
 }
 export type PluginActions = ReturnType<typeof usePlugins>;
+
+function refusedToken(error: unknown) {
+  return error instanceof HttpError && error.code === credentialsRequiredCode
+    ? new HttpError(
+        error.status,
+        "The plugin service refused this token. Check it and try again.",
+        error.code,
+      )
+    : error;
+}

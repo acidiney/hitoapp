@@ -304,7 +304,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       throw new Error(
         "The copied recording must belong to its personal catalog",
       );
-    const catalogPath = `/api/v1/recordings?library=${importedRecording.library_id}`;
+    const catalogPath = `/api/v1/recordings?library=${importedRecording.library_id}&q=${encodeURIComponent(playlist.prefix)}`;
     const title = `${playlist.prefix} personal title`;
     const artist = `${playlist.prefix} personal artist`;
     const saved = await page.request.post("/api/v1/sync", {
