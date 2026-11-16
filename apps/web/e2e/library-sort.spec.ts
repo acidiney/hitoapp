@@ -46,14 +46,17 @@ test("Albums and Library tracks sort from a listbox, keep the choice in the addr
   await chooseOption(sort, "Title");
   await expect(page).toHaveURL(/\/albums\?sort=title$/);
   await expect(sort).toContainText("Title");
-  await expect(cards.first()).toHaveText("Fixture collection 440 Hz");
-  await expect(cards.last()).toHaveText("Fixture collection 660 Hz");
+  await expect(cards).toHaveText([
+    "Fixture collection 440 Hz",
+    "Fixture collection 660 Hz",
+    "Shared credit members collection",
+  ]);
 
   await chooseOption(sort, "Year");
   await expect(page).toHaveURL(/\/albums\?sort=year$/);
   await page.reload();
   await expect(sort).toContainText("Year");
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(3);
 
   await chooseOption(sort, "Recently added");
   await expect(page).toHaveURL(/\/albums$/);
