@@ -354,7 +354,7 @@ fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind
     let current_xruns = state.xruns.load(Ordering::Acquire);
     if current_xruns != born_xruns {
         emit(reason, current_xruns, "recovering", false);
-    } else if generation > 1 && kind == cpal::ErrorKind::BackendError {
+    } else if kind == cpal::ErrorKind::BackendError {
         if state
             .rebuild_request
             .compare_exchange(0, generation, Ordering::AcqRel, Ordering::Acquire)
@@ -433,7 +433,8 @@ mod tests {
             "\"reason\":\"backend\"",
             "\"audio_id\":7",
             "\"generation\":1",
-            "\"terminal\":true",
+            "\"action\":\"rebuild\"",
+            "\"terminal\":false",
         ] {
             assert!(event.contains(field), "{field} missing from {event}");
         }
@@ -526,16 +527,32 @@ mod tests {
     }
 
     #[test]
-    fn the_first_output_and_other_replacement_failures_stay_terminal() {
+    fn a_backend_failure_of_the_first_output_requests_a_rebuild_instead_of_stopping() {
         let initial = active(1, 0);
-        report(
-            &initial,
-            &Origin::capture((1, 1)),
-            0,
-            cpal::ErrorKind::BackendError,
-        );
-        assert_eq!(initial.error(), Some(Error::Output));
-        assert_eq!(initial.rebuild_request.load(Ordering::Acquire), 0);
+        for _ in 0..6 {
+            report(
+                &initial,
+                &Origin::capture((1, 1)),
+                0,
+                cpal::ErrorKind::BackendError,
+            );
+        }
+        assert_eq!(initial.error(), None);
+        assert_eq!(initial.rebuild_request.load(Ordering::Acquire), 1);
+        assert_eq!(initial.xruns.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn device_and_invalidation_failures_stay_terminal() {
+        for kind in [
+            cpal::ErrorKind::DeviceNotAvailable,
+            cpal::ErrorKind::StreamInvalidated,
+        ] {
+            let initial = active(1, 0);
+            report(&initial, &Origin::capture((1, 1)), 0, kind);
+            assert_eq!(initial.error(), Some(Error::Output));
+            assert_eq!(initial.rebuild_request.load(Ordering::Acquire), 0);
+        }
         for kind in [
             cpal::ErrorKind::DeviceNotAvailable,
             cpal::ErrorKind::StreamInvalidated,
@@ -566,7 +583,7 @@ mod tests {
             &state,
             &Origin::capture((1, 1)),
             1,
-            cpal::ErrorKind::BackendError,
+            cpal::ErrorKind::StreamInvalidated,
         );
         assert_eq!(state.error(), Some(Error::Output));
         assert_eq!(
@@ -577,7 +594,7 @@ mod tests {
                     duration: None
                 })
                 .output_failure,
-            Some("backend")
+            Some("stream_invalidated")
         );
     }
 
