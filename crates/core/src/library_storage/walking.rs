@@ -15,6 +15,7 @@ const INACTIVITY: Duration = Duration::from_secs(5);
 pub(super) struct Paths {
     receiver: Receiver<Event>,
     progress: watch::Receiver<Instant>,
+    deadline: Instant,
 }
 
 enum Event {
@@ -23,22 +24,31 @@ enum Event {
 }
 
 impl Paths {
+    fn new(receiver: Receiver<Event>, progress: watch::Receiver<Instant>) -> Self {
+        Self {
+            receiver,
+            progress,
+            deadline: Instant::now() + INACTIVITY,
+        }
+    }
+
     pub(super) async fn next(&mut self) -> Result<Option<PathBuf>> {
-        let deadline = tokio::time::sleep_until(Instant::now() + INACTIVITY);
-        tokio::pin!(deadline);
         loop {
             tokio::select! {
                 biased;
-                event = self.receiver.recv() => return match event {
-                    Some(Event::Path(path)) => Ok(Some(path)),
-                    Some(Event::Finished(result)) => { result?; Ok(None) }
-                    None => Err(stopped()),
+                event = self.receiver.recv() => {
+                    self.deadline = Instant::now() + INACTIVITY;
+                    return match event {
+                        Some(Event::Path(path)) => Ok(Some(path)),
+                        Some(Event::Finished(result)) => { result?; Ok(None) }
+                        None => Err(stopped()),
+                    };
                 },
                 progress = self.progress.changed() => {
                     if progress.is_err() { return Err(stopped()); }
-                    deadline.as_mut().reset(Instant::now() + INACTIVITY);
+                    self.deadline = Instant::now() + INACTIVITY;
                 },
-                _ = &mut deadline => { self.receiver.close(); return Err(stopped()); }
+                _ = tokio::time::sleep_until(self.deadline) => { self.receiver.close(); return Err(stopped()); }
             }
         }
     }
@@ -64,7 +74,7 @@ pub(super) fn paths(root: &Root) -> Result<Paths> {
             let _ = sender.blocking_send(Event::Finished(outcome));
         })
         .map_err(|_| stopped())?;
-    Ok(Paths { receiver, progress })
+    Ok(Paths::new(receiver, progress))
 }
 
 fn walk(root: Root, sender: &Sender<Event>, progress: &watch::Sender<Instant>) -> Result<()> {
@@ -139,4 +149,30 @@ fn unreadable() -> Error {
 
 fn stopped() -> Error {
     Error::Internal("Music folder stopped making progress. Try scanning again".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stalled_walk_ends_even_when_each_wait_is_interrupted() {
+        let (_sender, receiver) = mpsc::channel(1);
+        let (_activity, progress) = watch::channel(Instant::now());
+        let mut paths = Paths::new(receiver, progress);
+        let started = Instant::now();
+        loop {
+            match tokio::time::timeout(Duration::from_secs(1), paths.next()).await {
+                Ok(result) => {
+                    assert!(result.is_err());
+                    break;
+                }
+                Err(_) => assert!(
+                    started.elapsed() < INACTIVITY * 2,
+                    "a stalled walk never ended while its waits were interrupted"
+                ),
+            }
+        }
+        assert!(started.elapsed() <= INACTIVITY + Duration::from_secs(1));
+    }
 }
