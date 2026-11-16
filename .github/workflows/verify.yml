@@ -1,7 +1,13 @@
 name: Verify
 on:
   push:
+    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 env:
@@ -10,6 +16,7 @@ env:
   COMPOSE_FILE: compose.yaml:scripts/ci/sccache.compose.yaml
 jobs:
   desktop-linux:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -25,6 +32,7 @@ jobs:
           path: test-results/desktop/
           retention-days: 7
   rust-style:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -35,6 +43,7 @@ jobs:
       - name: Lint
         run: make lint
   rust-core:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -43,6 +52,7 @@ jobs:
       - name: Test core
         run: make check-core
   rust-server:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -51,6 +61,7 @@ jobs:
       - name: Test server
         run: make check-server
   rust-rest:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -59,6 +70,7 @@ jobs:
       - name: Test the other crates
         run: make check-rest
   web:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -79,6 +91,7 @@ jobs:
       - name: Check setup
         run: make setup-check
   e2e:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
