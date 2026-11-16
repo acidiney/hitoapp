@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import type { Schema } from "../../src/shared/schema";
 
 export const sharedCredit = {
-  title: "Shared credit members fixture",
+  title: "Credited members fixture",
   lead: "Shared Lead Credit",
   guest: "Shared Guest Credit",
 };

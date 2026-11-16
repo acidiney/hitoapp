@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import { catalogAlbum, catalogAlbumProvider } from "./catalog-album-provider";
 
-export async function connectCatalogArtist(page: Page, baseURL: string) {
+export async function connectCatalogArtist(
+  page: Page,
+  baseURL: string,
+  administrator: APIRequestContext = page.request,
+) {
   const provider = await catalogAlbumProvider();
   try {
     const headers = { "x-hito-request": "1", origin: new URL(baseURL).origin };
@@ -12,8 +16,9 @@ export async function connectCatalogArtist(page: Page, baseURL: string) {
       path: string,
       data: unknown,
       status = 200,
+      request = page.request,
     ) => {
-      const response = await page.request.fetch(path, {
+      const response = await request.fetch(path, {
         method,
         headers,
         data,
@@ -29,6 +34,7 @@ export async function connectCatalogArtist(page: Page, baseURL: string) {
         base_url: provider.address,
       } satisfies Schema<"OfferPluginService">,
       201,
+      administrator,
     );
     const connection = await send<Schema<"PluginInstallation">>(
       "POST",
