@@ -26856,7 +26856,8 @@
           "already_bound",
           "plugin_credentials_required",
           "artwork_admission_busy",
-          "artwork_storage_full"
+          "artwork_storage_full",
+          "provider_busy"
         ]
       },
       "ErrorResponse": {

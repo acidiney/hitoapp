@@ -309,9 +309,7 @@ impl ControlClient {
         let account = self
             .accounts
             .try_enter(account)?
-            .ok_or(Error::ProviderBusy(
-                "Provider requests for this account are busy. Try again.",
-            ))?;
+            .ok_or(Error::ProviderBusy(crate::error::ACCOUNT_PROVIDER_BUSY))?;
         let global = self
             .slots
             .clone()

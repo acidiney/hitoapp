@@ -4422,7 +4422,7 @@ export interface components {
             total_duration_ms: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy" | "artwork_storage_full";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy" | "artwork_storage_full" | "provider_busy";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
