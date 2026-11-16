@@ -1,0 +1,9 @@
+runners:
+  - name: oracle-arm
+    cloud: oracle
+    instance_type: VM.Standard.A1.Flex
+    machine_image: ocid1.image.oc1.eu-madrid-1.aaaaaaaasppefnn4nozcdgiee4gdxcprwn3edohamstuskod23uisrfihiza
+    region: eu-madrid-1
+    preemptible: false
+    labels:
+      - cirun-oracle-arm
