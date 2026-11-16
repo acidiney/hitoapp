@@ -275,3 +275,28 @@ test("a library linkage change shows the old answer and refreshes it", async () 
     expect((await cachedRead("a", ["x"], load, signal)).value).toBe("new"),
   );
 });
+
+test("a busy provider is retried, but any other conflict is not", async () => {
+  clock();
+  catalogCacheClock.reset();
+  catalogCacheClock.setRetryDelay(0);
+  const busy = vi
+    .fn<() => Promise<{ status: string; value?: string }>>()
+    .mockRejectedValueOnce(
+      new HttpError(
+        409,
+        "Provider requests for this account are busy. Try again.",
+        "provider_busy",
+      ),
+    )
+    .mockResolvedValueOnce(available("ok"));
+  expect((await cachedRead("a", ["busy"], busy, signal)).value).toBe("ok");
+  expect(busy).toHaveBeenCalledTimes(2);
+  const conflict = vi
+    .fn<() => Promise<{ status: string }>>()
+    .mockRejectedValue(new HttpError(409, "changed", "operation_rejected"));
+  await expect(cachedRead("a", ["conflict"], conflict, signal)).rejects.toThrow(
+    "changed",
+  );
+  expect(conflict).toHaveBeenCalledTimes(1);
+});
