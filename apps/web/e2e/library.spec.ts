@@ -83,10 +83,17 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
   await expect(
-    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+    page.locator(".track-table tbody tr").filter({ hasText: /Fixture \d+ Hz/ }),
   ).toHaveCount(2);
   await chooseOption(page.getByRole("combobox", { name: "Sort" }), "Title");
   await expect(page).toHaveURL(/\/library\?sort=title$/);
+  await chooseOption(
+    page.getByRole("combobox", { name: "Show" }),
+    "Has a source",
+  );
+  await expect(page).toHaveURL(
+    /\/library\?sort=title&availability=available_or_service$/,
+  );
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
     .click();
@@ -108,7 +115,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("heading", { name: "Albums", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".album-card")).toHaveCount(2);
+  await expect(
+    page
+      .locator(".album-card")
+      .filter({ hasText: /Fixture collection \d+ Hz/ }),
+  ).toHaveCount(2);
   await page.screenshot({ path: "/workspace/test-results/albums-desktop.png" });
   await page
     .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
@@ -128,7 +139,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("heading", { name: "Hito test fixtures", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".album-card")).toHaveCount(2);
+  await expect(
+    page
+      .locator(".album-card")
+      .filter({ hasText: /Fixture collection \d+ Hz/ }),
+  ).toHaveCount(2);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
     path: "/workspace/test-results/artist-mobile.png",
@@ -154,11 +169,13 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await expect(page.getByText("Made by you")).toHaveCount(0);
   await expect(
-    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+    page.locator(".track-table tbody tr").filter({ hasText: /Fixture \d+ Hz/ }),
   ).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
   await expect(
-    page.locator(".track-grid .track-card").filter({ hasText: "Fixture" }),
+    page
+      .locator(".track-grid .track-card")
+      .filter({ hasText: /Fixture \d+ Hz/ }),
   ).toHaveCount(2);
   await trackTitleLink(page.locator(".track-grid"), "Fixture 440 Hz").click();
   await page.getByRole("tab", { name: /^Metadata/ }).click();
@@ -460,7 +477,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page.getByText(/^Played \(/).click();
   await page
     .locator(".queue-track")
-    .filter({ hasText: "Fixture" })
+    .filter({ hasText: /Fixture \d+ Hz/ })
     .first()
     .click();
   await expect(page.locator("footer.player").getByRole("status")).toHaveCount(

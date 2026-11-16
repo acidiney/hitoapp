@@ -85,7 +85,13 @@ test("the artists grid loads the next pages by scrolling and keeps what it loade
     });
     const cards = credits.getByRole("link");
     await shoot(page, "artists-grid");
-    await expect(cards).toHaveCount(total, { timeout: 20000 });
+    await expect(cards).not.toHaveCount(0);
+    for (let loaded = await cards.count(); loaded < total; ) {
+      await cards.last().scrollIntoViewIfNeeded();
+      await expect(cards).not.toHaveCount(loaded);
+      loaded = await cards.count();
+    }
+    await expect(cards).toHaveCount(total);
     expect(offsets[0]).toBe("2");
     await expect(credits.getByRole("button", { name: "Previous" })).toHaveCount(
       0,
