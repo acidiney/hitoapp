@@ -28,6 +28,7 @@ import {
   wait,
   request,
   execute,
+  navigate,
   exists,
   type,
   click,
@@ -289,7 +290,7 @@ async function verifyBrowserLauncher() {
       })();
     `);
     assert.equal(installed.status, 201);
-    await execute("location.assign('/settings?section=plugins'); return true;");
+    await navigate("location.assign('/settings?section=plugins')");
     await wait(
       () =>
         execute(
@@ -559,7 +560,7 @@ try {
     "uninterrupted playback during navigation",
   );
   const beforeReload = await uiPosition();
-  await execute("location.reload(); return true;");
+  await navigate("location.reload()");
   await wait(
     async () => (await uiPosition()) > beforeReload + 0.2 && audible(),
     "native player reattachment after WebView reload",
@@ -605,7 +606,7 @@ try {
       silent()
     );
   }, "native shuffle and repeat without unpausing");
-  await execute("location.reload(); return true;");
+  await navigate("location.reload()");
   await wait(async () => {
     const state = (await playerState()).state;
     return (

@@ -36,6 +36,26 @@ export async function wait(check, label) {
   }
   throw new Error(`Timed out waiting for ${label}`);
 }
+export async function navigate(action) {
+  await execute(
+    `window.hitoSmokeNavigation = true; setTimeout(() => { ${action} }, 0); return true;`,
+  );
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    try {
+      if (
+        await execute(
+          "return document.readyState === 'complete' && window.hitoSmokeNavigation !== true",
+        )
+      )
+        return;
+    } catch (error) {
+      if (!String(error.message).includes("javascript error")) throw error;
+    }
+    await delay(100);
+  }
+  throw new Error("Timed out waiting for the page to load again");
+}
 export const exists = (selector) =>
   execute(`return !!document.querySelector(${JSON.stringify(selector)})`);
 export const execute = (script) =>
