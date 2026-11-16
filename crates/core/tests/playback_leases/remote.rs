@@ -1,7 +1,7 @@
 use super::fixture::content;
 use axum::http::StatusCode;
 use hito_core::{
-    AudioRequest, BeginPlaybackLease, ByteRange, Error, OpenedAudio,
+    AudioRequest, BeginPlaybackLease, ByteRange, Error, OpenedAudio, PlaybackFailureReason,
     test_support::provider_audio::{AudioLibrary, headers},
 };
 
@@ -106,7 +106,10 @@ async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal
             .playback
             .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
             .await,
-        Err(Error::Upstream(_))
+        Err(Error::PlaybackProvider {
+            reason: PlaybackFailureReason::ProviderUnavailable,
+            original,
+        }) if matches!(*original, Error::Upstream(_))
     ));
     assert_eq!(
         f.hito
