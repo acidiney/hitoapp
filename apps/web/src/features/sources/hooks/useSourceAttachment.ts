@@ -35,6 +35,8 @@ type State = {
 type Snapshot = State & { owner: Work };
 
 const alreadyUsedMessage = "This video is already the source of another track.";
+const linkNotFoundMessage =
+  "The service couldn't find a track at that link. Check the link and try again.";
 
 function failure(account: string, error: unknown) {
   if (error instanceof HttpError && error.code === "already_bound")
@@ -286,16 +288,22 @@ export function useSourceAttachment(
       "lookup",
       { review: null, attached: false },
       async (signal) => {
-        const candidate = await sourceBindingsApi.lookup(
-          account,
-          recording,
-          {
-            installation_id: link.id,
-            installation_revision: link.revision,
-            reference,
-          },
-          signal,
-        );
+        const candidate = await sourceBindingsApi
+          .lookup(
+            account,
+            recording,
+            {
+              installation_id: link.id,
+              installation_revision: link.revision,
+              reference,
+            },
+            signal,
+          )
+          .catch((error: unknown) => {
+            if (error instanceof HttpError && error.status === 404)
+              throw new Error(linkNotFoundMessage);
+            throw error;
+          });
         const detail = await sourceBindingsApi.review(
           account,
           recording,

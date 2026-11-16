@@ -64,13 +64,15 @@ const linkCandidate: Schema<"ProviderCandidate"> = {
   provider_recording_id: "link/candidate",
 };
 
-function renderPage(settings: Schema<"PluginSettings">) {
+function renderPage(settings: Schema<"PluginSettings">, found = true) {
   const base = `/api/v1/recordings/${savedRecording.id}/sources`;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
     if (path === "/api/v1/plugins") return Response.json(settings);
     if (path === `${base}/lookup` && method === "POST")
-      return Response.json(linkCandidate);
+      return found
+        ? Response.json(linkCandidate)
+        : Response.json({ error: "Resource not found" }, { status: 404 });
     if (path === `${base}/review` && method === "POST")
       return Response.json(attachmentReview);
     if (path === `${base}/attach` && method === "POST")
@@ -146,4 +148,22 @@ test("a link service alone offers the paste field without a search service", asy
   await waitFor(() =>
     expect(screen.queryByText(/No connected service offers both/)).toBeNull(),
   );
+});
+
+test("a link the service cannot find says so in plain words and keeps the link for another try", async () => {
+  renderPage(linkSettings, false);
+  fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
+  const link = await screen.findByRole("textbox", { name: "Paste a link" });
+  fireEvent.change(link, {
+    target: { value: "https://owned-links.invalid/x" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Look up link" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain(
+    "The service couldn't find a track at that link. Check the link and try again.",
+  );
+  expect((link as HTMLInputElement).value).toBe(
+    "https://owned-links.invalid/x",
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
