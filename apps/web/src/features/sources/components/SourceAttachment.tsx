@@ -8,6 +8,7 @@ import DiscoverySearch from "../../discovery/components/DiscoverySearch";
 import Button from "../../../shared/ui/Button";
 import Artwork from "../../artwork/components/Artwork";
 import SourceCandidateReview from "./SourceCandidateReview";
+import SourceLinkLookup from "./SourceLinkLookup";
 import { Check } from "lucide-react";
 import {
   candidateArtist,
@@ -43,10 +44,21 @@ export default function SourceAttachment({
     opened.current = true;
     void open();
   }, [expanded, open]);
-  const provider = workflow.connection
-    ? (workflow.names[workflow.connection.service_id] ??
-      workflow.connection.manifest.name)
-    : "";
+  const providerName = (
+    installation: Schema<"PluginInstallation"> | null | undefined,
+  ) =>
+    installation
+      ? (workflow.names[installation.service_id] ?? installation.manifest.name)
+      : "";
+  const provider = providerName(workflow.connection);
+  const link =
+    workflow.links.find((item) => item.id === workflow.connection?.id) ??
+    workflow.links[0];
+  const reviewed = workflow.review
+    ? [...workflow.connections, ...workflow.links].find(
+        (item) => item.id === workflow.review?.candidate.installation_id,
+      )
+    : undefined;
   const savedMs = detail.selected_observation?.duration_ms;
   const sameTrack = (hit: Schema<"ProviderRecording">) =>
     lengthComparison(savedMs, hit.duration_ms)?.close === true &&
@@ -91,7 +103,7 @@ export default function SourceAttachment({
           )}
         </p>
       )}
-      {workflow.loaded && !workflow.connection && (
+      {workflow.loaded && !workflow.connection && !link && (
         <p>
           No connected service offers both music search and audio sources.{" "}
           <Link href="/settings?section=plugins">Connect a music service</Link>
@@ -166,11 +178,19 @@ export default function SourceAttachment({
             )}
         </fieldset>
       )}
+      {link && (
+        <SourceLinkLookup
+          provider={providerName(link)}
+          pending={workflow.pending === "lookup"}
+          disabled={workflow.pending !== null}
+          onLookup={workflow.lookup}
+        />
+      )}
       {workflow.review && (
         <SourceCandidateReview
           detail={detail}
           review={workflow.review.detail}
-          provider={provider}
+          provider={providerName(reviewed)}
           pending={workflow.pending === "attach"}
           opener={opener}
           onConfirm={() => void workflow.confirm()}
