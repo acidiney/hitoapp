@@ -453,7 +453,7 @@ test.describe("account switching", () => {
         .getByRole("button", { name: "Save token", exact: true })
         .click();
       await expect(page.getByRole("alert")).toContainText(
-        "The plugin service refused the request",
+        "The plugin service refused this token. Check it and try again.",
       );
       await expect(
         page.getByLabel("New bearer token", { exact: true }),

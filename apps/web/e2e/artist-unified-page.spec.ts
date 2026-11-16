@@ -1,19 +1,41 @@
 import { expect, test } from "@playwright/test";
 import { connectCatalogArtist } from "./fixtures/catalog-album-setup";
+import { createMembers, memberPassword } from "./fixtures/member-accounts";
 
 test("opening a credit that is fully identified lands on the chosen artist page", async ({
+  browser,
   page,
   baseURL,
 }) => {
   test.setTimeout(120_000);
-  const artist = await connectCatalogArtist(page, baseURL!);
+  const accounts = await createMembers(browser, baseURL!, "unified-artist", 1);
+  const member = await browser.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+  });
   try {
-    expect(artist.anchor.artist_id).toBeTruthy();
-    await page.goto(`/artists/${artist.anchor.artist_id}`);
-    await expect(page).toHaveURL(/\/artist-groups\/[^/]+$/);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const login = await member.request.post("/api/v1/login", {
+      headers: { "x-hito-request": "1", origin: new URL(baseURL!).origin },
+      data: { username: accounts.names[0], password: memberPassword },
+    });
+    expect(login.status()).toBe(200);
+    const memberPage = await member.newPage();
+    const artist = await connectCatalogArtist(
+      memberPage,
+      baseURL!,
+      page.request,
+    );
+    try {
+      expect(artist.anchor.artist_id).toBeTruthy();
+      await memberPage.goto(`/artists/${artist.anchor.artist_id}`);
+      await expect(memberPage).toHaveURL(/\/artist-groups\/[^/]+$/);
+      await expect(memberPage.getByRole("heading", { level: 1 })).toBeVisible();
+    } finally {
+      await artist.close();
+    }
   } finally {
-    await artist.close();
+    await member.close();
+    await accounts.close();
   }
 });
 
