@@ -18,6 +18,7 @@ use workflow::{Fixture, assert_closed_capacity, assert_ready_replay, assert_read
 pub const COOKIE: &str = "owned-private-torbox-capacity-cookie";
 
 #[tokio::test]
+#[ignore = "Scale check: run by make check-scale"]
 async fn sqlite_capacity_rejects_new_admission_and_retains_ready_audio_after_owner_replacement() {
     tokio::time::timeout(Duration::from_secs(300), async {
         let started = tokio::time::Instant::now();

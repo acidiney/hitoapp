@@ -15,6 +15,7 @@ use std::{
 use uuid::Uuid;
 
 #[tokio::test]
+#[ignore = "Scale check: run by make check-scale"]
 async fn one_thousand_distinct_album_covers_survive_beside_protected_artwork() {
     let mut library = Library::retain();
     let outcome = AssertUnwindSafe(Box::pin(async {
