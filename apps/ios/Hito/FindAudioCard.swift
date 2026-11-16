@@ -106,6 +106,12 @@ struct FindAudioCard: View {
     }
 
     @ViewBuilder private var paste: some View {
+        if let name = linkService?.name {
+            Text(services?.isEmpty == false ? "Not in the search results? Paste a link from \(name)." : "Paste a link from \(name).")
+                .font(Theme.small)
+                .foregroundStyle(Theme.quiet)
+                .fixedSize(horizontal: false, vertical: true)
+        }
         HStack(spacing: 8) {
             TextField("Paste a link", text: $link)
                 .keyboardType(.URL)
