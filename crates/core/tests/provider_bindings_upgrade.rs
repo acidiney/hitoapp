@@ -5,7 +5,13 @@ use hito_core::test_support::support;
 
 use hito_core::{AdoptProviderRecording, Search};
 use serde_json::json;
-use std::time::{Duration, Instant};
+use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
+
+const STEPS_PER_BINDING: u64 = 2_000;
 
 #[tokio::test]
 #[ignore = "Scale check: run by make check-scale"]
@@ -15,14 +21,14 @@ async fn populated_binding_upgrade_preserves_one_hundred_thousand_provider_recor
     let high_water = fixture::seed(&legacy, &server.url).await;
     assert_eq!(high_water, 2_000_000);
 
-    let started = Instant::now();
-    let (hito, actor) = legacy.open().await;
-    let elapsed = started.elapsed();
-    eprintln!("Populated 100000-provider-binding reopen: {elapsed:?}");
+    let budget = fixture::COUNT as u64 * STEPS_PER_BINDING;
+    let work = upgrade_work(&legacy, budget).await;
+    eprintln!("Populated 100000-provider-binding upgrade: steps~{work} budget={budget}");
     assert!(
-        elapsed < Duration::from_secs(15),
-        "Provider binding upgrade exceeded its development smoke-test deadline"
+        work < budget,
+        "Provider binding upgrade exceeded its work budget of {STEPS_PER_BINDING} steps per binding"
     );
+    let (hito, actor) = legacy.open().await;
     let page = hito
         .catalog
         .recordings(
@@ -191,4 +197,32 @@ async fn populated_binding_upgrade_preserves_one_hundred_thousand_provider_recor
         "New observations must not reuse retired sequence values"
     );
     pool.close().await;
+}
+
+async fn upgrade_work(legacy: &fixture::Legacy, budget: u64) -> u64 {
+    let options = SqliteConnectOptions::new()
+        .filename(legacy.directory.path().join("hito.db"))
+        .foreign_keys(true);
+    let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+    let steps = Arc::new(AtomicU64::new(0));
+    let progress = Arc::clone(&steps);
+    connection
+        .lock_handle()
+        .await
+        .unwrap()
+        .set_progress_handler(1000, move || {
+            progress.fetch_add(1000, Ordering::Relaxed) + 1000 < budget
+        });
+    let result = sqlx::migrate!("./migrations").run(&mut connection).await;
+    connection
+        .lock_handle()
+        .await
+        .unwrap()
+        .remove_progress_handler();
+    connection.close().await.unwrap();
+    assert!(
+        result.is_ok(),
+        "Provider binding upgrade exceeded its work budget or failed: {result:?}"
+    );
+    steps.load(Ordering::Relaxed)
 }
