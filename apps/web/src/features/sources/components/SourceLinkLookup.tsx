@@ -4,11 +4,13 @@ import Button from "../../../shared/ui/Button";
 
 export default function SourceLinkLookup({
   provider,
+  afterSearch,
   pending,
   disabled,
   onLookup,
 }: {
   provider: string;
+  afterSearch: boolean;
   pending: boolean;
   disabled: boolean;
   onLookup(reference: string): Promise<boolean>;
@@ -24,6 +26,11 @@ export default function SourceLinkLookup({
       onSubmit={(event) => void submit(event)}
       aria-label="Look up a pasted link"
     >
+      <p className="source-link-hint">
+        {afterSearch
+          ? `Not in the search results? Paste a link from ${provider}.`
+          : `Paste a link from ${provider}.`}
+      </p>
       <label>
         Paste a link
         <span className="discovery-query">
@@ -35,7 +42,7 @@ export default function SourceLinkLookup({
             spellCheck={false}
             value={reference}
             onChange={(event) => setReference(event.target.value)}
-            placeholder={`Paste a link from ${provider}`}
+            placeholder="https://"
             maxLength={2048}
           />
         </span>

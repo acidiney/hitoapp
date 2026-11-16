@@ -129,6 +129,19 @@ test("a pasted link is looked up through a link service and reviewed before it b
   });
 });
 
+test("search and the paste field are offered together, so a link is there when search finds nothing", async () => {
+  renderPage(linkSettings);
+  fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
+  await screen.findByRole("textbox", { name: "Paste a link" });
+  expect(screen.getByRole("combobox", { name: "Music service" })).toBeTruthy();
+  expect(screen.getByRole("searchbox")).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Not in the search results? Paste a link from Link archive.",
+    ),
+  ).toBeTruthy();
+});
+
 test("without a link service the paste field is not offered", async () => {
   renderPage(attachmentSettings);
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
@@ -145,6 +158,7 @@ test("a link service alone offers the paste field without a search service", asy
   });
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
   await screen.findByRole("textbox", { name: "Paste a link" });
+  expect(screen.getByText("Paste a link from Link archive.")).toBeTruthy();
   await waitFor(() =>
     expect(screen.queryByText(/No connected service offers both/)).toBeNull(),
   );

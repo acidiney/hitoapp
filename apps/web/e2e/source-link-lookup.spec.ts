@@ -77,6 +77,7 @@ test("a pasted link finds a source that the listener reviews before it is added"
       .click();
     const link = page.getByRole("textbox", { name: "Paste a link" });
     await expect(link).toBeVisible();
+    await expect(page.getByRole("searchbox")).toBeVisible();
     await shoot(page, "source-link-field", { focus: link });
     await link.fill("https://owned-links.invalid/track/1");
     const looked = page.waitForResponse(

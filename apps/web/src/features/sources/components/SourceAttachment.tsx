@@ -181,6 +181,7 @@ export default function SourceAttachment({
       {link && (
         <SourceLinkLookup
           provider={providerName(link)}
+          afterSearch={Boolean(workflow.connection)}
           pending={workflow.pending === "lookup"}
           disabled={workflow.pending !== null}
           onLookup={workflow.lookup}

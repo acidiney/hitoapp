@@ -774,6 +774,13 @@ a.track-id {
 .track-sources .source-attachment[data-expanded] .discovery-search {
   display: contents;
 }
+.track-sources .source-attachment[data-expanded] .source-link-lookup {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 8px;
+  margin-top: 12px;
+}
 .track-sources .source-attachment[data-expanded] .pills {
   grid-column: 2;
   grid-row: 1;
@@ -1311,4 +1318,11 @@ a.track-id {
 
 .track-when {
   white-space: nowrap;
+}
+
+.source-link-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }

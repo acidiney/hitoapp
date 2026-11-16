@@ -157,7 +157,7 @@ export async function providerFixture(
           name: "Relay fixture",
           protocol_version: 1,
           capabilities: [
-            ...(links ? [] : ["search"]),
+            "search",
             "sources",
             ...(preparation ? ["source_preparation"] : []),
             ...(links ? ["source_links"] : []),
