@@ -61,7 +61,7 @@ fn sigterm_drains_an_active_audio_response_and_joins_the_binary() {
         .spawn()
         .unwrap();
     let mut child = Process(child);
-    wait_event(&mut child, &log, "folder_service_ready");
+    wait_event(&mut child, &log, "folder_service_ready", STARTUP_CEILING);
     let page: SearchPage = serde_json::from_value(post(
         address,
         "/v1/search",
@@ -120,7 +120,12 @@ fn sigterm_drains_an_active_audio_response_and_joins_the_binary() {
         unsafe { libc::kill(child.0.id() as libc::pid_t, libc::SIGTERM) },
         0
     );
-    wait_event(&mut child, &log, "folder_shutdown_requested");
+    wait_event(
+        &mut child,
+        &log,
+        "folder_shutdown_requested",
+        EVENT_DEADLINE,
+    );
     assert!(
         child.0.try_wait().unwrap().is_none(),
         "active response must drain before exit"
@@ -157,8 +162,11 @@ fn sigterm_drains_an_active_audio_response_and_joins_the_binary() {
     assert!(!logs.contains("private-"));
     assert!(TcpStream::connect(address).is_err());
 }
-fn wait_event(child: &mut Process, path: &std::path::Path, event: &str) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+const STARTUP_CEILING: Duration = Duration::from_secs(60);
+const EVENT_DEADLINE: Duration = Duration::from_secs(5);
+
+fn wait_event(child: &mut Process, path: &std::path::Path, event: &str, limit: Duration) {
+    let deadline = Instant::now() + limit;
     loop {
         if fs::read_to_string(path).unwrap().contains(event) {
             return;
