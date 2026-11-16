@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const arguments_ = process.argv.slice(2);
 if (arguments_.length !== new Set(arguments_).size ||
@@ -35,9 +35,10 @@ function synchsafe(value) {
 function id3Frame(identifier, payload) {
   return Buffer.concat([Buffer.from(identifier, 'latin1'), synchsafe(payload.length), Buffer.from([0, 0]), payload]);
 }
-function id3Chunk(title, artist, artists) {
+function id3Chunk(title, artist, artists, album) {
   const frames = Buffer.concat([
     id3Frame('TIT2', Buffer.concat([Buffer.from([3]), Buffer.from(title)])),
+    id3Frame('TALB', Buffer.concat([Buffer.from([3]), Buffer.from(album)])),
     id3Frame('TPE1', Buffer.concat([Buffer.from([3]), Buffer.from(artist)])),
     id3Frame('TXXX', Buffer.concat([Buffer.from([3]), Buffer.from('ARTISTS\0'), Buffer.from(artists.join('\0'))])),
   ]);
@@ -65,17 +66,19 @@ for (const frequency of [440, 660]) {
 }
 if (arguments_.includes('--e2e')) {
   const credits = `${output}/Credits`;
+  rmSync(credits, { recursive: true, force: true });
   mkdirSync(credits, { recursive: true });
-  const title = 'Shared credit members fixture';
+  const title = 'Credited members fixture';
   const artists = ['Shared Lead Credit', 'Shared Guest Credit'];
   const display = `${artists[0]} feat. ${artists[1]}`;
+  const album = 'Shared credit members collection';
   const audio = Buffer.concat([
     tone(523, 16000, 16000 * 20),
-    infoList([['INAM', title], ['IART', display], ['IPRD', 'Shared credit members collection']]),
-    id3Chunk(title, display, artists),
+    infoList([['INAM', title], ['IART', display], ['IPRD', album]]),
+    id3Chunk(title, display, artists, album),
   ]);
   audio.writeUInt32LE(audio.length - 8, 4);
-  writeFileSync(`${credits}/Shared credit members fixture.wav`, audio);
+  writeFileSync(`${credits}/${title}.wav`, audio);
 }
 if (arguments_.includes('--e2e')) writeFileSync(`${output}/storage.json`, JSON.stringify({ version: 1, directories: [
   { id: 'fixture-music', name: 'Music', root: '/music/Music' },

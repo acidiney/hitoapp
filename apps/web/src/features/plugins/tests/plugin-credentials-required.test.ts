@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
@@ -17,6 +18,7 @@ import {
   resetCredentialRequirements,
 } from "../model/credentialRequirements";
 import { onInvalidated } from "../../../shared/invalidation";
+import { HttpError } from "../../../shared/http";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -262,4 +264,31 @@ test("a refresh that keeps the saved token does not announce a credential update
   );
   expect(lyrics).not.toHaveBeenCalled();
   stop();
+});
+
+test("a new token the plugin rejects says the token was refused instead of sending the listener to Settings", async () => {
+  vi.mocked(pluginsApi.refresh).mockRejectedValue(
+    new HttpError(
+      409,
+      "Update this plugin connection's service credentials in Settings.",
+      "plugin_credentials_required",
+    ),
+  );
+  show(installation("a", "Lyrics A", 3));
+  await screen.findByRole("heading", { name: "Lyrics A" });
+  fireEvent.click(
+    within(card("Lyrics A")).getByRole("button", { name: "Manage" }),
+  );
+  fireEvent.change(screen.getByLabelText("New bearer token"), {
+    target: { value: "wrong-token" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save token" }));
+  await waitFor(() =>
+    expect(document.body.textContent).toContain(
+      "The plugin service refused this token. Check it and try again.",
+    ),
+  );
+  expect(document.body.textContent).not.toContain(
+    "Update this plugin connection's service credentials in Settings.",
+  );
 });
