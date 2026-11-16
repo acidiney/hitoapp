@@ -158,16 +158,14 @@ test("a stale stamp for an older revision, another account or no connection mark
 });
 
 test("a late rejection from an older revision keeps the warning for the current revision", async () => {
+  reportCredentialRequirement("bob", {
+    stamp: { installationId: "a", installationRevision: 4 },
+  });
+  reportCredentialRequirement("bob", {
+    stamp: { installationId: "a", installationRevision: 3 },
+  });
   show(installation("a", "Lyrics A", 4));
   await screen.findByRole("heading", { name: "Lyrics A" });
-  act(() => {
-    reportCredentialRequirement("bob", {
-      stamp: { installationId: "a", installationRevision: 4 },
-    });
-    reportCredentialRequirement("bob", {
-      stamp: { installationId: "a", installationRevision: 3 },
-    });
-  });
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
   expect(
     screen.getByRole("button", { name: "Update credentials for Lyrics A" }),
