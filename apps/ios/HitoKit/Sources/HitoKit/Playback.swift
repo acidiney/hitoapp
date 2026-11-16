@@ -22,6 +22,7 @@ public struct PlaybackSource: Equatable, Identifiable, Sendable {
 public struct Playback: Sendable {
     public enum Problem: Error, Equatable {
         case noReadySource
+        case notFound(String, retryable: Bool)
     }
 
     public enum Finding: Equatable, Sendable {
@@ -38,18 +39,22 @@ public struct Playback: Sendable {
     struct Resolution: Decodable { let outcome: String }
 
     public func find(_ recording: String, request: UUID) async throws -> Finding {
+        try await lookup(recording, request: request).finding
+    }
+
+    func lookup(_ recording: String, request: UUID) async throws -> (finding: Finding, retryable: Bool) {
         let resolution: Resolution
         do {
             resolution = try await api.post(["api", "v1", "recordings", recording, "sources", "resolve"], body: Resolve(requestId: request), as: Resolution.self)
         } catch HitoAPI.Problem.refused(404) {
-            return .notFound("No service knows this track")
+            return (.notFound("No service knows this track"), false)
         }
         switch resolution.outcome {
-        case "ready": return .found
-        case "provider_unavailable": return .notFound("The music service didn't answer")
-        case "protected_choice": return .notFound("You chose a source for this track. Change it in Source.")
-        case "cancelled": return .notFound("The search was cancelled")
-        default: return .notFound("No source found")
+        case "ready": return (.found, false)
+        case "provider_unavailable": return (.notFound("The music service didn't answer"), true)
+        case "protected_choice": return (.notFound("You chose a source for this track. Change it in Source."), false)
+        case "cancelled": return (.notFound("The search was cancelled"), false)
+        default: return (.notFound("No source found"), true)
         }
     }
 
@@ -121,6 +126,18 @@ public struct Playback: Sendable {
 
     private func listed(_ recordingId: String) async throws -> [Source] {
         try await api.get(["api", "v1", "recordings", recordingId, "playback-sources"], as: [Source].self)
+    }
+
+    public func acquire(_ recordingId: String, skipping tried: Set<String> = []) async throws -> AudioRequest {
+        do {
+            return try await prepare(recordingId, skipping: tried)
+        } catch Problem.noReadySource {
+            let lookup = try await lookup(recordingId, request: UUID())
+            if case let .notFound(reason) = lookup.finding {
+                throw Problem.notFound(reason, retryable: lookup.retryable)
+            }
+            return try await prepare(recordingId, skipping: tried)
+        }
     }
 
     public func prepare(_ recordingId: String, skipping tried: Set<String> = []) async throws -> AudioRequest {

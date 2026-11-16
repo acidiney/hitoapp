@@ -8,6 +8,8 @@ use crate::{
     tempo::{Handoff, Tempo},
 };
 use rtrb::Producer;
+#[cfg(feature = "test-support")]
+use std::time::Instant;
 use std::{
     sync::{
         Arc,
@@ -16,6 +18,14 @@ use std::{
     },
     time::Duration,
 };
+
+#[cfg(feature = "test-support")]
+#[derive(Default)]
+struct ProducerReadService {
+    elapsed_ns: u64,
+    calls: u64,
+    output_frames: u64,
+}
 
 pub(crate) enum Control {
     Seek {
@@ -47,6 +57,8 @@ pub(crate) fn run(
     ready: SyncSender<Result<AudioFormat>>,
     rates: Option<Vec<u32>>,
 ) -> Result<()> {
+    #[cfg(feature = "test-support")]
+    let source_format = decoder.format();
     let target = Output::negotiate(decoder.format().output_format(), rates.as_deref())?;
     let mut decoder = Tempo::new(Converter::with_output(
         decoder,
@@ -56,7 +68,18 @@ pub(crate) fn run(
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let mut output_generation = 1;
-    let (mut producer, output) = Output::start(format, state.clone(), audio_id, output_generation)?;
+    let mut resets = 0;
+    let Some((mut producer, output)) = restart(
+        &state,
+        audio_id,
+        &mut output_generation,
+        &mut resets,
+        0,
+        |generation| Output::start(format, state.clone(), audio_id, generation),
+    )?
+    else {
+        return Ok(());
+    };
     let mut output = Some(output);
     let mut buffering = Buffering::new(producer.buffer().capacity());
     let _ = ready.send(Ok(format));
@@ -72,13 +95,22 @@ pub(crate) fn run(
         target,
         format,
     };
-    let mut resets = 0;
     let mut last_reset = Duration::ZERO;
+    #[cfg(feature = "test-support")]
+    let mut producer_read_service = ProducerReadService::default();
     'decode: loop {
         if let Some(speed) = deferred.speed.take() {
             decoder.speed(speed);
         }
         if state.stopped.load(Ordering::Acquire) {
+            #[cfg(feature = "test-support")]
+            report_producer_service(
+                audio_id,
+                source_format,
+                format,
+                &decoder,
+                &producer_read_service,
+            );
             return Ok(());
         }
         if let Some(error) = state.error() {
@@ -95,7 +127,17 @@ pub(crate) fn run(
         }
         if let Some(control) = pending.take().or_else(|| commands.try_recv().ok()) {
             match control {
-                Control::Stop => return Ok(()),
+                Control::Stop => {
+                    #[cfg(feature = "test-support")]
+                    report_producer_service(
+                        audio_id,
+                        source_format,
+                        format,
+                        &decoder,
+                        &producer_read_service,
+                    );
+                    return Ok(());
+                }
                 Control::Recover | Control::Wake => (),
                 Control::Seek {
                     position: wanted,
@@ -130,10 +172,20 @@ pub(crate) fn run(
             }
         }
         let reported = state.xruns.load(Ordering::Acquire);
-        if reported != xruns {
+        let requested = state.rebuild_request.load(Ordering::Acquire) == output_generation;
+        if reported != xruns || requested {
             xruns = reported;
             let observed = state.snapshot(format);
             if observed.track != decoder.track() {
+                tracing::warn!(
+                    event = "audio_output_failed",
+                    audio_id,
+                    generation = output_generation,
+                    reason = "track_mismatch",
+                    current_xruns = reported,
+                    terminal = true,
+                    "Audio output recovery could not continue"
+                );
                 return Err(Error::Output);
             }
             let target = observed.position;
@@ -142,6 +194,17 @@ pub(crate) fn run(
             }
             resets += 1;
             if resets > 3 {
+                tracing::warn!(
+                    event = "audio_output_failed",
+                    audio_id,
+                    generation = output_generation,
+                    reason = "reset_budget",
+                    resets,
+                    current_xruns = reported,
+                    since_last_reset_ms = target.saturating_sub(last_reset).as_millis() as u64,
+                    terminal = true,
+                    "Audio output recovery could not continue"
+                );
                 return Err(Error::Output);
             }
             last_reset = target;
@@ -151,8 +214,17 @@ pub(crate) fn run(
             epoch = reposition(&mut decoder, &state, target)?;
             finished = false;
             output_generation += 1;
-            let (next, replacement) =
-                Output::start(format, state.clone(), audio_id, output_generation)?;
+            let Some((next, replacement)) = restart(
+                &state,
+                audio_id,
+                &mut output_generation,
+                &mut resets,
+                reported,
+                |generation| Output::start(format, state.clone(), audio_id, generation),
+            )?
+            else {
+                return Ok(());
+            };
             producer = next;
             buffering = Buffering::new(producer.buffer().capacity());
             output = Some(replacement);
@@ -164,6 +236,11 @@ pub(crate) fn run(
                 target_position_ns = nanos(target),
                 track = observed.track,
                 recovery_attempt = resets,
+                trigger = if requested {
+                    "replacement_failure"
+                } else {
+                    "xrun"
+                },
                 previous_callbacks,
                 "Audio output underrun recovered at the last presented position"
             );
@@ -183,12 +260,22 @@ pub(crate) fn run(
             }
             continue;
         }
-        let block = match decoder.read_until(|| {
+        #[cfg(feature = "test-support")]
+        let read_started = Instant::now();
+        let read = decoder.read_until(|| {
             state.stopped.load(Ordering::Acquire)
                 || state.seek_requested.load(Ordering::Acquire)
-                || state.xruns.load(Ordering::Acquire) != xruns
+                || state.recovery_due(xruns, output_generation)
                 || state.error().is_some()
-        }) {
+        });
+        #[cfg(feature = "test-support")]
+        {
+            producer_read_service.elapsed_ns = producer_read_service
+                .elapsed_ns
+                .saturating_add(elapsed_ns(read_started));
+            producer_read_service.calls = producer_read_service.calls.saturating_add(1);
+        }
+        let block = match read {
             Ok(block) => block,
             Err(Error::Interrupted) => {
                 pending = commands.recv_timeout(Duration::from_millis(2)).ok();
@@ -197,6 +284,12 @@ pub(crate) fn run(
             Err(error) => return Err(error),
         };
         if let Some(block) = block {
+            #[cfg(feature = "test-support")]
+            {
+                producer_read_service.output_frames = producer_read_service
+                    .output_frames
+                    .saturating_add((block.samples.len() / channels) as u64);
+            }
             for (index, samples) in block.samples.chunks_exact(channels).enumerate() {
                 let position = nanos(
                     (block.position + Duration::from_secs_f64((index + 1) as f64 * block.step))
@@ -215,7 +308,7 @@ pub(crate) fn run(
                     &mut producer,
                     &commands,
                     &state,
-                    xruns,
+                    (xruns, output_generation),
                     &mut deferred,
                     &mut buffering,
                 )? {
@@ -234,7 +327,7 @@ pub(crate) fn run(
                 &mut producer,
                 &commands,
                 &state,
-                xruns,
+                (xruns, output_generation),
                 &mut deferred,
                 &mut buffering,
             )? {
@@ -244,6 +337,87 @@ pub(crate) fn run(
             finished = true;
         }
     }
+}
+
+fn restart<T>(
+    state: &State,
+    audio_id: u64,
+    generation: &mut u64,
+    resets: &mut u32,
+    reported: u64,
+    mut attempt: impl FnMut(u64) -> Result<Option<T>>,
+) -> Result<Option<T>> {
+    loop {
+        if state.stopped.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        let outcome = attempt(*generation);
+        if state.stopped.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        if let Some(error) = state.error() {
+            return Err(error);
+        }
+        match outcome {
+            Ok(Some(started)) => return Ok(Some(started)),
+            Ok(None) if state.rebuild_request.load(Ordering::Acquire) == *generation => {
+                *resets += 1;
+                if *resets > 3 {
+                    tracing::warn!(
+                        event = "audio_output_failed",
+                        audio_id,
+                        generation = *generation,
+                        reason = "reset_budget",
+                        resets = *resets,
+                        current_xruns = reported,
+                        terminal = true,
+                        "Audio output recovery could not continue"
+                    );
+                    return Err(Error::Output);
+                }
+                state.output_failure.store(0, Ordering::Release);
+                *generation += 1;
+            }
+            Ok(None) => return Err(Error::Output),
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+#[cfg(feature = "test-support")]
+fn report_producer_service(
+    audio_id: u64,
+    source: AudioFormat,
+    output: AudioFormat,
+    tempo: &Tempo,
+    read: &ProducerReadService,
+) {
+    let conversion = tempo.conversion_service();
+    let tempo = tempo.service();
+    tracing::info!(
+        target: "hito_audio::producer_diagnostic",
+        event = "audio_producer_service_summary",
+        audio_id,
+        source_rate = source.sample_rate,
+        source_channels = source.channels,
+        output_rate = output.sample_rate,
+        output_channels = output.channels,
+        producer_read_ns = read.elapsed_ns,
+        producer_read_calls = read.calls,
+        producer_output_frames = read.output_frames,
+        conversion_service_ns = conversion.elapsed_ns,
+        conversion_input_frames = conversion.input_frames,
+        conversion_output_frames = conversion.output_frames,
+        tempo_processor_service_ns = tempo.elapsed_ns,
+        tempo_input_frames = tempo.input_frames,
+        tempo_output_frames = tempo.output_frames,
+        "Audio producer service summary"
+    );
+}
+
+#[cfg(feature = "test-support")]
+fn elapsed_ns(started: Instant) -> u64 {
+    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }
 
 fn join(next: Decoder, target: Target, current: AudioFormat, handoff: &Handoff) -> Result<bool> {
@@ -269,10 +443,11 @@ fn send(
     producer: &mut Producer<Frame>,
     commands: &Receiver<Control>,
     state: &State,
-    xruns: u64,
+    recovery: (u64, u64),
     deferred: &mut Deferred,
     buffering: &mut Buffering,
 ) -> Result<Option<Control>> {
+    let (xruns, generation) = recovery;
     loop {
         if state.stopped.load(Ordering::Acquire) {
             return Ok(Some(Control::Stop));
@@ -287,7 +462,7 @@ fn send(
         {
             return Ok(Some(control));
         }
-        if state.xruns.load(Ordering::Acquire) != xruns {
+        if state.recovery_due(xruns, generation) {
             return Ok(Some(Control::Recover));
         }
         match producer.push(frame) {
@@ -357,5 +532,179 @@ fn defer(control: Control, deferred: &mut Deferred) -> Option<Control> {
             None
         }
         control => Some(control),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{tempo::Tempo, test_support::wave};
+    use std::sync::mpsc;
+
+    #[test]
+    fn a_full_output_ring_wakes_for_a_rebuild_request_of_its_generation() {
+        let decoder = Tempo::new(Converter::with_output(
+            Decoder::open(wave(48_000, 2, 4_800, |_, _| 0)).unwrap(),
+            48_000,
+            2,
+        ));
+        let format = decoder.format();
+        let mut deferred = Deferred {
+            speed: None,
+            handoff: decoder.handoff(),
+            target: Target {
+                sample_rate: 48_000,
+                channels: 2,
+            },
+            format,
+        };
+        let (mut producer, _consumer) = rtrb::RingBuffer::new(1);
+        let frame = Frame::End {
+            position: 0,
+            epoch: 1,
+            track: 0,
+        };
+        producer.push(frame).unwrap();
+        let mut buffering = Buffering::new(1);
+        let state = Arc::new(State::new());
+        state.output_generation.store(2, Ordering::Release);
+        state.rebuild_request.store(2, Ordering::Release);
+        let (_commands_open, commands) = mpsc::sync_channel::<Control>(1);
+        let (result, outcome) = mpsc::channel();
+        let sender_state = state.clone();
+        let sender = std::thread::spawn(move || {
+            let woke = send(
+                frame,
+                &mut producer,
+                &commands,
+                &sender_state,
+                (0, 2),
+                &mut deferred,
+                &mut buffering,
+            );
+            let _ = result.send(matches!(woke, Ok(Some(Control::Recover))));
+        });
+        let woke = outcome.recv_timeout(Duration::from_secs(3));
+        state.stopped.store(true, Ordering::Release);
+        sender.join().unwrap();
+        assert_eq!(
+            woke,
+            Ok(true),
+            "a full ring must wake for its rebuild request"
+        );
+    }
+
+    struct Owned(u64);
+
+    fn attempts(
+        state: &State,
+        resets: u32,
+        outcome: impl Fn(&State, u64) -> Result<Option<()>>,
+    ) -> (Result<Option<Owned>>, Vec<u64>, u32) {
+        let mut generation = 2;
+        let mut resets = resets;
+        let mut seen = Vec::new();
+        let result = restart(state, 1, &mut generation, &mut resets, 1, |generation| {
+            seen.push(generation);
+            state.rebuild_request.store(0, Ordering::Release);
+            outcome(state, generation).map(|started| started.map(|()| Owned(generation)))
+        });
+        (result, seen, resets)
+    }
+
+    fn requested(state: &State, generation: u64) -> Result<Option<()>> {
+        state.rebuild_request.store(generation, Ordering::Release);
+        state.rebuild_request.store(generation, Ordering::Release);
+        Ok(None)
+    }
+
+    #[test]
+    fn a_persistent_replacement_failure_stops_after_three_attempts() {
+        let state = State::new();
+        let (result, seen, resets) = attempts(&state, 1, requested);
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2, 3, 4]);
+        assert_eq!(resets, 4);
+    }
+
+    #[test]
+    fn a_later_replacement_that_starts_is_returned_to_its_owner() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            if generation < 4 {
+                requested(state, generation)
+            } else {
+                Ok(Some(()))
+            }
+        });
+        assert!(matches!(result, Ok(Some(Owned(4)))));
+        assert_eq!(seen, [2, 3, 4]);
+    }
+
+    #[test]
+    fn a_retried_start_clears_the_failure_of_the_output_it_replaces() {
+        let state = State::new();
+        let (result, _, _) = attempts(&state, 1, |state, generation| {
+            if generation < 3 {
+                state.output_failure.store(1, Ordering::Release);
+                requested(state, generation)
+            } else {
+                Ok(Some(()))
+            }
+        });
+        assert!(matches!(result, Ok(Some(Owned(3)))));
+        assert_eq!(state.output_failure.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn a_replacement_failure_without_a_rebuild_request_is_not_retried() {
+        let state = State::new();
+        let (result, seen, resets) = attempts(&state, 1, |_, _| Err(Error::OutputUnavailable));
+        assert!(matches!(result, Err(Error::OutputUnavailable)));
+        assert_eq!(seen, [2]);
+        assert_eq!(resets, 1);
+    }
+
+    #[test]
+    fn stopping_during_a_failed_replacement_start_launches_no_further_output() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            state.stopped.store(true, Ordering::Release);
+            requested(state, generation)
+        });
+        assert!(matches!(result, Ok(None)), "{:?}", result.err());
+        assert_eq!(seen, [2]);
+    }
+
+    #[test]
+    fn a_stopped_player_starts_no_replacement_output() {
+        let state = State::new();
+        state.stopped.store(true, Ordering::Release);
+        let (result, seen, _) = attempts(&state, 1, |_, _| Ok(Some(())));
+        assert!(matches!(result, Ok(None)));
+        assert!(seen.is_empty());
+    }
+
+    #[test]
+    fn a_terminal_failure_wins_over_a_pending_rebuild_of_the_same_generation() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            let _ = requested(state, generation);
+            state.fail(Error::Output);
+            Ok(None)
+        });
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2]);
+    }
+
+    #[test]
+    fn a_fatal_start_error_is_not_retried_while_a_rebuild_is_pending() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            let _ = requested(state, generation);
+            Err(Error::Output)
+        });
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2]);
     }
 }

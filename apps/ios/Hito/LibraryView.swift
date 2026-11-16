@@ -7,6 +7,9 @@ struct LibraryView: View {
         case albums = "Albums"
         case artists = "Artists"
         case playlists = "Playlists"
+        case podcasts = "Podcasts"
+        case audiobooks = "Audiobooks"
+        case history = "History"
     }
 
     @Environment(AppModel.self) private var model
@@ -14,6 +17,7 @@ struct LibraryView: View {
     @State private var tracks = Feed<Track>()
     @State private var albums = Feed<Album>()
     @State private var artists = Feed<Artist>()
+    @State private var chosen = Feed<ArtistGroup>()
     @State private var playlists: [Playlist]?
     @State private var shown = TrackShown.all
     @State private var filters = false
@@ -24,6 +28,8 @@ struct LibraryView: View {
     @State private var selected: Set<String>?
     @State private var notice: String?
     @State private var opened: Playlist?
+    @State private var naming = false
+    @State private var newName = ""
     @State private var finding: String?
 
     var active: Int { (sort == .recent ? 0 : 1) + (shown == .all ? 0 : 1) }
@@ -32,18 +38,19 @@ struct LibraryView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Your library").font(Theme.title).accessibilityAddTraits(.isHeader)
+                    Text("Your library").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 8)
                     if section == .tracks {
                         Button { filtering = true } label: {
                             HStack(spacing: 8) {
-                                Icon("filters", size: 18)
+                                Icon("filters", size: 16)
                                 Text(active == 0 ? "Filters" : "Filters · \(active)").font(Theme.smallMedium)
                             }
                             .foregroundStyle(Theme.text)
                             .padding(.horizontal, 14)
                             .frame(minHeight: 44)
-                            .overlay(Capsule().strokeBorder(active == 0 ? Theme.line : Theme.accent, lineWidth: active == 0 ? 1 : 1.5))
+                            .background(Capsule().fill(Theme.field))
+                            .overlay(Capsule().strokeBorder(active == 0 ? Theme.line : Theme.accent))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(active == 0 ? "Filter and sort" : "Filter and sort, \(active) active")
@@ -60,20 +67,33 @@ struct LibraryView: View {
                             if sort != .recent {
                                 ActiveChip(title: "Sorted by \(sort.label.lowercased())") { sort = .recent }
                             }
-                            TextAction(title: "Reset") {
+                            TextAction(title: "Reset", inset: 12) {
                                 shown = .all
                                 sort = .recent
                             }
                         }
                     }
-                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.", selection: $selected, selectable: true)
+                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders in Settings.", selection: $selected, selectable: true)
                         .padding(.leading, -6)
                         .padding(.trailing, -8)
                 case .albums:
                     AlbumGrid(feed: albums)
                 case .artists:
-                    ArtistRows(feed: artists)
+                    ReviewQueueButton { reload() }
+                    ArtistRows(feed: artists, chosen: chosen)
                 case .playlists:
+                    Button { newName = ""; naming = true } label: {
+                        HStack(spacing: 12) {
+                            ZStack { Theme.tile; Icon("plus", size: 20).foregroundStyle(Theme.focus) }
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Text("New playlist").font(Theme.bodyMedium)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 60)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                     Button { importing = true } label: {
                         HStack(spacing: 12) {
                             ZStack { Theme.tile; Icon("link", size: 20).foregroundStyle(Theme.focus) }
@@ -87,6 +107,12 @@ struct LibraryView: View {
                     }
                     .buttonStyle(.plain)
                     PlaylistRows(playlists: playlists, failed: playlistsFailed) { Task { await loadPlaylists() } }
+                case .podcasts:
+                    PodcastsSection()
+                case .audiobooks:
+                    AudiobooksSection()
+                case .history:
+                    HistorySection()
                 }
             }
             .padding(.horizontal, 16)
@@ -127,11 +153,16 @@ struct LibraryView: View {
             ImportSheet { id in Task { await loadPlaylists(); opened = playlists?.first { $0.id == id } } }
                 .presentationBackground(.clear)
         }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
+        .alert("New playlist", isPresented: $naming) {
+            TextField("Give it a name", text: $newName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") { Task { await create() } }
+        }
         .onChange(of: sort) { reloadTracks() }
         .onChange(of: shown) { reloadTracks() }
         .task {
-            if tracks.total == nil && albums.total == nil { reload() }
+            if tracks.total == nil && albums.total == nil { reload() } else if section == .playlists { await loadPlaylists() }
             if let api = model.api { filters = (try? await Library(api: api).filtersByAvailability()) ?? false }
         }
     }
@@ -142,6 +173,7 @@ struct LibraryView: View {
         reloadTracks()
         albums.reset { try await library.albums(offset: $0) }
         artists.reset { try await library.artists(offset: $0) }
+        chosen.reset { try await ArtistGroups(api: api).chosen(offset: $0) }
         Task { await loadPlaylists() }
     }
 
@@ -181,10 +213,22 @@ struct LibraryView: View {
         }
     }
 
+    private func create() async {
+        let name = newName.trimmingCharacters(in: .whitespaces)
+        guard let api = model.api, !name.isEmpty else { return }
+        do {
+            let id = try await Playlists(api: api).create(named: name, device: Player.device)
+            await loadPlaylists()
+            opened = playlists?.first { $0.id == id } ?? Playlist(id: id, name: name, kind: .local)
+        } catch {
+            notice = "The playlist wasn't created. Try again."
+        }
+    }
+
     private func queueSelected(_ chosen: Set<String>) {
-        let picked = tracks.items.filter { chosen.contains($0.id) && $0.isPlayable }
+        let picked = tracks.items.filter { chosen.contains($0.id) }
         picked.forEach { model.player?.playNext($0) }
-        notice = picked.count == chosen.count ? "Added \(picked.count) to the queue" : "Added \(picked.count) to the queue. Tracks without a source were left out."
+        notice = "Added \(picked.count) to the queue"
         selected = nil
     }
 
@@ -215,33 +259,50 @@ struct LibraryView: View {
 
 struct ArtistRows: View {
     let feed: Feed<Artist>
+    let chosen: Feed<ArtistGroup>
 
     var body: some View {
-        if feed.isEmpty {
+        if feed.isEmpty && chosen.isEmpty {
             Text("No artists yet.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 12)
         }
         ForEach(feed.items) { artist in
-            NavigationLink(value: TrackList.artist(artist)) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Theme.tile
-                        Icon("person", size: 20).foregroundStyle(Theme.coverMark)
-                    }
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(artist.name).lineLimit(1)
-                        Text(counts(artist)).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
-                    }
-                    Spacer(minLength: 8)
-                    Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
-                }
-                .frame(minHeight: 60)
-                .contentShape(Rectangle())
+            NavigationLink(value: artist) {
+                row(artist.name, counts(artist))
             }
             .buttonStyle(.plain)
         }
         FeedFooter(feed: feed)
+        if !feed.hasMore {
+            if !chosen.items.isEmpty {
+                Text("Chosen artists").font(Theme.section).padding(.top, 16).accessibilityAddTraits(.isHeader)
+            }
+            ForEach(chosen.items) { group in
+                NavigationLink(value: group) {
+                    row(group.name, ArtistPage.counts(tracks: group.recordingCount, albums: group.releaseCount, featured: 0))
+                }
+                .buttonStyle(.plain)
+            }
+            FeedFooter(feed: chosen)
+        }
+    }
+
+    private func row(_ name: String, _ detail: String) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Theme.tile
+                Icon("person", size: 20).foregroundStyle(Theme.coverMark)
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 0) {
+                Text(name).lineLimit(1)
+                Text(detail).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+        }
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
     }
 
     private func counts(_ artist: Artist) -> String {
@@ -259,7 +320,7 @@ struct PlaylistRows: View {
     var body: some View {
         if let playlists {
             if playlists.isEmpty {
-                Text("No playlists yet. Import one from a link, or make one on the web.")
+                Text("No playlists yet. Make one, or import one from a link.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.soft)
                     .padding(.vertical, 12)
@@ -290,6 +351,81 @@ struct PlaylistRows: View {
             .font(Theme.small)
         } else {
             ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+        }
+    }
+}
+
+struct HistorySection: View {
+    @Environment(AppModel.self) private var model
+    @State private var found: ListeningHistory.Found?
+    @State private var failed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let found {
+                Text(found.summary).font(Theme.small).foregroundStyle(Theme.soft)
+                if let first = found.entries.first {
+                    PlayAllButton(label: "Play") { play(found.entries, at: 0, from: first) }
+                }
+                if !found.enabled {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(found.entries.isEmpty ? "Listening history is paused" : "Listening history is paused, so new plays are not added.")
+                            .font(found.entries.isEmpty ? Theme.bodyStrong : Theme.small)
+                            .foregroundStyle(found.entries.isEmpty ? Theme.text : Theme.soft)
+                        if found.entries.isEmpty {
+                            Text("New plays are not being saved. Turn history back on in Settings to see what you play here.").font(Theme.small).foregroundStyle(Theme.soft)
+                        }
+                        NavigationLink(value: SettingsPage.privacy) {
+                            Text("Open listening history settings").font(Theme.smallStrong).foregroundStyle(Theme.focus).frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } else if found.entries.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Start listening").font(Theme.bodyStrong)
+                        Text("Choose music from your library to get started.").font(Theme.small).foregroundStyle(Theme.soft)
+                    }
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(found.entries.enumerated()), id: \.element.id) { index, entry in
+                        HStack(spacing: 0) {
+                            Button { play(found.entries, at: index, from: entry) } label: {
+                                LibraryRow(track: entry.track, isCurrent: model.player?.current?.id == entry.track.id)
+                            }
+                            .buttonStyle(.plain)
+                            Menu { TrackMenu(track: entry.track) } label: {
+                                Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+                            }
+                            .accessibilityLabel("More actions for \(entry.track.title)")
+                        }
+                    }
+                }
+                .padding(.leading, -6)
+                .padding(.trailing, -8)
+            } else if failed {
+                HStack(spacing: 8) {
+                    Text("History didn't load.").foregroundStyle(Theme.soft)
+                    TextAction(title: "Try again") { Task { await load() } }
+                }
+                .font(Theme.small)
+            } else {
+                ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+            }
+        }
+        .task { await load() }
+    }
+
+    private func play(_ entries: [ListeningHistory.Entry], at index: Int, from entry: ListeningHistory.Entry) {
+        model.player?.play(entries.map(\.track), at: index, from: "Listening history", startingAt: Double(entry.positionMs) / 1000)
+    }
+
+    private func load() async {
+        guard let api = model.api else { return }
+        do {
+            found = try await ListeningHistory(api: api).load()
+            failed = false
+        } catch {
+            failed = found == nil
         }
     }
 }
@@ -343,17 +479,17 @@ struct TrackRows: View {
                 Button {
                     selection.wrappedValue = picked ? chosen.subtracting([track.id]) : chosen.union([track.id])
                 } label: {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 5).fill(picked ? Theme.accent : .clear)
-                            RoundedRectangle(cornerRadius: 5).strokeBorder(picked ? Theme.accent : Theme.quiet, lineWidth: 1.5)
-                            if picked { Icon("check", size: 14).foregroundStyle(Theme.onAccent) }
+                            RoundedRectangle(cornerRadius: 4).fill(picked ? Theme.accent : .clear)
+                            RoundedRectangle(cornerRadius: 4).strokeBorder(picked ? Theme.accent : Theme.quiet, lineWidth: 1.5)
+                            if picked { Icon("check", size: 13).foregroundStyle(Theme.onAccent) }
                         }
-                        .frame(width: 22, height: 22)
-                        .padding(.leading, 10)
+                        .frame(width: 20, height: 20)
+                        .frame(width: 44, height: 44)
                         LibraryRow(track: track, isCurrent: false)
                     }
-                    .background(RoundedRectangle(cornerRadius: 12).fill(picked ? Theme.accent.opacity(0.16) : .clear))
+                    .background(RoundedRectangle(cornerRadius: 10).fill(picked ? Theme.selected : .clear))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(picked ? [.isButton, .isSelected] : .isButton)
@@ -365,7 +501,6 @@ struct TrackRows: View {
                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: track.isPlayable)
                     }
                     .buttonStyle(.plain)
-                    .disabled(!track.isPlayable)
                     if !track.isPlayable {
                         FindButton(track: track) { feed.replace(track.id, with: $0) }
                     }
@@ -388,12 +523,12 @@ struct TrackMenu: View {
     let track: Track
 
     var body: some View {
-        if track.isPlayable {
-            Button("Play next") { model.player?.playNext(track) }
-        }
+        Button("Play next") { model.player?.playNext(track) }
+        NavigationLink("Track details", value: track)
         if let player = model.player {
             Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
         }
+        ArtworkRetryButton(path: track.artworkPath)
     }
 }
 
@@ -422,10 +557,10 @@ struct TrackListView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-                Text(list.title).font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text(list.title).font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let total = feed.total, total > 0 {
                     PlayAllButton(label: "Play") {
-                        model.player?.play(feed.items, at: feed.items.firstIndex { $0.isPlayable } ?? 0, from: list.title)
+                        model.player?.play(feed.items, at: 0, from: list.title)
                     }
                 }
                 VStack(spacing: 0) {
@@ -476,8 +611,27 @@ struct AlbumView: View {
     @State private var onlyMine = false
     @State private var adding: Set<String> = []
     @State private var notes: [String: String] = [:]
+    @State private var adder: Task<Void, Never>?
+    @State private var addProblem: String?
+    @State private var editionFailed = false
+
+    @State private var options: [EditionOption]?
+    @State private var optionsNote: String?
+    @State private var choosing: EditionOption?
+    @State private var unsaved: PendingChoice?
+    @State private var editionNote: String?
+    @State private var choosingArtist = false
+
+    struct PendingChoice {
+        let option: EditionOption
+        let request: UUID
+    }
 
     var tracks: [Track] { detail?.tracks ?? [] }
+
+    private var anchor: CatalogAnchor? {
+        detail?.anchor ?? detail?.savedEdition.map { CatalogAnchor(recordingId: $0.recordingId, associationId: $0.associationId) }
+    }
 
     private var complete: CompleteAlbum? {
         if case let .available(album) = edition { return album }
@@ -507,13 +661,26 @@ struct AlbumView: View {
                         Text(facts).font(Theme.small).foregroundStyle(Theme.quiet)
                     }
                 }
+                if let complete {
+                    ProgressLine(owned: complete.ownedCount, total: complete.tracks.count)
+                }
                 HStack(spacing: 8) {
-                    if tracks.contains(where: \.isPlayable) {
+                    if !playable.isEmpty {
                         PlayAllButton(label: "Play") {
-                            model.player?.play(playable, at: playable.firstIndex { $0.isPlayable } ?? 0, from: album.title)
+                            model.player?.play(playable, at: 0, from: album.title)
                         }
+                    }
+                    if let complete {
+                        let missing = complete.addable.filter { notes[$0.id] == nil }
+                        if !missing.isEmpty {
+                            AddOthers(count: missing.count, busy: !adding.isEmpty) { adder = Task { await addAll(missing, in: complete) } }
+                        }
+                    }
+                    if !tracks.isEmpty {
                         Menu {
-                            Button("Play next") { tracks.filter(\.isPlayable).reversed().forEach { model.player?.playNext($0) } }
+                            Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
+                            Button("Choose the artist") { choosingArtist = true }
+                            ArtworkRetryButton(path: album.artworkPath)
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
@@ -529,8 +696,33 @@ struct AlbumView: View {
                 } else if detail == nil {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
+                if editionFailed {
+                    HStack(spacing: 8) {
+                        Text("The album's full track list didn't load.").foregroundStyle(Theme.soft)
+                        TextAction(title: "Try again") { Task { await load() } }
+                    }
+                    .font(Theme.small)
+                }
+                if let addProblem {
+                    Text(addProblem).font(Theme.small).foregroundStyle(Theme.warning)
+                }
                 if let complete {
-                    editionHeader(complete)
+                    HStack(spacing: 8) {
+                        FilterChip(title: "All \(complete.tracks.count)", on: !onlyMine) { onlyMine = false }
+                        FilterChip(title: "In my library \(complete.ownedCount)", on: onlyMine) { onlyMine = true }
+                    }
+                }
+                if anchor != nil || detail?.needsChoice == true {
+                    editionPicker
+                }
+                if let editionNote {
+                    Text(editionNote).font(Theme.small).foregroundStyle(Theme.quiet)
+                }
+                if let unsaved {
+                    TextAction(title: "Try saving again") { Task { await choose(unsaved.option, request: unsaved.request) } }
+                        .font(Theme.small)
+                }
+                if let complete {
                     VStack(spacing: 0) {
                         ForEach(complete.tracks) { track in
                             if let owned = track.owned {
@@ -558,26 +750,68 @@ struct AlbumView: View {
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
-    }
-
-    private func editionHeader(_ complete: CompleteAlbum) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Text(complete.summary).font(Theme.smallStrong).foregroundStyle(Theme.soft)
-                Spacer(minLength: 0)
-                let missing = complete.addable.filter { notes[$0.id] == nil }
-                if !missing.isEmpty {
-                    OutlineButton(title: adding.isEmpty ? "Add the other \(missing.count)" : "Adding…") { Task { await addAll(missing, in: complete) } }
-                        .disabled(!adding.isEmpty)
+        .fullScreenCover(isPresented: $choosingArtist) {
+            if let first = tracks.first {
+                ArtistSheet(recording: first.id, credit: (detail?.album ?? album).credit) {
+                    Task {
+                        options = nil
+                        optionsNote = nil
+                        await load()
+                        editionNote = "Artist saved. Choose the album's edition."
+                    }
                 }
-            }
-            HStack(spacing: 8) {
-                FilterChip(title: "All \(complete.tracks.count)", on: !onlyMine) { onlyMine = false }
-                FilterChip(title: "In my library \(complete.ownedCount)", on: onlyMine) { onlyMine = true }
-                Spacer(minLength: 0)
-                Text("Edition · \(complete.editionName)").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                .presentationBackground(.clear)
             }
         }
+        .onDisappear { adder?.cancel() }
+    }
+
+    private var editionPicker: some View {
+        Menu {
+            if let options {
+                if options.isEmpty {
+                    Text(optionsNote ?? "No editions found for this album")
+                }
+                ForEach(options) { option in
+                    Button { Task { await choose(option, request: UUID()) } } label: {
+                        if option.id == complete?.editionId {
+                            Label(option.label, systemImage: "checkmark")
+                        } else {
+                            Text(option.label)
+                        }
+                    }
+                }
+            } else {
+                Text("Looking for editions…")
+            }
+            if detail?.savedEdition != nil {
+                Divider()
+                Button("Forget edition", role: .destructive) { Task { await forget() } }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text("Edition").foregroundStyle(Theme.quiet)
+                Text(choosing?.name ?? chosenName ?? "Choose").font(Theme.bodyMedium).lineLimit(1)
+                if choosing != nil {
+                    ProgressView().tint(Theme.soft).controlSize(.small)
+                } else {
+                    Icon("chevron-down", size: 14)
+                }
+            }
+            .font(Theme.small)
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .overlay(Capsule().strokeBorder(Theme.line))
+            .contentShape(Capsule())
+        }
+        .disabled(choosing != nil)
+        .accessibilityLabel("Edition, \(chosenName ?? "not chosen")")
+    }
+
+    private var chosenName: String? {
+        guard let complete else { return nil }
+        return options?.first { $0.id == complete.editionId }?.name ?? complete.editionName
     }
 
     private func ownedRow(_ track: Track) -> some View {
@@ -589,7 +823,6 @@ struct AlbumView: View {
                 AlbumTrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
             }
             .buttonStyle(.plain)
-            .disabled(!track.isPlayable)
             Icon("check", size: 16)
                 .foregroundStyle(Theme.focus)
                 .frame(width: 44, height: 44)
@@ -606,17 +839,23 @@ struct AlbumView: View {
         return HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title).foregroundStyle(Theme.soft).lineLimit(1)
-                Text(adding.contains(track.id) ? "Finding audio…" : notes[track.id] ?? track.note ?? "")
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.quiet)
-                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    let finding = adding.contains(track.id)
+                    Circle()
+                        .strokeBorder(finding ? Theme.quiet : Theme.missingRing, style: StrokeStyle(lineWidth: 1.5, dash: finding ? [2, 2] : []))
+                        .frame(width: 9, height: 9)
+                    Text(finding ? "Finding audio…" : notes[track.id] ?? track.note ?? "")
+                        .foregroundStyle(finding ? Theme.quiet : Theme.missing)
+                        .lineLimit(1)
+                }
+                .font(Theme.small)
             }
             .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
             if adding.contains(track.id) {
                 ProgressView().tint(Theme.soft).frame(width: 44, height: 44)
             } else if canAdd {
                 Button { Task { await add(track, in: complete) } } label: {
-                    Icon("plus", size: 18).foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
+                    Icon("plus", size: 16).foregroundStyle(Theme.soft).frame(width: 44, height: 44).contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .disabled(!adding.isEmpty)
@@ -626,10 +865,12 @@ struct AlbumView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func add(_ track: EditionTrack, in complete: CompleteAlbum) async {
-        guard let api = model.api, let saved = detail?.savedEdition else { return }
+    @discardableResult
+    private func add(_ track: EditionTrack, in complete: CompleteAlbum) async -> Bool {
+        guard let api = model.api, let saved = detail?.savedEdition else { return false }
         adding.insert(track.id)
         defer { adding.remove(track.id) }
+        addProblem = nil
         do {
             switch try await AlbumEditions(api: api).add(track, of: complete, release: album.id, saved: saved) {
             case let .saved(recording):
@@ -637,16 +878,23 @@ struct AlbumView: View {
             case let .missing(reason):
                 notes[track.id] = reason
             }
+        } catch is CancellationError {
+            return false
+        } catch HitoAPI.Problem.noAnswer {
+            addProblem = "Hito can't reach your server. Tracks not added yet are unchanged."
+            model.handle(HitoAPI.Problem.noAnswer)
+            return false
         } catch {
-            notes[track.id] = "Couldn't find audio"
+            notes[track.id] = PluginTrouble.message(error, otherwise: "Couldn't find audio")
             model.handle(error)
         }
+        return true
     }
 
     private func addAll(_ missing: [EditionTrack], in complete: CompleteAlbum) async {
         for track in missing {
-            guard case let .available(current) = edition else { return }
-            await add(track, in: current)
+            guard !Task.isCancelled, case let .available(current) = edition else { return }
+            guard await add(track, in: current) else { return }
         }
     }
 
@@ -667,8 +915,121 @@ struct AlbumView: View {
             model.handle(error)
             return
         }
-        guard detail?.savedEdition != nil else { return }
-        edition = try? await AlbumEditions(api: api).read(album.id)
+        editionFailed = false
+        if detail?.savedEdition != nil {
+            do {
+                edition = try await AlbumEditions(api: api).read(album.id)
+            } catch {
+                editionFailed = true
+                model.handle(error)
+            }
+        } else {
+            edition = nil
+        }
+        if detail?.needsChoice == true {
+            editionNote = "The saved edition can't be used any more. Choose the edition again."
+        }
+        guard options == nil, let anchor else { return }
+        do {
+            options = try await AlbumEditions(api: api).options(for: (detail?.album ?? album).title, anchor: anchor)
+        } catch let unavailable as EditionOption.Unavailable {
+            options = []
+            optionsNote = unavailable.reason
+        } catch {
+            options = []
+            optionsNote = "Editions didn't load. Open the album again to retry."
+        }
+    }
+
+    private func choose(_ option: EditionOption, request: UUID) async {
+        guard let api = model.api, let anchor, let revision = detail?.choiceRevision else { return }
+        let editions = AlbumEditions(api: api)
+        choosing = option
+        editionNote = nil
+        unsaved = nil
+        defer { choosing = nil }
+        do {
+            let read = try await editions.preview(option, release: album.id, anchor: anchor)
+            guard case .available = read else {
+                if case let .unavailable(reason) = read { editionNote = reason }
+                return
+            }
+            _ = try await editions.choose(option, release: album.id, anchor: anchor, revision: revision, request: request)
+            edition = read
+            notes = [:]
+            detail = try await Library(api: api).album(album.id)
+        } catch is EditionOption.Changed {
+            editionNote = "This album's edition changed somewhere else. Choose again."
+            await load()
+        } catch HitoAPI.Problem.noAnswer {
+            editionNote = "Hito didn't answer, so the edition may not be saved."
+            unsaved = PendingChoice(option: option, request: request)
+        } catch {
+            editionNote = "The edition wasn't saved."
+            model.handle(error)
+        }
+    }
+
+    private func forget() async {
+        guard let api = model.api, let revision = detail?.choiceRevision else { return }
+        do {
+            _ = try await AlbumEditions(api: api).forget(release: album.id, revision: revision, request: UUID())
+            edition = nil
+            notes = [:]
+            onlyMine = false
+            detail = try await Library(api: api).album(album.id)
+        } catch is EditionOption.Changed {
+            editionNote = "This album's edition changed somewhere else."
+            await load()
+        } catch {
+            editionNote = "The edition wasn't forgotten."
+            model.handle(error)
+        }
+    }
+}
+
+struct ProgressLine: View {
+    let owned: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Capsule()
+                .fill(Theme.line)
+                .frame(width: 140, height: 4)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(Theme.text).frame(width: total == 0 ? 0 : 140 * CGFloat(owned) / CGFloat(total), height: 4)
+                }
+                .accessibilityHidden(true)
+            Text("\(owned) of \(total) in your library").font(Theme.small).foregroundStyle(Theme.soft)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct AddOthers: View {
+    let count: Int
+    let busy: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView().tint(Theme.soft).controlSize(.small)
+                } else {
+                    Icon("plus", size: 16)
+                }
+                Text(busy ? "Adding…" : "Add the other \(count)").font(Theme.bodyStrong).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 18)
+            .frame(minHeight: 48)
+            .overlay(Capsule().strokeBorder(Theme.line))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
     }
 }
 
@@ -753,11 +1114,12 @@ struct ActiveChip: View {
     var body: some View {
         Button(action: clear) {
             HStack(spacing: 8) {
-                Text(title).font(Theme.bodyMedium).lineLimit(1)
+                Text(title).font(Theme.smallMedium).lineLimit(1)
                 Icon("close", size: 14)
             }
             .foregroundStyle(Theme.ground)
-            .padding(.horizontal, 16)
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
             .frame(minHeight: 44)
             .background(Capsule().fill(Theme.text))
         }
@@ -855,23 +1217,23 @@ struct SelectionBar: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Text("\(count) selected").font(Theme.bodyStrong)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("\(count) selected").font(Theme.bodyBold)
                 Spacer(minLength: 0)
                 if count < loaded {
-                    TextAction(title: "Select the \(loaded) loaded", action: selectLoaded)
+                    TextAction(title: "Select the \(loaded) loaded", color: Theme.selectedAction, inset: 12, action: selectLoaded)
                 }
                 IconButton(icon: "close", label: "Stop selecting", glyph: 18, action: close)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button(action: find) {
                     Text(finding ?? "Find sources")
-                        .font(Theme.bodyStrong)
+                        .font(Theme.smallStrong)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .background(Capsule().fill(Theme.accent).opacity(finding == nil ? 1 : 0.6))
                 }
                 .buttonStyle(.plain)
@@ -885,26 +1247,26 @@ struct SelectionBar: View {
                     }
                 } label: {
                     Text("Add to playlist")
-                        .font(Theme.bodyMedium)
+                        .font(Theme.smallMedium)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.text)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .overlay(Capsule().strokeBorder(Theme.line))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .overlay(Capsule().strokeBorder(Theme.text.opacity(0.35)))
                 }
                 .disabled(count == 0)
                 Menu {
                     Button("Add to queue", action: queue)
                 } label: {
-                    Icon("more").foregroundStyle(Theme.text).frame(width: 44, height: 48).contentShape(Rectangle())
+                    Icon("more").foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
                 }
                 .disabled(count == 0)
                 .accessibilityLabel("More actions for the selected tracks")
             }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color(hex: 0x1f2340)))
-        .padding(.horizontal, 12)
+        .padding(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 8))
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.selected))
+        .padding(.horizontal, 8)
         .padding(.bottom, 8)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Selection actions")

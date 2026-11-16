@@ -108,6 +108,9 @@ public struct AlbumDetail: Decodable, Equatable, Sendable {
     public let album: Album
     public let tracks: [Track]
     public let savedEdition: SavedEdition?
+    public let anchor: CatalogAnchor?
+    public let choiceRevision: Int
+    public let needsChoice: Bool
 
     struct Tracks: Decodable { let items: [Track] }
 
@@ -117,6 +120,7 @@ public struct AlbumDetail: Decodable, Equatable, Sendable {
             let edition: SavedEdition?
         }
 
+        let revision: Int
         let state: State
     }
 
@@ -124,6 +128,7 @@ public struct AlbumDetail: Decodable, Equatable, Sendable {
         case album = "release"
         case tracks
         case savedEdition = "saved_edition"
+        case anchor = "catalog_anchor"
     }
 
     public init(from decoder: Decoder) throws {
@@ -132,6 +137,9 @@ public struct AlbumDetail: Decodable, Equatable, Sendable {
         tracks = try container.decode(Tracks.self, forKey: .tracks).items
         let choice = try? container.decodeIfPresent(Choice.self, forKey: .savedEdition)
         savedEdition = choice?.state.status == "ready" ? choice?.state.edition : nil
+        anchor = try? container.decodeIfPresent(CatalogAnchor.self, forKey: .anchor)
+        choiceRevision = choice?.revision ?? 0
+        needsChoice = choice?.state.status == "needs_choice"
     }
 }
 
@@ -168,8 +176,9 @@ public struct Library: Sendable {
         }
     }
 
-    public func albums(offset: Int) async throws -> Page<Album> {
-        try await api.get(["api", "v1", "releases"], query: paging(offset) + [URLQueryItem(name: "sort", value: "recent")], as: Page<Album>.self)
+    public func albums(offset: Int, search: String? = nil) async throws -> Page<Album> {
+        let filter = search.map { [URLQueryItem(name: "q", value: $0)] } ?? [URLQueryItem(name: "sort", value: "recent")]
+        return try await api.get(["api", "v1", "releases"], query: paging(offset) + filter, as: Page<Album>.self)
     }
 
     public func album(_ id: String) async throws -> AlbumDetail {

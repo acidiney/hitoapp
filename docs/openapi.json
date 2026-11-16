@@ -12232,10 +12232,26 @@
             "schema": {
               "$ref": "#/components/schemas/CatalogSort"
             }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RecordingAvailability"
+            }
           }
         ],
         "responses": {
           "200": {
+            "headers": {
+              "Hito-Recordings-Availability": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The applied availability filter: all, available_or_service or no_source"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -25460,7 +25476,9 @@
           "title",
           "recent",
           "artist",
-          "year"
+          "year",
+          "album",
+          "duration"
         ]
       },
       "CatalogTrackKind": {
@@ -32522,6 +32540,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "RecordingAvailability": {
+        "type": "string",
+        "enum": [
+          "available_or_service",
+          "no_source"
+        ]
       },
       "RecordingCopies": {
         "type": "object",

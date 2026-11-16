@@ -7,14 +7,14 @@ struct AccountBadge: View {
     var detail: String?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Text(String(name.prefix(1)).uppercased())
-                .font(Theme.bodyBold)
-                .foregroundStyle(Theme.onAccent)
-                .frame(width: 40, height: 40)
-                .background(Theme.accent, in: Circle())
+                .font(Theme.badgeLetter)
+                .foregroundStyle(Theme.soft)
+                .frame(width: 56, height: 56)
+                .background(Theme.tile, in: Circle())
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(name).font(Theme.bodyStrong)
                 Text([admin ? "admin" : "member", detail].compactMap { $0 }.joined(separator: " · "))
                     .font(Theme.small)
@@ -35,7 +35,7 @@ struct LockView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        Screen {
+        Screen(gap: 56) {
             Heading(title: "Locked")
             AccountBadge(name: user.displayName ?? user.username, admin: user.admin)
             FieldBox(
@@ -44,6 +44,8 @@ struct LockView: View {
                 hint: "4 to 8 digits. After 5 wrong tries you sign in with your password."
             ) {
                 SecureField("", text: $pin)
+                    .font(Theme.pin)
+                    .tracking(6.6)
                     .accessibilityLabel("PIN")
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
@@ -56,6 +58,7 @@ struct LockView: View {
                 .disabled(working)
             TextAction(title: "Sign out") { model.signOutWhileLocked() }
                 .disabled(working)
+                .padding(.top, -8)
         }
         .onAppear { focused = true }
     }

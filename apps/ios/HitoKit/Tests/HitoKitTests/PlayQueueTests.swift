@@ -60,12 +60,46 @@ import Testing
         #expect(queue.upNext.map(\.id) == ["b", "d"])
     }
 
-    @Test func tracksThatCannotPlayAreLeftOutOfTheList() {
+    @Test func tracksWithoutASourceStayInTheListSoThePlayerCanFindOne() {
         var queue = PlayQueue()
         var silent = track("b")
         silent = Track(id: silent.id, title: silent.title, artist: silent.artist, album: nil, releaseId: nil, durationMs: 1000, available: false, playsFromServices: false, liked: false)
         queue.start([track("a"), silent, track("c")], at: 0, from: "Fixture Album")
-        #expect(queue.upNext.map(\.id) == ["c"])
+        #expect(queue.upNext.map(\.id) == ["b", "c"])
+    }
+
+    @Test func theFollowingTrackIsWhatPlaysNextWithoutMovingTheQueue() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.following?.id == "d")
+        queue.playNext(track("x"))
+        #expect(queue.following?.id == "x")
+        #expect(queue.current?.id == "c")
+        queue.clearUpcoming()
+        #expect(queue.following == nil)
+        queue.repeatMode = .list
+        #expect(queue.following?.id == "a")
+        queue.repeatMode = .track
+        #expect(queue.following?.id == "c")
+    }
+
+    @Test func playedTracksAreTheOnesBeforeTheCurrentOne() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.played.map(\.id) == ["a", "b"])
+    }
+
+    @Test func tappingATrackInTheQueuePlaysItFromThere() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.jump(to: "a")?.id == "a")
+        #expect(queue.played.isEmpty)
+        #expect(queue.upNext.map(\.id) == ["b", "c", "d"])
+        queue.playNext(track("x"))
+        #expect(queue.jump(to: "x")?.id == "x")
+        #expect(queue.queued.isEmpty)
+        #expect(queue.advance()?.id == "b")
+        #expect(queue.jump(to: "missing") == nil)
     }
 }
 

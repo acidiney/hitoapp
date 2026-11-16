@@ -16,6 +16,7 @@ import Testing
         let artists = try await discovery(fake).artists()
         #expect(artists.items.map(\.name) == ["Other Band", "Fixture Band"])
         #expect(artists.items.map(\.tracks) == [9, 3])
+        #expect(artists.items.map(\.artworkPath) == [["api", "v1", "recordings", "r2", "artwork"], ["api", "v1", "recordings", "r1", "artwork"]])
         #expect(artists.heroLabel == "Radio · because you own the most of this artist")
     }
 
@@ -30,6 +31,14 @@ import Testing
         let radio = try await discovery(fake).radio("g1")
         #expect(radio.tracks.map(\.id) == ["r1"])
         #expect(radio.reach == "Starts with 1 ready track, then 4 nearby artists in your library.")
+        #expect(radio.playing == "Playing a mix of Fixture Band and 4 similar artists from your library.")
+    }
+
+    @Test func radioNoticesMatchTheWeb() {
+        let one = ArtistRadio(artist: "Fixture Band", similar: 1, tracks: [])
+        #expect(one.playing == "Playing a mix of Fixture Band and 1 similar artist from your library.")
+        #expect(ArtistRadio(artist: "Fixture Band", similar: 0, tracks: []).playing == "Playing a mix of Fixture Band from your library.")
+        #expect(ArtistRadio.nothingPlayable("Fixture Band") == "Nothing playable from Fixture Band is in your library right now.")
     }
 
     @Test func aRadioWithNoNearbyArtistsStaysWithTheArtist() async throws {
