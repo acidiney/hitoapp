@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { LyricsPanel } from "../components/NowPlayingLyrics";
@@ -61,6 +62,10 @@ const lyricsOf = (lines: [number, string][]) => ({
   },
 });
 
+async function followed() {
+  await waitFor(() => expect(state.listeners.size).toBeGreaterThan(0));
+}
+
 function setPosition(seconds: number) {
   act(() => {
     state.position = seconds;
@@ -110,6 +115,7 @@ test("timed lines follow the position and mark only the current one", async () =
   open();
   const first = await screen.findByRole("button", { name: "First" });
   expect(first.getAttribute("aria-current")).toBe("true");
+  await followed();
   setPosition(2.5);
   expect(
     screen.getByRole("button", { name: "Second" }).getAttribute("aria-current"),
@@ -150,6 +156,7 @@ test("scrolling by hand pauses following until Back to current line", async () =
   fireEvent.wheel(lines);
   const scroll = vi.mocked(Element.prototype.scrollBy);
   scroll.mockClear();
+  await followed();
   setPosition(4.5);
   expect(scroll).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Back to current line" }));
@@ -176,6 +183,7 @@ test("following puts the current line at the panel's follow anchor, centred by d
   third.getBoundingClientRect = () => box(300, 40);
   const scroll = vi.mocked(Element.prototype.scrollBy);
   scroll.mockClear();
+  await followed();
   setPosition(4.5);
   expect(scroll).toHaveBeenLastCalledWith(
     expect.objectContaining({ top: 320 - 300 }),
@@ -245,6 +253,7 @@ test("anchored lyrics whose duration matches the audio follow the position, seek
   const first = await screen.findByRole("button", { name: "First anchored" });
   expect(screen.getAllByRole("button", { name: /anchored/ })).toHaveLength(2);
   expect(first.getAttribute("aria-current")).toBeNull();
+  await followed();
   setPosition(1.5);
   expect(first.getAttribute("aria-current")).toBe("true");
   setPosition(5.5);
