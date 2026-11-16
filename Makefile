@@ -11,13 +11,14 @@ COMPOSE := docker compose
 RUST := $(COMPOSE) --profile tools run --rm rust
 NODE := $(COMPOSE) --profile tools run --rm node
 
-.PHONY: help up down build-tools fmt fmt-check test-rust test-web check-core check-server check-playback check-plugins check-community check-rest check-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify bench-playback
+.PHONY: help up down build-tools fmt fmt-check test-rust test-web check-core check-server check-playback check-plugins check-community check-rest check-scale check-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify bench-playback
 
 help:
 	@echo "Targets that act on the running 'hito' application project: up down"
 	@echo "Targets that run one-off tool containers: build-tools fmt fmt-check test-rust test-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify"
 	@echo "Opt-in measurement (about 80 minutes): bench-playback"
 	@echo "Area checks (tests for one area, through the tools profile): check-core check-server check-playback check-plugins check-community check-rest check-web"
+	@echo "Scale checks (slow, wall-clock and 100k workloads, run alone): check-scale"
 	@echo "Variables: COMPOSE_PROJECT=<name> redirects every target except up and down"
 	@echo "           COMPOSE_EXTRA=<override.yaml[:more.yaml]> is added to the Compose file list for every target"
 	@echo "           E2E_SCRIPT=<npm script> selects the Playwright run of 'make e2e' (default e2e; see apps/web/package.json)"
@@ -40,7 +41,7 @@ fmt-check:
 test-rust:
 	$(RUST) cargo test --workspace --locked
 	$(COMPOSE) --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
-	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
+	$(MAKE) check-scale
 
 test-web:
 	$(NODE) npm test
@@ -52,7 +53,6 @@ PLUGIN_PACKAGES := -p hito-plugin-sdk -p hito-plugin-folder -p hito-plugin-spoti
 check-core:
 	$(RUST) cargo test --locked $(CORE_PACKAGES)
 	$(COMPOSE) --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
-	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
 
 check-server:
 	$(RUST) cargo test --locked $(SERVER_PACKAGES)
@@ -65,6 +65,12 @@ check-plugins:
 
 check-community:
 	$(RUST) cargo test --locked -p hito-community
+
+check-scale:
+	$(RUST) cargo test --locked -p hito-core --lib catalog_replication::work::one_hundred_thousand_local_history_facts_fit_the_snapshot_budget -- --ignored --exact
+	$(RUST) cargo test --locked -p hito-core --test provider_bindings_upgrade -- --ignored --exact populated_binding_upgrade_preserves_one_hundred_thousand_provider_recordings
+	$(RUST) cargo test --locked -p hito-server --test artwork -- --ignored --exact artwork_thousand::one_thousand_distinct_album_covers_survive_beside_protected_artwork
+	$(RUST) cargo test --locked -p hito-plugin-torbox --test restart_capacity --test restart_capacity_uncertain -- --ignored
 
 check-rest:
 	$(RUST) cargo test --workspace --locked $(CORE_PACKAGES:-p=--exclude) --exclude hito-server
