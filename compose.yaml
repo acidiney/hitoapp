@@ -30,7 +30,7 @@ services:
     cap_add:
       - SYS_RESOURCE
     environment:
-      CARGO_BUILD_JOBS: "2"
+      CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
@@ -91,7 +91,7 @@ services:
       - rust-target:/build
     environment:
       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-      CARGO_BUILD_JOBS: "2"
+      CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"

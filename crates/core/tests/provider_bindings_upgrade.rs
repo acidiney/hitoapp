@@ -8,6 +8,7 @@ use serde_json::json;
 use std::time::{Duration, Instant};
 
 #[tokio::test]
+#[ignore = "Scale check: run by make check-scale"]
 async fn populated_binding_upgrade_preserves_one_hundred_thousand_provider_recordings() {
     let legacy = fixture::Legacy::seed().await;
     let server = provider::ProviderServer::start().await;
