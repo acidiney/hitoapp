@@ -273,7 +273,7 @@ impl PlaybackSource {
             .await
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug", Debug), fields(playback_grant = self.id))]
     pub async fn open(&self, request: AudioRequest) -> Result<OpenedAudio> {
         self.origin.open(self, request).await
     }
