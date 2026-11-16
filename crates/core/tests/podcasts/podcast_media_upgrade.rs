@@ -590,7 +590,9 @@ impl RetainedState {
         );
         self.schema.insert(
             "source_resolutions".into(),
-            declared.get("source_resolutions").unwrap().clone(),
+            collection_artwork_schema::playback_failure_schema::with_failure(
+                declared.get("source_resolutions").unwrap(),
+            ),
         );
         reference.close().await.unwrap();
         self
