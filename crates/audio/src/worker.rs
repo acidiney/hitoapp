@@ -68,14 +68,17 @@ pub(crate) fn run(
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let mut output_generation = 1;
-    let Some((mut producer, output)) =
-        Output::start(format, state.clone(), audio_id, output_generation)?
+    let mut resets = 0;
+    let Some((mut producer, output)) = restart(
+        &state,
+        audio_id,
+        &mut output_generation,
+        &mut resets,
+        0,
+        |generation| Output::start(format, state.clone(), audio_id, generation),
+    )?
     else {
-        return if state.stopped.load(Ordering::Acquire) {
-            Ok(())
-        } else {
-            Err(Error::Output)
-        };
+        return Ok(());
     };
     let mut output = Some(output);
     let mut buffering = Buffering::new(producer.buffer().capacity());
@@ -92,7 +95,6 @@ pub(crate) fn run(
         target,
         format,
     };
-    let mut resets = 0;
     let mut last_reset = Duration::ZERO;
     #[cfg(feature = "test-support")]
     let mut producer_read_service = ProducerReadService::default();
@@ -373,6 +375,7 @@ fn restart<T>(
                     );
                     return Err(Error::Output);
                 }
+                state.output_failure.store(0, Ordering::Release);
                 *generation += 1;
             }
             Ok(None) => return Err(Error::Output),
@@ -636,6 +639,21 @@ mod tests {
         });
         assert!(matches!(result, Ok(Some(Owned(4)))));
         assert_eq!(seen, [2, 3, 4]);
+    }
+
+    #[test]
+    fn a_retried_start_clears_the_failure_of_the_output_it_replaces() {
+        let state = State::new();
+        let (result, _, _) = attempts(&state, 1, |state, generation| {
+            if generation < 3 {
+                state.output_failure.store(1, Ordering::Release);
+                requested(state, generation)
+            } else {
+                Ok(Some(()))
+            }
+        });
+        assert!(matches!(result, Ok(Some(Owned(3)))));
+        assert_eq!(state.output_failure.load(Ordering::Acquire), 0);
     }
 
     #[test]
