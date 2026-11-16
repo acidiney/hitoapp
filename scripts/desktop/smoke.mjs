@@ -111,7 +111,9 @@ const silent = () => {
   const energy = monitor.energy();
   return energy !== null && energy < 0.000001;
 };
+const stops = () => logs().split('"event":"desktop_stopped"').length - 1;
 async function close(origin) {
+  const stopsBefore = stops();
   const window = execFileSync(
     "xdotool",
     ["search", "--onlyvisible", "--name", "^Hito$"],
@@ -130,7 +132,7 @@ async function close(origin) {
     }
   }, "local backend shutdown after closing the window");
   await wait(
-    async () => logs().includes('"event":"desktop_stopped"'),
+    async () => stops() > stopsBefore,
     "the joined desktop shutdown event",
   );
   await endSession();
@@ -492,14 +494,18 @@ try {
   );
   console.log("desktop user agent and session label verified");
   await click('a[href="/settings"]');
+  const musicSettings =
+    'nav[aria-label="Settings sections"] a[href="/settings?section=music"]';
+  await wait(() => exists(musicSettings), "the Music settings tab");
+  await click(musicSettings);
   await wait(
     () =>
       execute(
-        'return [...document.querySelectorAll("button")].some(b => b.textContent.includes("Add music folder"))',
+        'return document.querySelector(\'button[aria-label="Add music folder"]\') !== null',
       ),
     "music folder settings",
   );
-  await clickText("Add music folder");
+  await click('button[aria-label="Add music folder"]');
   await wait(
     () => exists('button[aria-label="Open Music folder"]'),
     "the owned Music directory",
