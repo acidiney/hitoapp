@@ -88,6 +88,7 @@ test("the worker installs and controls the page, caches only public static files
   page.on("pageerror", (error) => failures.push(error.message));
   try {
     await page.goto("/");
+    await controlled(page);
     await page.getByLabel("Username", { exact: true }).fill(username);
     await page.getByLabel("Password", { exact: true }).fill(memberPassword);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
