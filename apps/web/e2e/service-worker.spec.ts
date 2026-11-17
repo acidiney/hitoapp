@@ -2,6 +2,7 @@ import { networkInterfaces } from "node:os";
 import { expect, test, type Page } from "@playwright/test";
 import { signOutFromShell } from "./fixtures/account";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
+import { connectFixtureFolders } from "./fixtures/music-folders";
 import { workerProxy } from "./fixtures/worker-proxy";
 
 test.use({
@@ -76,6 +77,7 @@ test("the worker installs and controls the page, caches only public static files
   baseURL,
 }) => {
   const members = await createMembers(browser, baseURL!, "worker", 1);
+  await connectFixtureFolders(members.administrator, baseURL!);
   const [username] = members.names;
   const audio: string[] = [];
   const failures: string[] = [];
