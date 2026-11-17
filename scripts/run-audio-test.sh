@@ -40,6 +40,9 @@ docker compose --profile desktop run --rm \
   printf "{\"package\":\"%s\",\"test\":\"%s\",\"revision\":\"%s\",\"exit_status\":%s,\"capture_reached\":%s}\n" \
     "$package" "$fixture" "$HITO_SOURCE_REVISION" "$status" "$reached" > "$run/run.json"
   if test "$status" = 0; then rm -rf "${run:?}/capture"; fi
+  find "$run" -depth -name "*[:\"<>|*?]*" | while IFS= read -r path; do
+    mv "$path" "$(dirname "$path")/$(basename "$path" | tr ":\"<>|*?" "-------")"
+  done
   chmod -R a+rX "$run"
   exit "$status"
 ' sh "$@"
