@@ -11,7 +11,5 @@ mod descriptor;
 mod fixture;
 #[path = "playback_leases/lifecycle.rs"]
 mod lifecycle;
-#[path = "playback_leases/logs.rs"]
-mod logs;
 #[path = "playback_leases/remote.rs"]
 mod remote;
