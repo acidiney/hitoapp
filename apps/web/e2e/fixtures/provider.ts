@@ -7,6 +7,7 @@ export async function providerFixture(
   expanded = false,
   preparation = false,
   distinctArtists = false,
+  links = false,
 ) {
   const audio = await readFile(
     "/workspace/fixtures/e2e-generated/Music/Fixture 440 Hz.wav",
@@ -54,6 +55,7 @@ export async function providerFixture(
   const prepared = new Set<string>();
   const preparations = { begin: 0, status: 0 };
   const sourceRequests: string[] = [];
+  const lookups: string[] = [];
   const gates = new Map<
     string,
     { entered: boolean; wait: Promise<void>; release: () => void }
@@ -154,10 +156,17 @@ export async function providerFixture(
           id: "org.hito.relay-fixture",
           name: "Relay fixture",
           protocol_version: 1,
-          capabilities: preparation
-            ? ["search", "sources", "source_preparation"]
-            : ["search", "sources"],
+          capabilities: [
+            "search",
+            "sources",
+            ...(preparation ? ["source_preparation"] : []),
+            ...(links ? ["source_links"] : []),
+          ],
         };
+        break;
+      case "/fixture/v1/recordings/lookup":
+        lookups.push(JSON.parse(body).reference);
+        reply = links ? { recording } : null;
         break;
       case "/fixture/v1/sources/prepare":
       case "/fixture/v1/sources/preparation/status": {
@@ -269,6 +278,7 @@ export async function providerFixture(
     secondSource,
     requests,
     sourceRequests,
+    lookups,
     setSources: (
       id: string,
       items: { id: string; label: string; ready: boolean }[],
