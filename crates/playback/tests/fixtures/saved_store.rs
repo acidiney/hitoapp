@@ -17,6 +17,10 @@ impl SavedStore {
             .execute(&pool)
             .await
             .unwrap();
+        sqlx::query("CREATE TABLE saved_fixture_marks (mark INTEGER)")
+            .execute(&pool)
+            .await
+            .unwrap();
         Self { pool }
     }
     pub async fn delayed(directory: &Path) -> Self {
@@ -41,19 +45,9 @@ impl SavedStore {
             .unwrap();
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
             loop {
-                let (busy, _, _): (i64, i64, i64) =
-                    sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
-                        .fetch_one(&self.pool)
-                        .await
-                        .unwrap();
-                if busy != 0 {
+                if self.held_by_reader().await {
                     tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-                    let (busy, _, _): (i64, i64, i64) =
-                        sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
-                            .fetch_one(&self.pool)
-                            .await
-                            .unwrap();
-                    if busy != 0 {
+                    if self.held_by_reader().await {
                         return;
                     }
                 }
@@ -63,7 +57,22 @@ impl SavedStore {
         .await
         .expect("the bounded fixture lookup must hold its read snapshot");
     }
+    async fn held_by_reader(&self) -> bool {
+        sqlx::query("INSERT INTO saved_fixture_marks DEFAULT VALUES")
+            .execute(&self.pool)
+            .await
+            .unwrap();
+        let (busy, _, _): (i64, i64, i64) = sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
+            .fetch_one(&self.pool)
+            .await
+            .unwrap();
+        busy != 0
+    }
     pub async fn restore(self) {
+        sqlx::query("DROP TABLE saved_fixture_marks")
+            .execute(&self.pool)
+            .await
+            .unwrap();
         sqlx::query("DROP VIEW IF EXISTS listening_progress")
             .execute(&self.pool)
             .await
