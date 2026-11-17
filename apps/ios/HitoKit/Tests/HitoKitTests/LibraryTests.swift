@@ -133,4 +133,14 @@ import Testing
         #expect(request.url?.absoluteString == "http://192.168.1.20:8080/api/v1/releases/a%201/artwork")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token-1")
     }
+
+    @Test func everyRealTrackOffersAWayToItsSourcesLikeTheWebRowMenu() {
+        func track(_ id: String, available: Bool, services: Bool) -> Track {
+            Track(id: id, title: "Song", artist: "Band", album: nil, releaseId: nil, durationMs: 1000, available: available, playsFromServices: services, liked: false)
+        }
+        #expect(track("r1", available: false, services: false).sourceAction == "Find audio")
+        #expect(track("r1", available: true, services: false).sourceAction == "Fix source")
+        #expect(track("r1", available: false, services: true).sourceAction == "Fix source")
+        #expect(track("entry:7", available: false, services: false).sourceAction == nil)
+    }
 }
