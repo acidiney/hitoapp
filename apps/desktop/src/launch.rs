@@ -2,8 +2,8 @@ use crate::{exit::Lifecycle, session::DesktopSession};
 use futures_util::future::BoxFuture;
 use hito_desktop::{
     AppHost, Lazy, LocalHost, NativePicker, Next, OsControls, Outcome, Paths, Place, Prober,
-    RecentServers, RemoteHost, ReturnPort, SystemBrowser, SystemMedia, WindowHandle, check,
-    current_server,
+    RecentServers, RemoteHost, ReturnPort, ServerSession, SystemBrowser, SystemMedia, WindowHandle,
+    check, current_server,
 };
 use hito_playback::{MediaIntegration, media_commands};
 use hito_server::{HostPlace, HostPlaceCurrent};
