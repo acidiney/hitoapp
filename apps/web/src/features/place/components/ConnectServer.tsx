@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { ChevronLeft } from "lucide-react";
 import AuthPage from "../../session/components/AuthPage";
 import {
   AuthAlert,
@@ -65,7 +66,10 @@ function NotEncrypted({
   onChange: () => void;
 }) {
   return (
-    <section className="auth-form" aria-labelledby="not-encrypted-title">
+    <section
+      className="auth-form connect-notice"
+      aria-labelledby="not-encrypted-title"
+    >
       <div className="auth-heading">
         <h1 id="not-encrypted-title">This connection is not encrypted</h1>
         <p className="auth-lead">{shown}</p>
@@ -195,6 +199,7 @@ export default function ConnectServer({
         >
           <div className="auth-heading">
             <Button variant="link" className="connect-back" onClick={onBack}>
+              <ChevronLeft size={18} aria-hidden="true" />
               Back
             </Button>
             <h1>Connect to a server</h1>

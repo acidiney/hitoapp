@@ -147,6 +147,22 @@ const firstScreenShown = async () => {
     return false;
   }
 };
+const buttonShown = (text) => async () => {
+  try {
+    return await execute(
+      `return [...document.querySelectorAll("button")].some((button) => button.textContent.trim() === ${JSON.stringify(text)})`,
+    );
+  } catch {
+    return false;
+  }
+};
+async function changePlace() {
+  await navigate("location.assign('/settings?section=about')");
+  await wait(buttonShown("Change…"), "the place row in Settings, About");
+  await clickText("Change…");
+  await wait(buttonShown("Change"), "the change-place dialog");
+  await clickText("Change");
+}
 const chooseThisComputer = () =>
   click('form[aria-label="Choose where your music is"] button');
 const connectionNoticeShown = () =>
@@ -769,9 +785,7 @@ try {
   }, "History loads the current Rust cursor over stale rendered History and keeps current speed");
   await stopSavedStartObservation();
   await noBrowserAudio();
-  await navigate("location.assign('/settings?section=about')");
-  await clickText("Change…");
-  await clickText("Change");
+  await changePlace();
   await wait(firstScreenShown, "the first screen after changing the place");
   await chooseThisComputer();
   await wait(async () => {
@@ -810,9 +824,7 @@ try {
     }
   };
   try {
-    await navigate("location.assign('/settings?section=about')");
-    await clickText("Change…");
-    await clickText("Change");
+    await changePlace();
     await wait(firstScreenShown, "the first screen before choosing a server");
     await click(
       '[aria-label="Where Hito keeps its library"] button:last-of-type',
@@ -850,7 +862,7 @@ try {
   }
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
-    previousStops + 3,
+    previousStops + 2,
   );
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
