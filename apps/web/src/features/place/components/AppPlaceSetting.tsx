@@ -37,7 +37,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
           onClose={() => setAsking(false)}
         >
           <p>{consequence(offer.current)}</p>
-          <footer className="review-actions">
+          <div className="dialog-actions">
             <Button onClick={() => setAsking(false)} disabled={busy}>
               Cancel
             </Button>
@@ -48,7 +48,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
             >
               Change
             </Button>
-          </footer>
+          </div>
         </Dialog>
       )}
     </>
