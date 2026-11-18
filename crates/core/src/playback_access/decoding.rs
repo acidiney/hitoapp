@@ -8,7 +8,9 @@ use opening::Stop;
 use super::{PlaybackSource, conversion::ConversionLimits};
 use crate::{Error, MediaTools, Result};
 use std::{
+    future::Future,
     io::Seek,
+    pin::Pin,
     time::{Duration, Instant},
 };
 use tokio::{sync::mpsc, task::JoinHandle};
@@ -45,6 +47,7 @@ pub struct PcmStream {
     cancellation: Stop,
     owner: Option<JoinHandle<()>>,
     finished: bool,
+    authorizing: Option<Pin<Box<dyn Future<Output = Result<()>> + Send>>>,
 }
 
 impl PlaybackSource {
@@ -99,7 +102,7 @@ impl PcmStream {
         if self.finished {
             return Ok(None);
         }
-        self.authority.check().await?;
+        self.authorize().await?;
         if self.pending.is_none() {
             self.pending = Some(tokio::select! {
                 biased;
@@ -107,7 +110,7 @@ impl PcmStream {
                 message = self.receiver.recv() => message.unwrap_or_else(|| Message::Failed(unfinished())),
             });
         }
-        self.authority.check().await?;
+        self.authorize().await?;
         match self.pending.take().ok_or_else(unfinished)? {
             Message::Block(block) => Ok(Some(block)),
             terminal => {
@@ -131,7 +134,18 @@ impl PcmStream {
         Ok(())
     }
 
+    async fn authorize(&mut self) -> Result<()> {
+        let authority = self.authority.clone();
+        let check = self
+            .authorizing
+            .get_or_insert_with(|| Box::pin(async move { authority.check().await }));
+        let result = check.await;
+        self.authorizing = None;
+        result
+    }
+
     fn cancel(&mut self) {
+        self.authorizing = None;
         self.pending = None;
         self.receiver.close();
         self.cancellation.cancel();

@@ -29,7 +29,7 @@ async fn lease_workflows_log_safe_outcomes_correlation_and_timings_without_priva
         .with_max_level(tracing::Level::TRACE)
         .with_writer(move || Writer(output.clone()))
         .finish();
-    let guard = tracing::subscriber::set_default(subscriber);
+    tracing::subscriber::set_global_default(subscriber).unwrap();
     let lease = f
         .services
         .playback
@@ -58,7 +58,6 @@ async fn lease_workflows_log_safe_outcomes_correlation_and_timings_without_priva
         .await
         .unwrap();
     f.close().await;
-    drop(guard);
     let log = String::from_utf8(bytes.lock().unwrap().clone()).unwrap();
     assert!(log.contains("playback_lease_created"));
     assert!(log.contains("playback_lease_closed"));
