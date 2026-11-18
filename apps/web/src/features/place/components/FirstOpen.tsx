@@ -107,6 +107,7 @@ export default function FirstOpen({ useThisComputer, chooseServer }: Props) {
         <section className="auth-form" role="alert">
           <div className="auth-heading">
             <h1>Couldn't start Hito on this computer</h1>
+            <p className="auth-lead">Your library was not changed.</p>
           </div>
           <Button variant="primary" onClick={start}>
             Try again

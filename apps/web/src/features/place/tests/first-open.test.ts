@@ -67,6 +67,7 @@ test("a library that cannot start offers to try again or to connect to a server 
       name: "Couldn't start Hito on this computer",
     }),
   ).toBeTruthy();
+  expect(screen.getByText("Your library was not changed.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(useThisComputer).toHaveBeenCalledTimes(2);
   expect(
