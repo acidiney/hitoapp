@@ -234,7 +234,8 @@ async function verifyBrowserLauncher() {
     const url = new URL(incoming.url ?? "/", "http://provider.test");
     const port = provider.address().port;
     if (url.pathname === "/authorize") {
-      if (/HitoDesktop/.test(incoming.headers["user-agent"] ?? "")) appRequests += 1;
+      if (/HitoDesktop/.test(incoming.headers["user-agent"] ?? ""))
+        appRequests += 1;
       authorizations.push(url);
       const back = new URL(url.searchParams.get("redirect_uri"));
       back.searchParams.set("code", "desktop-smoke-code");
@@ -375,7 +376,10 @@ async function verifyBrowserLauncher() {
     `);
     assert.deepEqual(forged, [422, 422, 422, 422]);
     assert.equal(openerCalls().length, 2);
-    console.log("desktop launcher: forged launches for a live attempt refused", forged);
+    console.log(
+      "desktop launcher: forged launches for a live attempt refused",
+      forged,
+    );
     const callback = await fetch(
       `${origin}/api/v1/plugin-authorization/callback?code=probe&state=probe`,
       { redirect: "manual" },
@@ -435,7 +439,11 @@ async function verifyBrowserLauncher() {
       { timeout: 5000 },
     );
     const pageText = await execute("return document.body.innerText");
-    for (const secret of ["desktop-smoke-access", "desktop-smoke-refresh", "desktop-smoke-code"])
+    for (const secret of [
+      "desktop-smoke-access",
+      "desktop-smoke-refresh",
+      "desktop-smoke-code",
+    ])
       assert.equal(pageText.includes(secret), false);
   } finally {
     provider.close();
@@ -468,18 +476,15 @@ try {
   await wait(firstScreenShown, "the first screen asking where the music is");
   assert.notEqual(await execute("return location.hostname"), "127.0.0.1");
   await chooseThisComputer();
-  await wait(
-    async () => {
-      try {
-        return await execute(
-          'return document.querySelector("input[autocomplete=username]") !== null',
-        );
-      } catch {
-        return false;
-      }
-    },
-    "the local setup form",
-  );
+  await wait(async () => {
+    try {
+      return await execute(
+        'return document.querySelector("input[autocomplete=username]") !== null',
+      );
+    } catch {
+      return false;
+    }
+  }, "the local setup form");
   assert.equal(await execute("return location.hostname"), "127.0.0.1");
   assert.equal(await execute("return location.search"), "");
   assert.equal(
@@ -521,7 +526,7 @@ try {
   await wait(
     () =>
       execute(
-        'return document.querySelector(\'button[aria-label="Add music folder"]\') !== null',
+        "return document.querySelector('button[aria-label=\"Add music folder\"]') !== null",
       ),
     "music folder settings",
   );
@@ -540,10 +545,7 @@ try {
   );
   await clickText("Use this folder");
   await wait(
-    () =>
-      execute(
-        'return document.body.textContent.includes("1 file read")',
-      ),
+    () => execute('return document.body.textContent.includes("1 file read")'),
     "the local scan",
   );
   await click('nav[aria-label="Main navigation"] a[href="/library"]');
@@ -781,17 +783,81 @@ try {
   }, "the kept local library after choosing this computer again");
   const changedOrigin = await execute("return location.origin");
   assert.notEqual(changedOrigin, restartedOrigin);
-  await close(changedOrigin);
+  const fakeRequests = [];
+  const fakeHito = createServer((request, response) => {
+    fakeRequests.push({
+      url: request.url,
+      cookie: request.headers.cookie ?? null,
+      origin: request.headers.origin ?? null,
+    });
+    if (request.url === "/health") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end('{"ready":true}');
+      return;
+    }
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end("<!doctype html><title>Hito</title><h1>Fake Hito server</h1>");
+  });
+  await new Promise((done) => fakeHito.listen(0, "127.0.0.1", done));
+  const fakePort = fakeHito.address().port;
+  const headingIs = (text) => async () => {
+    try {
+      return await execute(
+        `return document.querySelector("h1")?.textContent === ${JSON.stringify(text)}`,
+      );
+    } catch {
+      return false;
+    }
+  };
+  try {
+    await navigate("location.assign('/settings?section=about')");
+    await clickText("Change…");
+    await clickText("Change");
+    await wait(firstScreenShown, "the first screen before choosing a server");
+    await click(
+      '[aria-label="Where Hito keeps its library"] button:last-of-type',
+    );
+    await wait(headingIs("Connect to a server"), "the server address screen");
+    await type("#server-address", `127.0.0.1:${fakePort}`);
+    await clickText("Connect");
+    await wait(
+      headingIs("This connection is not encrypted"),
+      "the notice for a plain http server",
+    );
+    await clickText("Connect anyway");
+    await wait(
+      headingIs("Fake Hito server"),
+      "the chosen server's page inside the app",
+    );
+    const remoteOrigin = await execute("return location.origin");
+    assert.equal(new URL(remoteOrigin).hostname, "127.0.0.1");
+    assert.notEqual(new URL(remoteOrigin).port, String(fakePort));
+    assert.ok(fakeRequests.some((seen) => seen.url === "/library"));
+    assert.ok(
+      fakeRequests.every(
+        (seen) => seen.cookie === null && seen.origin === null,
+      ),
+    );
+    await close(remoteOrigin);
+    await open();
+    await wait(
+      headingIs("Fake Hito server"),
+      "the saved server opening again without asking",
+    );
+    await close(await execute("return location.origin"));
+  } finally {
+    fakeHito.close();
+  }
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
-    previousStops + 1,
+    previousStops + 3,
   );
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   assert.equal(logs().includes("desktop-smoke-code"), false);
   assert.equal(logs().includes("desktop-smoke-access"), false);
   console.log(
-    "Standalone Tauri first screen, setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence, changing the place and joined shutdown passed.",
+    "Standalone Tauri first screen, setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence, changing the place, connecting to a server, reopening it and joined shutdown passed.",
   );
 } catch (error) {
   try {
