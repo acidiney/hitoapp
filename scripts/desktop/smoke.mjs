@@ -824,9 +824,7 @@ try {
     }
   };
   try {
-    await navigate("location.assign('/settings?section=about')");
-    await clickText("Change…");
-    await clickText("Change");
+    await changePlace();
     await wait(firstScreenShown, "the first screen before choosing a server");
     await click(
       '[aria-label="Where Hito keeps its library"] button:last-of-type',
@@ -864,7 +862,7 @@ try {
   }
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
-    previousStops + 3,
+    previousStops + 2,
   );
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
