@@ -83,7 +83,7 @@ web-install:
 	$(NODE) npm ci
 
 web-audit:
-	$(NODE) npm audit --audit-level=high
+	$(NODE) sh -c 'npm audit --json | node /workspace/scripts/web-audit.mjs'
 
 lint:
 	$(RUST) cargo clippy --workspace --all-targets --locked -- -D warnings
