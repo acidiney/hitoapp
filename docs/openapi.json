@@ -27376,6 +27376,24 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "origin",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "server"
+                ]
+              },
+              "origin": {
+                "type": "string"
+              }
+            }
           }
         ]
       },

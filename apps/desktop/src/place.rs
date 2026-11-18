@@ -18,7 +18,11 @@ impl Place {
     }
 
     pub fn save(&self, data: &Path) -> std::io::Result<()> {
-        write_private(data, FILE, &serde_json::to_vec(self).map_err(std::io::Error::other)?)
+        write_private(
+            data,
+            FILE,
+            &serde_json::to_vec(self).map_err(std::io::Error::other)?,
+        )
     }
 
     pub fn forget(data: &Path) -> std::io::Result<()> {

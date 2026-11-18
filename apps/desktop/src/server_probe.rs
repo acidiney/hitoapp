@@ -26,9 +26,7 @@ impl Prober {
     }
 
     pub fn with_roots(extra_roots: &[&[u8]]) -> reqwest::Result<Self> {
-        if rustls::crypto::CryptoProvider::get_default().is_none() {
-            let _ = rustls::crypto::ring::default_provider().install_default();
-        }
+        tls_ready();
         let mut builder = Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -105,6 +103,12 @@ impl Prober {
         } else {
             Attempt::Answered(Probe::NotHito(host))
         }
+    }
+}
+
+pub(crate) fn tls_ready() {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
     }
 }
 

@@ -48,3 +48,19 @@ test("the app says it uses this computer and asks before changing it", async () 
   fireEvent.click(screen.getByRole("button", { name: "Change" }));
   await waitFor(() => expect(placeApi.change).toHaveBeenCalledWith("owner"));
 });
+
+test("the app names the server it uses and says the sign-in stays", async () => {
+  vi.mocked(placeApi.offer).mockResolvedValue({
+    changeable: true,
+    current: { kind: "server", origin: "https://music.example.org" },
+  });
+  render(createElement(AppPlaceSetting, { account: "owner" }));
+  expect(await screen.findByText("https://music.example.org")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Change…" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Use a different place?",
+  });
+  expect(dialog.textContent).toContain(
+    "The music stops and the first screen opens. You stay signed in to music.example.org, and your library on this computer is kept.",
+  );
+});

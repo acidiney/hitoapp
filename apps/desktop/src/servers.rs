@@ -61,7 +61,11 @@ impl RecentServers {
     }
 
     pub fn signed_in(&mut self, origin: &Url, account: &str) {
-        if let Some(server) = self.servers.iter_mut().find(|server| server.origin == *origin) {
+        if let Some(server) = self
+            .servers
+            .iter_mut()
+            .find(|server| server.origin == *origin)
+        {
             server.account = Some(account.to_owned());
         }
     }

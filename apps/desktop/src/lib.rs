@@ -10,6 +10,7 @@ mod native_picker;
 #[cfg(feature = "native-media")]
 mod os_controls;
 mod place;
+mod remote;
 mod server_address;
 mod server_probe;
 mod servers;
@@ -27,6 +28,7 @@ pub use native_picker::NativePicker;
 #[cfg(feature = "native-media")]
 pub use os_controls::{OsControls, WindowHandle};
 pub use place::Place;
+pub use remote::{RemoteHost, current_server};
 pub use server_address::{AddressProblem, ServerAddress};
 pub use server_probe::{Probe, Prober};
 pub use servers::{RecentServer, RecentServers};
