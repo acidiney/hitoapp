@@ -1022,7 +1022,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["offer"];
+        get: operations["host_place_offer"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1040,7 +1040,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["change"];
+        post: operations["host_place_change"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11289,7 +11289,7 @@ export interface operations {
             };
         };
     };
-    offer: {
+    host_place_offer: {
         parameters: {
             query?: never;
             header?: never;
@@ -11324,7 +11324,7 @@ export interface operations {
             };
         };
     };
-    change: {
+    host_place_change: {
         parameters: {
             query?: never;
             header?: never;

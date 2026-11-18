@@ -29,7 +29,7 @@ pub struct HostPlaceOffer {
     pub current: Option<HostPlaceCurrent>,
 }
 
-#[utoipa::path(get, path = "/api/v1/host/place", security(("session" = []), ("bearer" = [])), responses(
+#[utoipa::path(get, path = "/api/v1/host/place", operation_id = "host_place_offer", security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = HostPlaceOffer), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
 ))]
 pub async fn offer(
@@ -48,7 +48,7 @@ pub async fn offer(
     }))
 }
 
-#[utoipa::path(post, path = "/api/v1/host/place/change", security(("session" = []), ("bearer" = [])), responses(
+#[utoipa::path(post, path = "/api/v1/host/place/change", operation_id = "host_place_change", security(("session" = []), ("bearer" = [])), responses(
     (status = 204), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse),
 ))]
