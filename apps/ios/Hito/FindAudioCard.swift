@@ -5,9 +5,11 @@ struct FindAudioCard: View {
     @Environment(AppModel.self) private var model
     let track: Track
     let prominent: Bool
-    let attached: () -> Void
+    let attached: (Track) -> Void
     @State private var services: [PluginConnection]?
     @State private var service: PluginConnection?
+    @State private var links: [PluginConnection] = []
+    @State private var link = ""
     @State private var query = ""
     @State private var results: [PluginResult] = []
     @State private var searched = false
@@ -19,6 +21,7 @@ struct FindAudioCard: View {
     struct Reviewing: Identifiable {
         let candidate: SourceAttachment.Candidate
         let review: SourceAttachment.Review
+        let service: String
         var id: String { candidate.providerRecordingId }
     }
 
@@ -30,20 +33,21 @@ struct FindAudioCard: View {
             if services == nil {
                 PlayAllButton(label: busy ? "Loading services…" : "Find a source") { Task { await open() } }
                     .disabled(busy)
-            } else if services?.isEmpty == true {
+            } else if services?.isEmpty == true && links.isEmpty {
                 Text("No connected service offers both music search and audio sources. Connect a music service in Plugins.")
                     .font(Theme.small).foregroundStyle(Theme.soft)
             } else {
-                search
+                if services?.isEmpty == false { search }
+                if !links.isEmpty { paste }
             }
-            if services == nil || services?.isEmpty == true, let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.warning) }
+            if services == nil || (services?.isEmpty == true && links.isEmpty), let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.warning) }
             if done { Text("Source added to this track.").font(Theme.small).foregroundStyle(Theme.focus) }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
         .sheet(item: $reviewing) { item in
-            ReviewMatchSheet(track: track, service: service?.name ?? "", review: item.review, busy: busy) {
+            ReviewMatchSheet(track: track, service: item.service, review: item.review, busy: busy) {
                 Task { await add(item) }
             }
         }
@@ -97,6 +101,61 @@ struct FindAudioCard: View {
         }
     }
 
+    private var linkService: PluginConnection? {
+        links.first { $0.id == service?.id } ?? links.first
+    }
+
+    @ViewBuilder private var paste: some View {
+        if let name = linkService?.name {
+            Text(services?.isEmpty == false ? "Not in the search results? Paste a link from \(name)." : "Paste a link from \(name).")
+                .font(Theme.small)
+                .foregroundStyle(Theme.quiet)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        HStack(spacing: 8) {
+            TextField("Paste a link", text: $link)
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.go)
+                .onSubmit { Task { await lookup() } }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Capsule().fill(Theme.raised))
+            Button("Look up link") { Task { await lookup() } }
+                .buttonStyle(.plain)
+                .font(Theme.bodyMedium)
+                .foregroundStyle(Theme.focus)
+                .frame(minHeight: 44)
+                .disabled(busy || link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        if services?.isEmpty != false {
+            if let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.warning) }
+            if busy && reviewing == nil { ProgressView().tint(Theme.soft) }
+        }
+    }
+
+    private func lookup() async {
+        guard let api = model.api, let source = linkService else { return }
+        let reference = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reference.isEmpty, !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let attachment = SourceAttachment(api: api)
+            let candidate = try await attachment.lookup(track.id, installationId: source.id, revision: source.revision, reference: reference)
+            reviewing = Reviewing(candidate: candidate, review: try await attachment.review(track.id, candidate), service: source.name)
+            link = ""
+            problem = nil
+        } catch let refused as SourceAttachment.Problem {
+            problem = refused.message
+        } catch is CancellationError {
+        } catch {
+            problem = PluginTrouble.message(error, otherwise: "\(source.name) couldn't look up that link. Try again.")
+        }
+    }
+
     private func sameTrack(_ hit: PluginResult) -> Bool {
         SourceAttachment.compare(saved: track.durationMs, candidate: hit.durationMs)?.close == true
             && SourceAttachment.artist(hit.artist)?.lowercased() == track.artist.trimmingCharacters(in: .whitespaces).lowercased()
@@ -107,7 +166,9 @@ struct FindAudioCard: View {
         busy = true
         defer { busy = false }
         do {
-            let found = try await Plugins(api: api).load().connections.filter { $0.capabilities.contains("search") && $0.capabilities.contains("sources") }
+            let connections = try await Plugins(api: api).load().connections.filter { $0.capabilities.contains("sources") }
+            let found = connections.filter { $0.capabilities.contains("search") }
+            links = connections.filter { $0.capabilities.contains("source_links") }
             services = found
             service = found.first
             query = "\(track.title) \(track.artist)"
@@ -138,7 +199,7 @@ struct FindAudioCard: View {
         defer { busy = false }
         let candidate = SourceAttachment.Candidate(installationId: service.id, installationRevision: service.revision, providerRecordingId: hit.id)
         do {
-            reviewing = Reviewing(candidate: candidate, review: try await SourceAttachment(api: api).review(track.id, candidate))
+            reviewing = Reviewing(candidate: candidate, review: try await SourceAttachment(api: api).review(track.id, candidate), service: service.name)
             problem = nil
         } catch let refused as SourceAttachment.Problem {
             problem = refused.message
@@ -153,12 +214,12 @@ struct FindAudioCard: View {
         busy = true
         defer { busy = false }
         do {
-            _ = try await SourceAttachment(api: api).attach(track.id, item.candidate, stamp: item.review.stamp)
+            let updated = try await SourceAttachment(api: api).attach(track.id, item.candidate, stamp: item.review.stamp)
             reviewing = nil
             results = []
             done = true
             problem = nil
-            attached()
+            attached(updated)
         } catch let refused as SourceAttachment.Problem {
             reviewing = nil
             problem = refused.message

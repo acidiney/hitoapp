@@ -9,7 +9,7 @@ import { sourceBindingsApi } from "../api/sourceBindingsApi";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
-type Phase = "settings" | "search" | "review" | "attach";
+type Phase = "settings" | "search" | "review" | "lookup" | "attach";
 type Work = {
   generation: number;
   controller: AbortController | null;
@@ -18,6 +18,7 @@ type Work = {
 type State = {
   loaded: boolean;
   connections: Schema<"PluginInstallation">[];
+  links: Schema<"PluginInstallation">[];
   names: Record<string, string>;
   choice: string | null;
   query: string;
@@ -34,6 +35,8 @@ type State = {
 type Snapshot = State & { owner: Work };
 
 const alreadyUsedMessage = "This video is already the source of another track.";
+const linkNotFoundMessage =
+  "The service couldn't find a track at that link. Check the link and try again.";
 
 function failure(account: string, error: unknown) {
   if (error instanceof HttpError && error.code === "already_bound")
@@ -52,6 +55,7 @@ function empty(owner: Work): Snapshot {
     owner,
     loaded: false,
     connections: [],
+    links: [],
     names: {},
     choice: null,
     query: "",
@@ -170,14 +174,21 @@ export function useSourceAttachment(
       {},
       (signal) => pluginsApi.settings(account, signal),
       (settings) => {
-        const connections = settings.installations.filter(
-          (item) =>
-            item.manifest.capabilities.includes("search") &&
-            item.manifest.capabilities.includes("sources"),
+        const offers = (
+          item: Schema<"PluginInstallation">,
+          capability: Schema<"Capability">,
+        ) =>
+          item.manifest.capabilities.includes("sources") &&
+          item.manifest.capabilities.includes(capability);
+        const connections = settings.installations.filter((item) =>
+          offers(item, "search"),
         );
         return {
           loaded: true,
           connections,
+          links: settings.installations.filter((item) =>
+            offers(item, "source_links"),
+          ),
           names: Object.fromEntries(
             settings.services.map((service) => [service.id, service.name]),
           ),
@@ -267,6 +278,44 @@ export function useSourceAttachment(
     );
   }
 
+  async function lookup(reference: string) {
+    const link =
+      current.links.find((item) => item.id === current.choice) ??
+      current.links[0];
+    reference = reference.trim();
+    if (!link || !reference || owner.phase) return false;
+    return run(
+      "lookup",
+      { review: null, attached: false },
+      async (signal) => {
+        const candidate = await sourceBindingsApi
+          .lookup(
+            account,
+            recording,
+            {
+              installation_id: link.id,
+              installation_revision: link.revision,
+              reference,
+            },
+            signal,
+          )
+          .catch((error: unknown) => {
+            if (error instanceof HttpError && error.status === 404)
+              throw new Error(linkNotFoundMessage);
+            throw error;
+          });
+        const detail = await sourceBindingsApi.review(
+          account,
+          recording,
+          candidate,
+          signal,
+        );
+        return { candidate, detail };
+      },
+      (review) => ({ review }),
+    );
+  }
+
   function dismissReview() {
     if (owner.phase === "attach" || !current.review) return;
     setSnapshot({ ...current, review: null });
@@ -275,13 +324,17 @@ export function useSourceAttachment(
   async function confirm() {
     const request = scope.capture();
     const review = current.review;
+    const installation = review
+      ? [...current.connections, ...current.links].find(
+          (item) => item.id === review.candidate.installation_id,
+        )
+      : undefined;
     if (
       !request.active() ||
       !review ||
-      !connection ||
+      !installation ||
       owner.phase ||
-      connection.id !== review.candidate.installation_id ||
-      connection.revision !== review.candidate.installation_revision
+      installation.revision !== review.candidate.installation_revision
     )
       return false;
     const attached = await run(
@@ -310,6 +363,7 @@ export function useSourceAttachment(
   return {
     loaded: current.loaded,
     connections: current.connections,
+    links: current.links,
     names: current.names,
     query: current.query,
     items: current.items,
@@ -323,6 +377,7 @@ export function useSourceAttachment(
     choose,
     search,
     reviewCandidate: review,
+    lookup,
     dismissReview,
     confirm,
   };

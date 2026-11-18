@@ -33,6 +33,22 @@ import Testing
         #expect((body["candidate"] as? [String: Any])?["provider_recording_id"] as? String == "t9")
     }
 
+    @Test func aPastedLinkIsLookedUpThroughTheChosenService() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/lookup": .json(200, #"{"installation_id":"p1","installation_revision":2,"provider_recording_id":"t9"}"#)])
+        let found = try await attachment(fake).lookup("r1", installationId: "p1", revision: 2, reference: "  https://service.invalid/track/9  ")
+        #expect(found == candidate)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["installation_id"] as? String == "p1")
+        #expect(body["installation_revision"] as? Int == 2)
+        #expect(body["reference"] as? String == "https://service.invalid/track/9")
+    }
+
+    @Test func aLinkTheServiceCannotFindSaysSo() async {
+        let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/lookup": .json(404, #"{"error":"Not found"}"#)])
+        await #expect(throws: SourceAttachment.Problem.linkNotFound) { try await attachment(fake).lookup("r1", installationId: "p1", revision: 2, reference: "https://service.invalid/x") }
+        #expect(SourceAttachment.Problem.linkNotFound.message == "The service couldn't find a track at that link. Check the link and try again.")
+    }
+
     @Test func lengthsAreComparedLikeTheWeb() {
         #expect(SourceAttachment.compare(saved: 200_000, candidate: 202_500) == .init(text: "The lengths match.", close: true))
         #expect(SourceAttachment.compare(saved: 200_000, candidate: 230_000) == .init(text: "The candidate is 30 seconds longer than your saved track.", close: false))
