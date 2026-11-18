@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { uniqueLoopbackHost } from "./loopback";
 
 export async function providerFixture(
   prefix = "Relay",
@@ -254,7 +255,8 @@ export async function providerFixture(
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify(reply));
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const host = uniqueLoopbackHost();
+  await new Promise<void>((resolve) => server.listen(0, host, resolve));
   function hold(key: string) {
     let release!: () => void;
     const wait = new Promise<void>((resolve) => {
@@ -270,7 +272,7 @@ export async function providerFixture(
     };
   }
   return {
-    address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture/`,
+    address: `http://${host}:${(server.address() as AddressInfo).port}/fixture/`,
     token,
     recording,
     second,
