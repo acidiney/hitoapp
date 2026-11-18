@@ -25,7 +25,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
             The music stops and the first screen opens. Your library on this
             computer is kept.
           </p>
-          <footer className="review-actions">
+          <div className="dialog-actions">
             <Button onClick={() => setAsking(false)} disabled={busy}>
               Cancel
             </Button>
@@ -36,7 +36,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
             >
               Change
             </Button>
-          </footer>
+          </div>
         </Dialog>
       )}
     </>
