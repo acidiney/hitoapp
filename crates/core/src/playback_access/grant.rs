@@ -115,7 +115,7 @@ impl PlaybackSource {
         if self.revoked.load(Ordering::Acquire) {
             return Err(Error::NotFound);
         }
-        let result = tokio::time::timeout(Duration::from_secs(1), async {
+        let checked = tokio::time::timeout(Duration::from_secs(1), async {
             self.actor.check_session(&self.store).await?;
             if playback_membership(&self.store, &self.actor, &self.recording, &self.source).await?
                 != self.membership
@@ -131,10 +131,16 @@ impl PlaybackSource {
             }
             Ok(())
         })
-        .await
-        .unwrap_or(Err(Error::Upstream(
-            "Playback authorization could not be checked in time",
-        )));
+        .await;
+        let Ok(result) = checked else {
+            tracing::debug!(
+                event = "playback_authorization_slow",
+                "Playback authorization could not be checked in time"
+            );
+            return Err(Error::Upstream(
+                "Playback authorization could not be checked in time",
+            ));
+        };
         if let Err(error) = &result
             && !self.revoked.swap(true, Ordering::AcqRel)
         {
@@ -154,7 +160,9 @@ impl PlaybackSource {
     #[tracing::instrument(level = "debug", skip_all, fields(playback_grant = self.id))]
     pub async fn revoked(&self) -> Error {
         loop {
-            if let Err(error) = self.check().await {
+            if let Err(error) = self.check().await
+                && self.revoked.load(Ordering::Acquire)
+            {
                 return error;
             }
             tokio::time::sleep(Duration::from_millis(250)).await;
@@ -222,5 +230,33 @@ impl PlaybackSource {
 impl super::relay::remote::AuthorityCheck for PlaybackSource {
     fn check(&self) -> futures_util::future::BoxFuture<'_, Result<()>> {
         Box::pin(PlaybackSource::check(self))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Error, test_support::playback::LocalPlayback};
+
+    #[tokio::test]
+    async fn a_check_that_runs_out_of_time_denies_that_read_but_keeps_the_grant() {
+        let f = LocalPlayback::start().await;
+        let grant = f
+            .services
+            .playback
+            .playback_source(&f.actor, &f.recording, &f.source)
+            .await
+            .unwrap();
+        let mut held = Vec::new();
+        for _ in 0..grant.store.pool.options().get_max_connections() {
+            held.push(grant.store.pool.acquire().await.unwrap());
+        }
+        assert!(matches!(
+            grant.check().await,
+            Err(Error::Upstream(
+                "Playback authorization could not be checked in time"
+            ))
+        ));
+        drop(held);
+        grant.check().await.unwrap();
     }
 }

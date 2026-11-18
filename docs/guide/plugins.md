@@ -78,6 +78,8 @@ If no plugin has an exact match, Hito may pick the plugin's top result and mark 
 
 To look by hand, open the track's menu and select **Find audio**. On the track's **Sources** tab, **Find a source** lets you search your plugins and review the match before Hito adds it.
 
+If a plugin can look up links, the same place has a **Paste a link** field. Paste a link to the track on that plugin's service and select **Look up link**. You review the match the same way before Hito adds it.
+
 Loading a page never starts a search. Hito only looks when you play a track or ask it to.
 
 ## Choose a source by hand

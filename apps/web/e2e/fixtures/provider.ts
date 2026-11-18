@@ -1,12 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { uniqueLoopbackHost } from "./loopback";
 
 export async function providerFixture(
   prefix = "Relay",
   expanded = false,
   preparation = false,
   distinctArtists = false,
+  links = false,
 ) {
   const audio = await readFile(
     "/workspace/fixtures/e2e-generated/Music/Fixture 440 Hz.wav",
@@ -54,6 +56,7 @@ export async function providerFixture(
   const prepared = new Set<string>();
   const preparations = { begin: 0, status: 0 };
   const sourceRequests: string[] = [];
+  const lookups: string[] = [];
   const gates = new Map<
     string,
     { entered: boolean; wait: Promise<void>; release: () => void }
@@ -154,10 +157,17 @@ export async function providerFixture(
           id: "org.hito.relay-fixture",
           name: "Relay fixture",
           protocol_version: 1,
-          capabilities: preparation
-            ? ["search", "sources", "source_preparation"]
-            : ["search", "sources"],
+          capabilities: [
+            "search",
+            "sources",
+            ...(preparation ? ["source_preparation"] : []),
+            ...(links ? ["source_links"] : []),
+          ],
         };
+        break;
+      case "/fixture/v1/recordings/lookup":
+        lookups.push(JSON.parse(body).reference);
+        reply = links ? { recording } : null;
         break;
       case "/fixture/v1/sources/prepare":
       case "/fixture/v1/sources/preparation/status": {
@@ -245,7 +255,8 @@ export async function providerFixture(
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify(reply));
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const host = uniqueLoopbackHost();
+  await new Promise<void>((resolve) => server.listen(0, host, resolve));
   function hold(key: string) {
     let release!: () => void;
     const wait = new Promise<void>((resolve) => {
@@ -261,7 +272,7 @@ export async function providerFixture(
     };
   }
   return {
-    address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture/`,
+    address: `http://${host}:${(server.address() as AddressInfo).port}/fixture/`,
     token,
     recording,
     second,
@@ -269,6 +280,7 @@ export async function providerFixture(
     secondSource,
     requests,
     sourceRequests,
+    lookups,
     setSources: (
       id: string,
       items: { id: string; label: string; ready: boolean }[],
