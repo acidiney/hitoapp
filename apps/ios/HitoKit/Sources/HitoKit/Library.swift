@@ -31,6 +31,10 @@ public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
 
     public var canFind: Bool { !isPlayable && !id.hasPrefix(Self.unlinked) }
 
+    public var sourceAction: String? {
+        id.hasPrefix(Self.unlinked) ? nil : isPlayable ? "Fix source" : "Find audio"
+    }
+
     public var artworkPath: [String] { ["api", "v1", "recordings", id, "artwork"] }
 
     enum CodingKeys: String, CodingKey {
