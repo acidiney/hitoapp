@@ -3,6 +3,23 @@ import { requestJson } from "../../../shared/http";
 import { invalidate } from "../../../shared/invalidation";
 
 export const sourceBindingsApi = {
+  async lookup(
+    account: string,
+    recording: string,
+    body: Schema<"LookupSourceLink">,
+    signal: AbortSignal,
+  ): Promise<Schema<"ProviderCandidate">> {
+    return requestJson<Schema<"ProviderCandidate">>(
+      `/recordings/${encodeURIComponent(recording)}/sources/lookup`,
+      {
+        action: "sources.lookup",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+  },
   async review(
     account: string,
     recording: string,

@@ -3,7 +3,8 @@ import SwiftUI
 
 struct TrackView: View {
     @Environment(AppModel.self) private var model
-    let track: Track
+    let opened: Track
+    @State private var refreshed: Track?
     @State private var choice: TrackSources.Choice?
     @State private var staged: String?
     @State private var saving = false
@@ -11,12 +12,19 @@ struct TrackView: View {
     @State private var details: TrackMetadata.Details?
     @State private var changingLyrics = false
 
+    init(track: Track) {
+        opened = track
+    }
+
+    private var track: Track { refreshed ?? opened }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 sources
-                FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
+                FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) { updated in
+                    refreshed = updated
                     Task { await load() }
                 }
                 if choice?.entries.contains(where: { !$0.local }) == true {
@@ -91,19 +99,9 @@ struct TrackView: View {
                     }
                 }
                 if choice.mode != .automatic || choice.entries.count > 1 || staged != nil {
-                    HStack(spacing: 8) {
-                        if choice.mode != .automatic {
-                            Button("Return to automatic") { Task { await reset(choice) } }
-                                .buttonStyle(.plain)
-                                .font(Theme.bodyMedium)
-                                .padding(.horizontal, 18)
-                                .frame(minHeight: 44)
-                                .overlay(Capsule().strokeBorder(Theme.line))
-                                .disabled(saving)
-                        }
-                        PlayAllButton(label: "Use source") { Task { await use() } }
-                            .opacity(canUse(choice) ? 1 : 0.4)
-                            .disabled(!canUse(choice))
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { sourceActions(choice) }
+                        VStack(alignment: .leading, spacing: 8) { sourceActions(choice) }
                     }
                 }
                 if let staged, !choice.entries.contains(where: { $0.id == staged && $0.selected }) {
@@ -126,6 +124,24 @@ struct TrackView: View {
     private func canUse(_ choice: TrackSources.Choice) -> Bool {
         guard !saving, let staged else { return false }
         return !choice.entries.contains { $0.id == staged && $0.selected && choice.mode == .manual }
+    }
+
+    @ViewBuilder private func sourceActions(_ choice: TrackSources.Choice) -> some View {
+        if choice.mode != .automatic {
+            Button("Return to automatic") { Task { await reset(choice) } }
+                .buttonStyle(.plain)
+                .font(Theme.bodyMedium)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 18)
+                .frame(minHeight: 44)
+                .overlay(Capsule().strokeBorder(Theme.line))
+                .disabled(saving)
+        }
+        PlayAllButton(label: "Use source") { Task { await use() } }
+            .fixedSize()
+            .opacity(canUse(choice) ? 1 : 0.4)
+            .disabled(!canUse(choice))
     }
 
     private func load() async {

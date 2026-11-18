@@ -55,6 +55,7 @@ pub(super) async fn start(
             cancellation: stop,
             owner: None,
             finished: false,
+            authorizing: None,
         });
     }
     let first_frame =
@@ -134,6 +135,7 @@ pub(super) async fn start(
         cancellation: stop.clone(),
         owner: Some(owner),
         finished: false,
+        authorizing: None,
     };
     let first = tokio::select! {
         biased;
