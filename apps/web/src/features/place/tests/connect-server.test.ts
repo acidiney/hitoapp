@@ -278,7 +278,9 @@ test("forgetting a server that can't be told says the sign-in may stay listed th
   vi.mocked(server.forget).mockResolvedValueOnce({ told: false });
   render(createElement(ConnectServer, { place: server, onBack: vi.fn() }));
   fireEvent.click(
-    await screen.findByRole("button", { name: "Forget https://music.example.org" }),
+    await screen.findByRole("button", {
+      name: "Forget https://music.example.org",
+    }),
   );
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "Forget" }));

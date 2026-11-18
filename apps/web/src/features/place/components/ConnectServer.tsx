@@ -243,6 +243,12 @@ export default function ConnectServer({
             </Button>
           )}
         </form>
+        {untold && (
+          <p className="connect-untold" role="status">
+            {untold} could not be told. This device may stay in the server's
+            list of signed-in devices.
+          </p>
+        )}
         {!waiting && (
           <RecentList
             servers={recent}

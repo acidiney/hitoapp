@@ -71,7 +71,11 @@ impl RecentServers {
     }
 
     pub fn forget_account(&mut self, origin: &Url) {
-        if let Some(server) = self.servers.iter_mut().find(|server| server.origin == *origin) {
+        if let Some(server) = self
+            .servers
+            .iter_mut()
+            .find(|server| server.origin == *origin)
+        {
             server.account = None;
         }
     }

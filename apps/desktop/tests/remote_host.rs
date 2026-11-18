@@ -371,7 +371,14 @@ async fn signing_in_keeps_the_session_here_and_never_shows_it_to_the_window() {
     let web = bundle();
     let (host, _, session) = start_with(&origin, &web, Arc::new(KeptSession::default())).await;
     let window = Window::open(&host).await;
-    let before: Value = window.get("/api/v1/me").send().await.unwrap().json().await.unwrap();
+    let before: Value = window
+        .get("/api/v1/me")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     assert_eq!(before["authorization"], Value::Null);
     let signed_in = window
         .post("api/v1/login")
@@ -387,7 +394,14 @@ async fn signing_in_keeps_the_session_here_and_never_shows_it_to_the_window() {
     assert_eq!(answer["user"]["username"], "owner");
     assert_eq!(session.token().as_deref(), Some(TOKEN));
     assert_eq!(session.account.lock().unwrap().as_deref(), Some("owner"));
-    let after: Value = window.get("/api/v1/me").send().await.unwrap().json().await.unwrap();
+    let after: Value = window
+        .get("/api/v1/me")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     assert_eq!(after["authorization"], format!("Bearer {TOKEN}"));
     window
         .post("api/v1/logout")
@@ -396,7 +410,14 @@ async fn signing_in_keeps_the_session_here_and_never_shows_it_to_the_window() {
         .await
         .unwrap();
     assert_eq!(session.token(), None);
-    let signed_out: Value = window.get("/api/v1/me").send().await.unwrap().json().await.unwrap();
+    let signed_out: Value = window
+        .get("/api/v1/me")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     assert_eq!(signed_out["authorization"], Value::Null);
     host.shutdown().await.unwrap();
 }
