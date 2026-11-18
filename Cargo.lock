@@ -2392,6 +2392,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
