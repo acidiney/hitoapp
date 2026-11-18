@@ -4,7 +4,7 @@ import Button from "../../../shared/ui/Button";
 import { useFirstOpen } from "../hooks/useFirstOpen";
 
 type Props = {
-  useThisComputer: () => Promise<void>;
+  startHere: () => Promise<void>;
   chooseServer: () => void;
 };
 
@@ -87,8 +87,8 @@ function PlaceOption({
   );
 }
 
-export default function FirstOpen({ useThisComputer, chooseServer }: Props) {
-  const { phase, start } = useFirstOpen(useThisComputer);
+export default function FirstOpen({ startHere, chooseServer }: Props) {
+  const { phase, start } = useFirstOpen(startHere);
   if (phase === "starting") {
     return (
       <AuthPage>

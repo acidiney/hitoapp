@@ -5,9 +5,6 @@ import { desktopPlace, serverPlace } from "../features/place/api/desktopPlace";
 const root = document.getElementById("first-open");
 if (root) {
   createRoot(root).render(
-    <PlaceScreens
-      place={serverPlace}
-      useThisComputer={desktopPlace.useThisComputer}
-    />,
+    <PlaceScreens place={serverPlace} startHere={desktopPlace.startHere} />,
   );
 }

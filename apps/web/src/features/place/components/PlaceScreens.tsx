@@ -12,10 +12,10 @@ type Screen =
 
 export default function PlaceScreens({
   place,
-  useThisComputer,
+  startHere,
 }: {
   place: ServerPlace;
-  useThisComputer: () => Promise<void>;
+  startHere: () => Promise<void>;
 }) {
   const [screen, setScreen] = useState<Screen>({ kind: "loading" });
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function PlaceScreens({
     case "choose":
       return (
         <FirstOpen
-          useThisComputer={useThisComputer}
+          startHere={startHere}
           chooseServer={() => setScreen({ kind: "server" })}
         />
       );

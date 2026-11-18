@@ -35,5 +35,5 @@ export const serverPlace: ServerPlace = {
 };
 
 export const desktopPlace = {
-  useThisComputer: () => invoke<void>("use_this_computer"),
+  startHere: () => invoke<void>("use_this_computer"),
 };
