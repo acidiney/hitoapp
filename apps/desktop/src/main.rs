@@ -8,7 +8,7 @@ use hito_desktop::{
     MusicLookup, Place, RETURN_PORT_SETTING, ReturnPort, WindowHandle, music_folder, user_agent,
 };
 use launch::{Allowed, Desktop, Launch};
-use std::sync::Mutex;
+use std::sync::{Mutex, atomic::AtomicU64};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWindowResponse};
 use tracing_subscriber::prelude::*;
 
@@ -32,7 +32,14 @@ fn main() {
     tracing::info!(event = "desktop_starting", "Starting Hito desktop");
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![launch::use_this_computer])
+        .invoke_handler(tauri::generate_handler![
+            launch::use_this_computer,
+            launch::connect_server,
+            launch::cancel_connect,
+            launch::recent_servers,
+            launch::forget_server,
+            launch::saved_server
+        ])
         .setup(|app| {
             let data = app.path().app_local_data_dir()?;
             let music = music_folder(MusicLookup {
@@ -60,12 +67,14 @@ fn main() {
                 return_port,
                 window: window_handle.clone(),
                 allowed: allowed.clone(),
+                attempt: AtomicU64::new(0),
             });
             let host = match Place::load(&data) {
                 Some(Place::ThisComputer) => Some(tauri::async_runtime::block_on(
-                    app.state::<Launch>().start(app.handle()),
+                    app.state::<Launch>()
+                        .start(app.handle(), &Place::ThisComputer),
                 )?),
-                None => None,
+                _ => None,
             };
             let url = match &host {
                 Some(host) => WebviewUrl::External(host.entry_url()),

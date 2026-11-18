@@ -1,16 +1,16 @@
-use hito_desktop::LocalHost;
+use hito_desktop::AppHost;
 
 pub enum Lifecycle {
     Choosing,
     Starting { exit: bool },
-    Running(LocalHost),
+    Running(AppHost),
     Leaving { exit: bool },
     Stopping,
     Stopped,
 }
 
 pub enum Decision {
-    Shutdown(LocalHost),
+    Shutdown(AppHost),
     Wait,
     Exit,
 }
@@ -44,7 +44,7 @@ impl Lifecycle {
         }
     }
 
-    pub fn finish_start(&mut self, host: LocalHost) -> Option<LocalHost> {
+    pub fn finish_start(&mut self, host: AppHost) -> Option<AppHost> {
         match std::mem::replace(self, Self::Stopping) {
             Self::Starting { exit: true } => Some(host),
             _ => {
@@ -60,7 +60,7 @@ impl Lifecycle {
         exit
     }
 
-    pub fn leave(&mut self) -> Option<LocalHost> {
+    pub fn leave(&mut self) -> Option<AppHost> {
         match std::mem::replace(self, Self::Leaving { exit: false }) {
             Self::Running(host) => Some(host),
             other => {
@@ -80,7 +80,7 @@ impl Lifecycle {
 #[cfg(test)]
 mod tests {
     use super::{Decision, Lifecycle};
-    use hito_desktop::{LocalHost, Paths};
+    use hito_desktop::{AppHost, LocalHost, Paths};
 
     #[tokio::test]
     async fn repeated_exit_requests_wait_until_the_local_host_has_joined() {
@@ -95,7 +95,7 @@ mod tests {
         })
         .await
         .unwrap();
-        let mut lifecycle = Lifecycle::Running(host);
+        let mut lifecycle = Lifecycle::Running(AppHost::Local(host));
         let Decision::Shutdown(host) = lifecycle.request() else {
             panic!("First exit must own shutdown");
         };
@@ -155,7 +155,7 @@ mod tests {
         lifecycle.begin_start();
         assert!(matches!(lifecycle.request(), Decision::Wait));
         let host = lifecycle
-            .finish_start(host)
+            .finish_start(AppHost::Local(host))
             .expect("the new library must be shut down");
         assert!(matches!(lifecycle.request(), Decision::Wait));
         host.shutdown().await.unwrap();
@@ -178,7 +178,7 @@ mod tests {
         assert!(lifecycle.leave().is_none());
         assert!(matches!(lifecycle, Lifecycle::Choosing));
         lifecycle.begin_start();
-        assert!(lifecycle.finish_start(host).is_none());
+        assert!(lifecycle.finish_start(AppHost::Local(host)).is_none());
         let host = lifecycle.leave().expect("a running library is handed back");
         assert!(matches!(lifecycle.request(), Decision::Wait));
         host.shutdown().await.unwrap();

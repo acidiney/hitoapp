@@ -1,14 +1,20 @@
 use crate::exit::Lifecycle;
 use futures_util::future::BoxFuture;
 use hito_desktop::{
-    Lazy, LocalHost, NativePicker, OsControls, Paths, Place, ReturnPort, SystemBrowser,
-    SystemMedia, WindowHandle,
+    AppHost, Lazy, LocalHost, NativePicker, Next, OsControls, Outcome, Paths, Place, Prober,
+    RecentServers, RemoteHost, ReturnPort, SystemBrowser, SystemMedia, WindowHandle, check,
+    current_server,
 };
 use hito_playback::{MediaIntegration, media_commands};
 use hito_server::{HostPlace, HostPlaceCurrent};
+use serde::Serialize;
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Manager, Url};
 
@@ -55,10 +61,30 @@ pub struct Launch {
     pub return_port: ReturnPort,
     pub window: WindowHandle,
     pub allowed: Allowed,
+    pub attempt: AtomicU64,
 }
 
 impl Launch {
-    pub async fn start(&self, app: &AppHandle) -> hito_desktop::Result<LocalHost> {
+    pub async fn start(&self, app: &AppHandle, place: &Place) -> hito_desktop::Result<AppHost> {
+        let host = match place {
+            Place::ThisComputer => AppHost::Local(self.start_local(app).await?),
+            Place::Server { origin } => AppHost::Remote(
+                RemoteHost::start(
+                    origin.clone(),
+                    &self.web,
+                    Arc::new(DesktopPlace {
+                        app: app.clone(),
+                        current: current_server(origin),
+                    }),
+                )
+                .await?,
+            ),
+        };
+        self.allowed.set(Some(host.entry_url().origin()));
+        Ok(host)
+    }
+
+    async fn start_local(&self, app: &AppHandle) -> hito_desktop::Result<LocalHost> {
         let (sender, commands) = media_commands();
         let window = self.window.clone();
         let controls = Lazy::new(move || OsControls::create(&sender, &window));
@@ -66,7 +92,7 @@ impl Launch {
             SystemMedia::new(controls, self.data.join("media-artwork")),
             commands,
         );
-        let host = LocalHost::start_with_folders(
+        LocalHost::start_with_folders(
             Paths {
                 data: self.data.clone(),
                 music: self.music.clone(),
@@ -77,24 +103,28 @@ impl Launch {
             Some(Arc::new(SystemBrowser::new(|url| {
                 tauri_plugin_opener::open_url(url, None::<&str>).is_ok()
             }))),
-            Some(Arc::new(DesktopPlace(app.clone()))),
+            Some(Arc::new(DesktopPlace {
+                app: app.clone(),
+                current: HostPlaceCurrent::ThisComputer,
+            })),
             self.return_port,
         )
-        .await?;
-        self.allowed.set(Some(host.entry_url().origin()));
-        Ok(host)
+        .await
     }
 }
 
-struct DesktopPlace(AppHandle);
+struct DesktopPlace {
+    app: AppHandle,
+    current: HostPlaceCurrent,
+}
 
 impl HostPlace for DesktopPlace {
     fn current(&self) -> HostPlaceCurrent {
-        HostPlaceCurrent::ThisComputer
+        self.current.clone()
     }
 
     fn change(&self) -> BoxFuture<'_, ()> {
-        let app = self.0.clone();
+        let app = self.app.clone();
         Box::pin(async move {
             tauri::async_runtime::spawn(return_to_first_screen(app));
         })
@@ -137,47 +167,163 @@ async fn return_to_first_screen(app: AppHandle) {
     }
 }
 
-#[tauri::command]
-pub async fn use_this_computer(app: AppHandle) -> Result<(), String> {
-    if !lifecycle(&app).begin_start() {
-        return Err("busy".into());
+async fn open(app: &AppHandle, place: Place) -> Result<(), &'static str> {
+    if !lifecycle(app).begin_start() {
+        return Err("busy");
     }
     let launch = app.state::<Launch>();
-    let host = match launch.start(&app).await {
+    let host = match launch.start(app, &place).await {
         Ok(host) => host,
         Err(_) => {
             tracing::warn!(
-                event = "desktop_this_computer_failed",
-                "The library on this computer could not start"
+                event = "desktop_place_start_failed",
+                remote = matches!(place, Place::Server { .. }),
+                "The chosen place could not start"
             );
-            if lifecycle(&app).fail_start() {
+            if lifecycle(app).fail_start() {
                 app.exit(1);
             }
-            return Err("startup".into());
+            return Err("startup");
         }
     };
-    if Place::ThisComputer.save(&launch.data).is_err() {
+    if place.save(&launch.data).is_err() {
         tracing::warn!(
             event = "desktop_place_save_failed",
             "The library choice could not be saved"
         );
     }
     let entry = host.entry_url();
-    let leftover = lifecycle(&app).finish_start(host);
+    let leftover = lifecycle(app).finish_start(host);
     if let Some(host) = leftover {
         let stopped = host.shutdown().await.is_ok();
-        *lifecycle(&app) = Lifecycle::Stopped;
+        *lifecycle(app) = Lifecycle::Stopped;
         app.exit(if stopped { 0 } else { 1 });
         return Ok(());
     }
     tracing::info!(
-        event = "desktop_this_computer_started",
-        "The library on this computer started"
+        event = "desktop_place_started",
+        remote = matches!(place, Place::Server { .. }),
+        "The chosen place started"
     );
     if let Some(window) = app.get_webview_window("main") {
-        window
-            .navigate(entry)
-            .map_err(|_| "navigation".to_string())?;
+        window.navigate(entry).map_err(|_| "navigation")?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn use_this_computer(app: AppHandle) -> Result<(), String> {
+    open(&app, Place::ThisComputer).await.map_err(str::to_owned)
+}
+
+fn now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
+}
+
+#[tauri::command]
+pub async fn connect_server(app: AppHandle, address: String, accept_plain: bool) -> Outcome {
+    let launch = app.state::<Launch>();
+    let attempt = launch.attempt.fetch_add(1, Ordering::SeqCst) + 1;
+    let Ok(prober) = Prober::new() else {
+        return Outcome::Failed;
+    };
+    let started = std::time::Instant::now();
+    let next = check(
+        &prober,
+        &address,
+        &RecentServers::load(&launch.data),
+        accept_plain,
+    )
+    .await;
+    let origin = match next {
+        Next::Open(origin) => origin,
+        Next::Answer(outcome) => {
+            tracing::info!(
+                event = "desktop_server_checked",
+                outcome = outcome.kind(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "A server address was checked"
+            );
+            return outcome;
+        }
+    };
+    if launch.attempt.load(Ordering::SeqCst) != attempt {
+        return Outcome::Busy;
+    }
+    match open(
+        &app,
+        Place::Server {
+            origin: origin.clone(),
+        },
+    )
+    .await
+    {
+        Ok(()) => {
+            let mut recent = RecentServers::load(&launch.data);
+            if accept_plain {
+                recent.accept_plain(&origin, now());
+            } else {
+                recent.used(&origin, now());
+            }
+            if recent.save(&launch.data).is_err() {
+                tracing::warn!(
+                    event = "desktop_recent_save_failed",
+                    "The list of recent servers could not be saved"
+                );
+            }
+            Outcome::Opened
+        }
+        Err("busy") => Outcome::Busy,
+        Err(_) => Outcome::Failed,
+    }
+}
+
+#[tauri::command]
+pub fn cancel_connect(app: AppHandle) {
+    app.state::<Launch>().attempt.fetch_add(1, Ordering::SeqCst);
+}
+
+#[derive(Serialize)]
+pub struct Recent {
+    origin: String,
+    shown: String,
+    account: Option<String>,
+    used_at: i64,
+}
+
+#[tauri::command]
+pub fn recent_servers(app: AppHandle) -> Vec<Recent> {
+    RecentServers::load(&app.state::<Launch>().data)
+        .list()
+        .iter()
+        .map(|server| Recent {
+            origin: server.origin.to_string(),
+            shown: hito_desktop::shown(&server.origin),
+            account: server.account.clone(),
+            used_at: server.used_at,
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn forget_server(app: AppHandle, origin: String) -> Result<(), String> {
+    let origin = Url::parse(&origin).map_err(|_| "address".to_string())?;
+    let data = &app.state::<Launch>().data;
+    let mut recent = RecentServers::load(data);
+    recent.forget(&origin);
+    recent.save(data).map_err(|_| "storage".to_string())?;
+    if Place::load(data) == Some(Place::Server { origin }) {
+        Place::forget(data).map_err(|_| "storage".to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn saved_server(app: AppHandle) -> Option<String> {
+    match Place::load(&app.state::<Launch>().data) {
+        Some(Place::Server { origin }) => Some(origin.to_string()),
+        _ => None,
+    }
 }

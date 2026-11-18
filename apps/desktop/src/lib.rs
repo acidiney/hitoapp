@@ -1,6 +1,8 @@
 mod access;
+mod app_host;
 mod backend;
 mod browser;
+mod connect;
 mod folders;
 mod host;
 mod loopback;
@@ -18,7 +20,9 @@ mod storage;
 mod system_media;
 mod user_agent;
 
+pub use app_host::AppHost;
 pub use browser::SystemBrowser;
+pub use connect::{Next, Outcome, check, shown};
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
 pub use loopback::{DEFAULT_RETURN_PORT, InvalidReturnPort, RETURN_PORT_SETTING, ReturnPort};

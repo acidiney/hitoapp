@@ -1,13 +1,13 @@
 import { createRoot } from "react-dom/client";
-import FirstOpen from "../features/place/components/FirstOpen";
-import { desktopPlace } from "../features/place/api/desktopPlace";
+import PlaceScreens from "../features/place/components/PlaceScreens";
+import { desktopPlace, serverPlace } from "../features/place/api/desktopPlace";
 
 const root = document.getElementById("first-open");
 if (root) {
   createRoot(root).render(
-    <FirstOpen
+    <PlaceScreens
+      place={serverPlace}
       useThisComputer={desktopPlace.useThisComputer}
-      chooseServer={() => {}}
     />,
   );
 }
