@@ -70,6 +70,12 @@ impl RecentServers {
         }
     }
 
+    pub fn forget_account(&mut self, origin: &Url) {
+        if let Some(server) = self.servers.iter_mut().find(|server| server.origin == *origin) {
+            server.account = None;
+        }
+    }
+
     pub fn forget(&mut self, origin: &Url) -> Option<RecentServer> {
         self.take(origin)
     }
@@ -146,6 +152,17 @@ mod tests {
         assert_eq!(RecentServers::load(data.path()), RecentServers::default());
         loaded.used(&home, 2);
         assert!(!loaded.find(&home).unwrap().plain_accepted);
+    }
+
+    #[test]
+    fn forget_me_keeps_the_server_but_not_the_account() {
+        let mut servers = RecentServers::default();
+        let home = origin("https://music.example.org/");
+        servers.used(&home, 1);
+        servers.signed_in(&home, "owner");
+        servers.forget_account(&home);
+        assert_eq!(servers.find(&home).unwrap().account, None);
+        assert_eq!(servers.list().len(), 1);
     }
 
     #[test]

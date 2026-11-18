@@ -22,7 +22,7 @@ function place(
     ),
     cancel: vi.fn(async () => {}),
     recent: vi.fn(async () => recent),
-    forget: vi.fn(async () => {}),
+    forget: vi.fn(async () => ({ told: true })),
     saved: vi.fn(async () => null),
   };
 }
@@ -261,4 +261,28 @@ test("a saved server whose certificate can't be checked can't be used", async ()
     ),
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+});
+
+test("forgetting a server that can't be told says the sign-in may stay listed there", async () => {
+  const server = place(
+    [],
+    [
+      {
+        origin: "https://music.example.org/",
+        shown: "https://music.example.org",
+        account: "Acidiney",
+        used_at: Date.now() / 1000,
+      },
+    ],
+  );
+  vi.mocked(server.forget).mockResolvedValueOnce({ told: false });
+  render(createElement(ConnectServer, { place: server, onBack: vi.fn() }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Forget https://music.example.org" }),
+  );
+  await screen.findByRole("dialog");
+  fireEvent.click(screen.getByRole("button", { name: "Forget" }));
+  expect((await screen.findByRole("status")).textContent).toBe(
+    "https://music.example.org could not be told. This device may stay in the server's list of signed-in devices.",
+  );
 });

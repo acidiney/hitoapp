@@ -302,6 +302,7 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(api::host_folders::choose))
         .routes(routes!(api::host_place::offer))
         .routes(routes!(api::host_place::change))
+        .routes(routes!(api::host_place::forget_me))
         .routes(routes!(storage::remove))
         .routes(routes!(storage::scan))
         .routes(routes!(storage::remove_missing_recordings))

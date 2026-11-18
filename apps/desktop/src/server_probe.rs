@@ -106,7 +106,7 @@ impl Prober {
     }
 }
 
-pub(crate) fn tls_ready() {
+pub fn tls_ready() {
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }

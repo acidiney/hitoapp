@@ -39,14 +39,35 @@ pub struct RemoteHost {
     serving: Option<JoinHandle<std::io::Result<()>>>,
 }
 
+pub trait ServerSession: Send + Sync + 'static {
+    fn token(&self) -> Option<String>;
+    fn keep(&self, token: &str, username: &str) -> bool;
+    fn end(&self);
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Exchange {
+    Begin,
+    End,
+    Other,
+}
+
+const SESSION_BODY_LIMIT: usize = 65_536;
+
 struct Forward {
     server: Url,
     client: reqwest::Client,
+    session: Arc<dyn ServerSession>,
 }
 
 impl RemoteHost {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
-    pub async fn start(server: Url, web: &Path, place: Arc<dyn HostPlace>) -> Result<Self> {
+    pub async fn start(
+        server: Url,
+        web: &Path,
+        place: Arc<dyn HostPlace>,
+        session: Arc<dyn ServerSession>,
+    ) -> Result<Self> {
         crate::server_probe::tls_ready();
         let client = reqwest::Client::builder()
             .no_proxy()
@@ -64,7 +85,11 @@ impl RemoteHost {
         let (access, entry) = Access::new(&origin);
         let forwarding = Router::new()
             .fallback(forward)
-            .with_state(Arc::new(Forward { server, client }));
+            .with_state(Arc::new(Forward {
+                server,
+                client,
+                session,
+            }));
         let files = ServeDir::new(web)
             .append_index_html_on_directories(false)
             .call_fallback_on_method_not_allowed(true)
@@ -73,6 +98,7 @@ impl RemoteHost {
             Router::new()
                 .route("/api/v1/host/place", get(place_offer))
                 .route("/api/v1/host/place/change", post(place_change))
+                .route("/api/v1/host/place/forget-me", post(place_forget_me))
                 .with_state(place)
                 .fallback_service(files),
         );
@@ -144,9 +170,15 @@ async fn place_change(State(place): State<Arc<dyn HostPlace>>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-pub fn current_server(origin: &Url) -> HostPlaceCurrent {
+async fn place_forget_me(State(place): State<Arc<dyn HostPlace>>) -> StatusCode {
+    place.forget_me().await;
+    StatusCode::NO_CONTENT
+}
+
+pub fn current_server(origin: &Url, remembered: Option<String>) -> HostPlaceCurrent {
     HostPlaceCurrent::Server {
         origin: origin.origin().ascii_serialization(),
+        remembered,
     }
 }
 
@@ -161,6 +193,16 @@ async fn forward(State(forward): State<Arc<Forward>>, request: Request) -> Respo
         headers.remove(name);
     }
     let method = parts.method;
+    let exchange = match (method.as_str(), parts.uri.path()) {
+        ("POST", "/api/v1/login" | "/api/v1/setup") => Exchange::Begin,
+        ("POST", "/api/v1/logout") => Exchange::End,
+        _ => Exchange::Other,
+    };
+    if let Some(token) = forward.session.token()
+        && let Ok(value) = format!("Bearer {token}").parse()
+    {
+        headers.insert(header::AUTHORIZATION, value);
+    }
     let sent = forward
         .client
         .request(method.clone(), target)
@@ -168,6 +210,13 @@ async fn forward(State(forward): State<Arc<Forward>>, request: Request) -> Respo
         .body(reqwest::Body::wrap_stream(body.into_data_stream()))
         .send()
         .await;
+    if exchange == Exchange::End {
+        forward.session.end();
+        tracing::info!(
+            event = "desktop_remote_signed_out",
+            "The session for the chosen server was removed from this computer"
+        );
+    }
     let answer = match sent {
         Ok(answer) => answer,
         Err(_) => {
@@ -187,12 +236,68 @@ async fn forward(State(forward): State<Arc<Forward>>, request: Request) -> Respo
         elapsed_ms = started.elapsed().as_millis() as u64,
         "A request reached the chosen server"
     );
+    if exchange == Exchange::Begin && answer.status().is_success() {
+        return begin_session(&forward, answer).await;
+    }
     let status = answer.status();
     let headers = answered_headers(answer.headers(), &forward.server);
     let mut response = Response::new(Body::from_stream(answer.bytes_stream()));
     *response.status_mut() = status;
     *response.headers_mut() = headers;
     response
+}
+
+async fn begin_session(forward: &Forward, answer: reqwest::Response) -> Response {
+    let status = answer.status();
+    let headers = answered_headers(answer.headers(), &forward.server);
+    let body = match answer.bytes().await {
+        Ok(body) if body.len() <= SESSION_BODY_LIMIT => body,
+        _ => return not_kept(),
+    };
+    let Ok(mut session) = serde_json::from_slice::<serde_json::Value>(&body) else {
+        return not_kept();
+    };
+    let token = session
+        .get("token")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
+    let username = session
+        .pointer("/user/username")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
+    let (Some(token), Some(username)) = (token, username) else {
+        return not_kept();
+    };
+    if !forward.session.keep(&token, &username) {
+        tracing::warn!(
+            event = "desktop_remote_session_not_kept",
+            "The session for the chosen server could not be kept on this computer"
+        );
+        return not_kept();
+    }
+    session["token"] = serde_json::Value::String(String::new());
+    tracing::info!(
+        event = "desktop_remote_signed_in",
+        "The session for the chosen server is kept on this computer"
+    );
+    let mut response = Json(session).into_response();
+    *response.status_mut() = status;
+    for (name, value) in headers.iter() {
+        if name != header::CONTENT_LENGTH {
+            response.headers_mut().insert(name, value.clone());
+        }
+    }
+    response
+}
+
+fn not_kept() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "error": "This computer couldn't keep you signed in. Try again."
+        })),
+    )
+        .into_response()
 }
 
 fn answered_headers(answered: &HeaderMap, server: &Url) -> HeaderMap {

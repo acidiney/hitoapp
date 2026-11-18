@@ -145,6 +145,7 @@ export default function ConnectServer({
     accept,
     changeAddress,
     forget,
+    untold,
   } = useConnectServer(place);
   const [forgetting, setForgetting] = useState<RecentServer | null>(null);
   const [removing, setRemoving] = useState(false);

@@ -1,4 +1,4 @@
-use crate::exit::Lifecycle;
+use crate::{exit::Lifecycle, session::DesktopSession};
 use futures_util::future::BoxFuture;
 use hito_desktop::{
     AppHost, Lazy, LocalHost, NativePicker, Next, OsControls, Outcome, Paths, Place, Prober,
@@ -74,8 +74,9 @@ impl Launch {
                     &self.web,
                     Arc::new(DesktopPlace {
                         app: app.clone(),
-                        current: current_server(origin),
+                        server: Some(origin.clone()),
                     }),
+                    Arc::new(DesktopSession::new(origin.clone(), self.data.clone())),
                 )
                 .await?,
             ),
@@ -105,7 +106,7 @@ impl Launch {
             }))),
             Some(Arc::new(DesktopPlace {
                 app: app.clone(),
-                current: HostPlaceCurrent::ThisComputer,
+                server: None,
             })),
             self.return_port,
         )
@@ -115,12 +116,36 @@ impl Launch {
 
 struct DesktopPlace {
     app: AppHandle,
-    current: HostPlaceCurrent,
+    server: Option<Url>,
 }
 
 impl HostPlace for DesktopPlace {
     fn current(&self) -> HostPlaceCurrent {
-        self.current.clone()
+        let Some(origin) = &self.server else {
+            return HostPlaceCurrent::ThisComputer;
+        };
+        let remembered = RecentServers::load(&self.app.state::<Launch>().data)
+            .find(origin)
+            .and_then(|server| server.account.clone());
+        current_server(origin, remembered)
+    }
+
+    fn forget_me(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            let Some(origin) = &self.server else {
+                return;
+            };
+            let data = &self.app.state::<Launch>().data;
+            DesktopSession::new(origin.clone(), data.clone()).end();
+            let mut recent = RecentServers::load(data);
+            recent.forget_account(origin);
+            if recent.save(data).is_err() {
+                tracing::warn!(
+                    event = "desktop_recent_save_failed",
+                    "The list of recent servers could not be saved"
+                );
+            }
+        })
     }
 
     fn change(&self) -> BoxFuture<'_, ()> {
@@ -307,17 +332,57 @@ pub fn recent_servers(app: AppHandle) -> Vec<Recent> {
         .collect()
 }
 
+#[derive(Serialize)]
+pub struct Forgotten {
+    told: bool,
+}
+
 #[tauri::command]
-pub fn forget_server(app: AppHandle, origin: String) -> Result<(), String> {
+pub async fn forget_server(app: AppHandle, origin: String) -> Result<Forgotten, String> {
     let origin = Url::parse(&origin).map_err(|_| "address".to_string())?;
-    let data = &app.state::<Launch>().data;
-    let mut recent = RecentServers::load(data);
+    let data = app.state::<Launch>().data.clone();
+    let session = DesktopSession::new(origin.clone(), data.clone());
+    let told = match session.token() {
+        Some(token) => sign_out(&origin, &token).await,
+        None => true,
+    };
+    session.end();
+    let mut recent = RecentServers::load(&data);
     recent.forget(&origin);
-    recent.save(data).map_err(|_| "storage".to_string())?;
-    if Place::load(data) == Some(Place::Server { origin }) {
-        Place::forget(data).map_err(|_| "storage".to_string())?;
+    recent.save(&data).map_err(|_| "storage".to_string())?;
+    if Place::load(&data) == Some(Place::Server { origin }) {
+        Place::forget(&data).map_err(|_| "storage".to_string())?;
     }
-    Ok(())
+    tracing::info!(
+        event = "desktop_server_forgotten",
+        told,
+        "A server was removed from this computer"
+    );
+    Ok(Forgotten { told })
+}
+
+async fn sign_out(origin: &Url, token: &str) -> bool {
+    hito_desktop::tls_ready();
+    let Ok(client) = reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(std::time::Duration::from_secs(4))
+        .timeout(std::time::Duration::from_secs(8))
+        .user_agent(hito_desktop::user_agent())
+        .build()
+    else {
+        return false;
+    };
+    let Ok(logout) = origin.join("api/v1/logout") else {
+        return false;
+    };
+    client
+        .post(logout)
+        .bearer_auth(token)
+        .header("x-hito-request", "1")
+        .send()
+        .await
+        .is_ok_and(|answer| answer.status().is_success())
 }
 
 #[tauri::command]
