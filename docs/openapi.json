@@ -6208,6 +6208,91 @@
         ]
       }
     },
+    "/api/v1/host/place": {
+      "get": {
+        "operationId": "offer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostPlaceOffer"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/host/place/change": {
+      "post": {
+        "operationId": "change",
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/jobs/{id}": {
       "get": {
         "operationId": "job",
@@ -27268,6 +27353,45 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/DirectoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HostPlaceCurrent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "this_computer"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "HostPlaceOffer": {
+        "type": "object",
+        "required": [
+          "changeable"
+        ],
+        "properties": {
+          "changeable": {
+            "type": "boolean"
+          },
+          "current": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HostPlaceCurrent"
               },
               {
                 "type": "null"

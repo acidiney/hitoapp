@@ -87,8 +87,11 @@ impl LocalHost {
             services.clone(),
             config.http,
             Some(player),
-            folders,
-            browser,
+            hito_server::Hosts {
+                folders,
+                browser,
+                place: None,
+            },
         );
         let app = access.protect(router);
         let (stop, stopped) = oneshot::channel();

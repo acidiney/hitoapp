@@ -18,6 +18,7 @@ hito-playback = { path = "../../crates/playback" }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -43,7 +44,6 @@ tempfile.workspace = true
 reqwest.workspace = true
 sha2.workspace = true
 base64.workspace = true
-serde_json.workspace = true
 sqlx.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]

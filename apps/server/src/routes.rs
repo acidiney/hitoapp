@@ -11,6 +11,7 @@ use crate::{
 };
 use api::host_browser::{HostBrowser, HostBrowserAccess};
 use api::host_folders::{HostFolderAccess, HostFolders};
+use api::host_place::{HostPlace, HostPlaceAccess};
 use axum::{Extension, Router, middleware, routing::get};
 use hito_core::Services;
 use std::sync::Arc;
@@ -299,6 +300,8 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(storage::folders, storage::connect))
         .routes(routes!(api::host_folders::offer))
         .routes(routes!(api::host_folders::choose))
+        .routes(routes!(api::host_place::offer))
+        .routes(routes!(api::host_place::change))
         .routes(routes!(storage::remove))
         .routes(routes!(storage::scan))
         .routes(routes!(storage::remove_missing_recordings))
@@ -343,7 +346,7 @@ pub fn router(services: Services) -> Router {
 }
 
 pub fn router_with_config(services: Services, config: Config) -> Router {
-    application(services, config, None, None, None)
+    application(services, config, None, Hosts::default())
 }
 
 pub fn router_with_player(
@@ -351,7 +354,7 @@ pub fn router_with_player(
     config: Config,
     player: hito_playback::Player,
 ) -> Router {
-    application(services, config, Some(player), None, None)
+    application(services, config, Some(player), Hosts::default())
 }
 
 pub fn router_with_host(
@@ -360,17 +363,27 @@ pub fn router_with_host(
     player: Option<hito_playback::Player>,
     folders: Arc<dyn HostFolders>,
 ) -> Router {
-    application(services, config, player, Some(folders), None)
+    let hosts = Hosts {
+        folders: Some(folders),
+        ..Hosts::default()
+    };
+    application(services, config, player, hosts)
+}
+
+#[derive(Default)]
+pub struct Hosts {
+    pub folders: Option<Arc<dyn HostFolders>>,
+    pub browser: Option<Arc<dyn HostBrowser>>,
+    pub place: Option<Arc<dyn HostPlace>>,
 }
 
 pub fn router_with_hosts(
     services: Services,
     config: Config,
     player: Option<hito_playback::Player>,
-    folders: Option<Arc<dyn HostFolders>>,
-    browser: Option<Arc<dyn HostBrowser>>,
+    hosts: Hosts,
 ) -> Router {
-    application(services, config, player, folders, browser)
+    application(services, config, player, hosts)
 }
 
 pub fn loopback_return_router(services: Services, config: Config) -> Router {
@@ -387,8 +400,7 @@ fn application(
     services: Services,
     config: Config,
     player: Option<hito_playback::Player>,
-    folders: Option<Arc<dyn HostFolders>>,
-    browser: Option<Arc<dyn HostBrowser>>,
+    hosts: Hosts,
 ) -> Router {
     let (api, document) = api_routes().split_for_parts();
     Router::new()
@@ -430,8 +442,9 @@ fn application(
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))
         .layer(Extension(player::Playback::new(player)))
-        .layer(Extension(HostFolderAccess(folders)))
-        .layer(Extension(HostBrowserAccess(browser)))
+        .layer(Extension(HostFolderAccess(hosts.folders)))
+        .layer(Extension(HostBrowserAccess(hosts.browser)))
+        .layer(Extension(HostPlaceAccess(hosts.place)))
         .layer(middleware::from_fn_with_state(
             security::Security::new(config),
             security::browser_security,
