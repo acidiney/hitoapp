@@ -2,11 +2,11 @@ import { useCallback, useState } from "react";
 
 export type FirstOpenPhase = "choosing" | "starting" | "failed";
 
-export function useFirstOpen(useThisComputer: () => Promise<void>) {
+export function useFirstOpen(startHere: () => Promise<void>) {
   const [phase, setPhase] = useState<FirstOpenPhase>("choosing");
   const start = useCallback(() => {
     setPhase("starting");
-    useThisComputer().catch(() => setPhase("failed"));
-  }, [useThisComputer]);
+    startHere().catch(() => setPhase("failed"));
+  }, [startHere]);
   return { phase, start };
 }

@@ -16,7 +16,7 @@ function deferred() {
 test("the first open asks where the music is, with both places and how to change it later", () => {
   render(
     createElement(FirstOpen, {
-      useThisComputer: vi.fn(),
+      startHere: vi.fn(),
       chooseServer: vi.fn(),
     }),
   );
@@ -41,10 +41,10 @@ test("the first open asks where the music is, with both places and how to change
 
 test("choosing this computer starts the library and says so while it starts", async () => {
   const start = deferred();
-  const useThisComputer = vi.fn(() => start.promise);
-  render(createElement(FirstOpen, { useThisComputer, chooseServer: vi.fn() }));
+  const startHere = vi.fn(() => start.promise);
+  render(createElement(FirstOpen, { startHere, chooseServer: vi.fn() }));
   fireEvent.click(screen.getByRole("button", { name: /On this computer/ }));
-  expect(useThisComputer).toHaveBeenCalledTimes(1);
+  expect(startHere).toHaveBeenCalledTimes(1);
   expect(
     await screen.findByRole("heading", {
       name: "Starting Hito on this computer…",
@@ -55,12 +55,12 @@ test("choosing this computer starts the library and says so while it starts", as
 });
 
 test("a library that cannot start offers to try again or to connect to a server instead", async () => {
-  const useThisComputer = vi
+  const startHere = vi
     .fn()
     .mockRejectedValueOnce(new Error("startup"))
     .mockReturnValueOnce(new Promise<void>(() => {}));
   const chooseServer = vi.fn();
-  render(createElement(FirstOpen, { useThisComputer, chooseServer }));
+  render(createElement(FirstOpen, { startHere, chooseServer }));
   fireEvent.click(screen.getByRole("button", { name: /On this computer/ }));
   expect(
     await screen.findByRole("heading", {
@@ -69,7 +69,7 @@ test("a library that cannot start offers to try again or to connect to a server 
   ).toBeTruthy();
   expect(screen.getByText("Your library was not changed.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-  expect(useThisComputer).toHaveBeenCalledTimes(2);
+  expect(startHere).toHaveBeenCalledTimes(2);
   expect(
     await screen.findByRole("heading", {
       name: "Starting Hito on this computer…",
@@ -81,7 +81,7 @@ test("connect to a server instead leaves the failed start for the server choice"
   const chooseServer = vi.fn();
   render(
     createElement(FirstOpen, {
-      useThisComputer: vi.fn().mockRejectedValue(new Error("startup")),
+      startHere: vi.fn().mockRejectedValue(new Error("startup")),
       chooseServer,
     }),
   );
@@ -94,7 +94,7 @@ test("connect to a server instead leaves the failed start for the server choice"
 
 test("choosing a server hands over to the server choice", () => {
   const chooseServer = vi.fn();
-  render(createElement(FirstOpen, { useThisComputer: vi.fn(), chooseServer }));
+  render(createElement(FirstOpen, { startHere: vi.fn(), chooseServer }));
   fireEvent.click(screen.getByRole("button", { name: /On a Hito server/ }));
   expect(chooseServer).toHaveBeenCalledTimes(1);
 });
