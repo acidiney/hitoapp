@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use url::Url;
 
 const FILE: &str = "place.json";
 
@@ -7,6 +8,7 @@ const FILE: &str = "place.json";
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Place {
     ThisComputer,
+    Server { origin: Url },
 }
 
 impl Place {
@@ -16,19 +18,7 @@ impl Place {
     }
 
     pub fn save(&self, data: &Path) -> std::io::Result<()> {
-        let staged = data.join(format!("{FILE}.partial"));
-        let bytes = serde_json::to_vec(self).map_err(std::io::Error::other)?;
-        let mut options = std::fs::OpenOptions::new();
-        options.create(true).truncate(true).write(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(&staged)?;
-        std::io::Write::write_all(&mut file, &bytes)?;
-        file.sync_all()?;
-        std::fs::rename(&staged, data.join(FILE))
+        write_private(data, FILE, &serde_json::to_vec(self).map_err(std::io::Error::other)?)
     }
 
     pub fn forget(data: &Path) -> std::io::Result<()> {
@@ -37,6 +27,21 @@ impl Place {
             result => result,
         }
     }
+}
+
+pub(crate) fn write_private(data: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
+    let staged = data.join(format!("{name}.partial"));
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&staged)?;
+    std::io::Write::write_all(&mut file, bytes)?;
+    file.sync_all()?;
+    std::fs::rename(&staged, data.join(name))
 }
 
 #[cfg(test)]
@@ -54,6 +59,16 @@ mod tests {
         let data = tempfile::tempdir().unwrap();
         Place::ThisComputer.save(data.path()).unwrap();
         assert_eq!(Place::load(data.path()), Some(Place::ThisComputer));
+    }
+
+    #[test]
+    fn a_chosen_server_is_remembered_by_its_address() {
+        let data = tempfile::tempdir().unwrap();
+        let server = Place::Server {
+            origin: Url::parse("https://music.example.org/").unwrap(),
+        };
+        server.save(data.path()).unwrap();
+        assert_eq!(Place::load(data.path()), Some(server));
     }
 
     #[test]
