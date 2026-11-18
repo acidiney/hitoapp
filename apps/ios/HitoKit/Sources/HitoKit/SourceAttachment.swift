@@ -2,17 +2,18 @@ import Foundation
 
 public struct SourceAttachment: Sendable {
     public enum Problem: Error, Equatable {
-        case notYours, taken
+        case notYours, taken, linkNotFound
 
         public var message: String {
             switch self {
             case .notYours: "Sources can only be added to tracks in your own library."
             case .taken: "This match is already a source for another track, or the track changed. Search again."
+            case .linkNotFound: "The service couldn't find a track at that link. Check the link and try again."
             }
         }
     }
 
-    public struct Candidate: Encodable, Equatable, Sendable {
+    public struct Candidate: Codable, Equatable, Sendable {
         public let installationId: String
         public let installationRevision: Int
         public let providerRecordingId: String
@@ -72,6 +73,18 @@ public struct SourceAttachment: Sendable {
         }
     }
 
+    struct Lookup: Encodable {
+        let installationId: String
+        let installationRevision: Int
+        let reference: String
+
+        enum CodingKeys: String, CodingKey {
+            case reference
+            case installationId = "installation_id"
+            case installationRevision = "installation_revision"
+        }
+    }
+
     struct Attach: Encodable {
         let candidate: Candidate
         let reviewStamp: String
@@ -86,6 +99,15 @@ public struct SourceAttachment: Sendable {
 
     public init(api: HitoAPI) {
         self.api = api
+    }
+
+    public func lookup(_ recording: String, installationId: String, revision: Int, reference: String) async throws -> Candidate {
+        let body = Lookup(installationId: installationId, installationRevision: revision, reference: reference.trimmingCharacters(in: .whitespacesAndNewlines))
+        do {
+            return try await refusing { try await api.post(["api", "v1", "recordings", recording, "sources", "lookup"], body: body, as: Candidate.self) }
+        } catch Problem.notYours {
+            throw Problem.linkNotFound
+        }
     }
 
     public func review(_ recording: String, _ candidate: Candidate) async throws -> Review {

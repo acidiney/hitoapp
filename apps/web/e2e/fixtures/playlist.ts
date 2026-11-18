@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Schema } from "../../src/shared/schema";
+import { uniqueLoopbackHost } from "./loopback";
 
 export async function playlistFixture() {
   const unique = randomUUID();
@@ -153,9 +154,10 @@ export async function playlistFixture() {
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify(reply));
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const host = uniqueLoopbackHost();
+  await new Promise<void>((resolve) => server.listen(0, host, resolve));
   return {
-    address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture/`,
+    address: `http://${host}:${(server.address() as AddressInfo).port}/fixture/`,
     prefix,
     token,
     reference,
