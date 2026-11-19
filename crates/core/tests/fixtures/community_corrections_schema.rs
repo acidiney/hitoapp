@@ -28,7 +28,10 @@ pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {
     .await
     .unwrap();
     let after = super::schema(&mut connection).await;
-    assert_eq!(after.iter().filter(|object| added(object)).count(), ADDED.len());
+    assert_eq!(
+        after.iter().filter(|object| added(object)).count(),
+        ADDED.len()
+    );
     assert_eq!(
         after
             .into_iter()

@@ -23,6 +23,8 @@ pub mod automation_schema;
 pub mod catalog_track_link_schema;
 #[path = "artist_association_changes_schema.rs"]
 pub mod changes_schema;
+#[path = "community_corrections_schema.rs"]
+pub mod community_corrections_schema;
 #[path = "artist_identity_correction_schema.rs"]
 pub mod correction_schema;
 #[path = "coverage_matches_schema.rs"]
@@ -57,8 +59,6 @@ pub mod name_match_rule_schema;
 pub mod name_match_schema;
 #[path = "name_rule_schema.rs"]
 pub mod name_rule_schema;
-#[path = "community_corrections_schema.rs"]
-pub mod community_corrections_schema;
 #[path = "offline_replicas_schema.rs"]
 pub mod offline_replicas_schema;
 #[path = "pin_lock_schema.rs"]
