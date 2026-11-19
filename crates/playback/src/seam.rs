@@ -204,6 +204,12 @@ impl From<Actor> for Listener {
     }
 }
 
+impl From<&Listener> for Listener {
+    fn from(listener: &Listener) -> Self {
+        listener.clone()
+    }
+}
+
 impl From<&Actor> for Listener {
     fn from(actor: &Actor) -> Self {
         Self(Identity::Local(actor.clone()))
