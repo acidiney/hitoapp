@@ -12,7 +12,7 @@ use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use sqlx::{ConnectOptions, Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use tower::ServiceExt;
@@ -40,6 +40,7 @@ async fn real_admission_work_is_bounded_across_reporter_history_and_fresh_connec
             let config = || Config {
                 state_directory: directory.clone(),
                 admin_token: ADMIN.to_owned(),
+                limits: Limits::default(),
             };
             let service = Service::open(config()).await.unwrap();
             let app = router(service.clone());

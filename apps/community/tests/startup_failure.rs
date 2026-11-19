@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use hito_community::{Config, Service};
+use hito_community::{Config, Limits, Service};
 use libsqlite3_sys as sqlite;
 use tokio::sync::oneshot;
 
@@ -155,6 +155,7 @@ fn config(directory: &Path) -> Config {
     Config {
         state_directory: directory.to_owned(),
         admin_token: "17a0427d104d87ad8adce74f1fbbe334cb4969d697d0fe4d00bc58e15863a5ad".to_owned(),
+        limits: Limits::default(),
     }
 }
 
