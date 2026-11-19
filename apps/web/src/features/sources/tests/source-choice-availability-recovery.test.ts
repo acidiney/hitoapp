@@ -52,6 +52,7 @@ test("choice changes recover failed requested availability while leaving untouch
     ...choiceSourceB,
     ready: false,
     can_prepare: false,
+    community_public: false,
   };
   const readySources: Schema<"Source">[] = [choiceSourceA, sourceB];
   const firstAvailability = heldResponse();

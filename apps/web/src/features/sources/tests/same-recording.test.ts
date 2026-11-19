@@ -119,7 +119,10 @@ test("without metadata corrections the action is disabled and points to Communit
   const item = await screen.findByRole("menuitem", {
     name: "Suggest as same recording",
   });
-  expect(item.hasAttribute("disabled") || item.getAttribute("aria-disabled") === "true").toBe(true);
+  expect(
+    item.hasAttribute("disabled") ||
+      item.getAttribute("aria-disabled") === "true",
+  ).toBe(true);
   expect(sameRecordingApi.suggest).not.toHaveBeenCalled();
 });
 
@@ -135,9 +138,7 @@ test("confirming sends one v4 submission for the chosen pair and marks the row",
     "The suggestion goes to the shared community service for review.",
   );
   fireEvent.click(screen.getByRole("button", { name: "Send suggestion" }));
-  expect(
-    await screen.findByText("Suggestion sent for review"),
-  ).toBeTruthy();
+  expect(await screen.findByText("Suggestion sent for review")).toBeTruthy();
   expect(sameRecordingApi.suggest).toHaveBeenCalledTimes(1);
   const [account, from, body, signal] = vi.mocked(sameRecordingApi.suggest).mock
     .calls[0];
@@ -164,9 +165,7 @@ test("a failure shows the error and a retry sends a new submission", async () =>
     "The community service is unavailable",
   );
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-  expect(
-    await screen.findByText("Suggestion sent for review"),
-  ).toBeTruthy();
+  expect(await screen.findByText("Suggestion sent for review")).toBeTruthy();
   const calls = vi.mocked(sameRecordingApi.suggest).mock.calls;
   expect(calls).toHaveLength(2);
   expect(calls[1][2].other_source_id).toBe("source-jamendo");

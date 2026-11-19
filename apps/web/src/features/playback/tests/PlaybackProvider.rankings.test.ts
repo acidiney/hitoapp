@@ -20,6 +20,7 @@ test("ordinary browser Play consumes the authenticated playback-source order whi
       ready: true,
       label: "Owned first source",
       can_prepare: false,
+      community_public: false,
       match_kind: "verified",
     },
     {
@@ -30,6 +31,7 @@ test("ordinary browser Play consumes the authenticated playback-source order whi
       ready: true,
       label: "Owned preferred source",
       can_prepare: false,
+      community_public: false,
       match_kind: "verified",
     },
   ];
