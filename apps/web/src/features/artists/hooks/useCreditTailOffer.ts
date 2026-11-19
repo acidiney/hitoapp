@@ -5,7 +5,6 @@ import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { artistMatchingApi } from "../api/artistMatchingApi";
 
-const MAX_QUEUE_PAGES = 4;
 const MAX_CONFIRM_STEPS = 10;
 
 export type CreditTailOffer = {
@@ -70,25 +69,14 @@ export function useCreditTailOffer(
     const started = performance.now();
     void (async () => {
       let found: CreditTailOffer | null = null;
-      let pages = 0;
       try {
-        let offset = 0;
-        while (pages < MAX_QUEUE_PAGES) {
-          const page = await artistMatchingApi.reviewQueue(
-            account,
-            request.signal,
-            offset,
-          );
-          pages += 1;
-          if (!Array.isArray(page?.items)) break;
-          const result = offerIn(page, credit, chosen);
-          if (result !== undefined) {
-            found = result;
-            break;
-          }
-          offset += page.items.length;
-          if (page.items.length === 0 || offset >= page.total) break;
-        }
+        const page = await artistMatchingApi.reviewItem(
+          account,
+          credit,
+          request.signal,
+        );
+        if (Array.isArray(page?.items))
+          found = offerIn(page, credit, chosen) ?? null;
       } catch {
         if (request.active()) log.debug("credit_tail_offer.unavailable");
       }
@@ -96,7 +84,6 @@ export function useCreditTailOffer(
       setView((current) => ({ ...current, offer: found }));
       log.debug("credit_tail_offer.loaded", {
         enabled: found !== null,
-        count: pages,
         duration_ms: Math.round(performance.now() - started),
       });
     })();
