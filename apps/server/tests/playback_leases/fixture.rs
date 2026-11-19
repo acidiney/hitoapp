@@ -84,6 +84,8 @@ impl Case {
         let body = serde_json::to_vec(&BeginPlaybackLease {
             recording_id: self.recording.clone(),
             source_id: self.source.clone(),
+            client: None,
+            request_id: None,
         })
         .unwrap();
         self.request("POST", "/api/v1/playback/leases", &[], Some(body))
