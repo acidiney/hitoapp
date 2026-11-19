@@ -205,6 +205,7 @@ async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
             crate::ArtistReviewQueueQuery {
                 offset: Some(0),
                 limit: Some(50),
+                artist: None,
             },
         ))
         .await;
@@ -375,6 +376,7 @@ async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
             crate::ArtistReviewQueueQuery {
                 offset: Some(0),
                 limit: Some(50),
+                artist: None,
             },
         ))
         .await;
@@ -391,6 +393,7 @@ async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
             crate::ArtistReviewQueueQuery {
                 offset: Some(50),
                 limit: Some(50),
+                artist: None,
             },
         )
         .await
@@ -435,6 +438,7 @@ async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
             crate::ArtistReviewQueueQuery {
                 offset: Some(0),
                 limit: Some(50),
+                artist: None,
             },
         ))
         .await;

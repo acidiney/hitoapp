@@ -3046,6 +3046,14 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
