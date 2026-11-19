@@ -258,3 +258,38 @@ async fn a_listener_who_turned_it_off_or_is_listening_is_left_alone() {
         "it waits while the account is listening"
     );
 }
+
+#[tokio::test]
+async fn a_held_host_prepares_nothing_until_it_is_released() {
+    let fixture = Fixture::start(json!({"items": []})).await;
+    offer_a_candidate(&fixture, "Accepted title").await;
+    fixture
+        .hito
+        .catalog
+        .run_next_source_readiness_until(pending())
+        .await
+        .unwrap();
+    time_passes(&fixture).await;
+    fixture.hito.catalog.hold_background_preparation(true);
+    assert!(
+        !fixture
+            .hito
+            .catalog
+            .run_next_source_readiness_until(pending())
+            .await
+            .unwrap(),
+        "a held host claims no walk"
+    );
+    assert!(!ready(&fixture).await);
+    fixture.hito.catalog.hold_background_preparation(false);
+    assert!(
+        fixture
+            .hito
+            .catalog
+            .run_next_source_readiness_until(pending())
+            .await
+            .unwrap(),
+        "the walk resumes once the host is released"
+    );
+    assert!(ready(&fixture).await);
+}

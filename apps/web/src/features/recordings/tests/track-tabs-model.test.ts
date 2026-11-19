@@ -61,6 +61,7 @@ const source = (patch: Partial<Schema<"Source">>): Schema<"Source"> => ({
   device_id: null,
   ready: true,
   can_prepare: false,
+  community_public: false,
   match_kind: "verified",
   ...patch,
 });

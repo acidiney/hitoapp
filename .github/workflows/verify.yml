@@ -24,6 +24,9 @@ jobs:
       - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Verify Linux desktop in Docker
         run: ./scripts/check-desktop.sh
+      - name: Make desktop evidence readable
+        if: failure()
+        run: sudo chmod -R a+rX test-results/desktop || true
       - name: Upload desktop evidence
         if: failure()
         uses: actions/upload-artifact@v4

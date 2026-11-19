@@ -84,6 +84,7 @@ mod tests {
             provider: provider.into(),
             label: id.into(),
             provider_label: None,
+            community_public: false,
             device_id: None,
             ready: true,
             can_prepare: false,

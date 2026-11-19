@@ -35941,12 +35941,16 @@
           "recording_id",
           "provider",
           "label",
+          "community_public",
           "ready",
           "can_prepare",
           "match_kind"
         ],
         "properties": {
           "can_prepare": {
+            "type": "boolean"
+          },
+          "community_public": {
             "type": "boolean"
           },
           "device_id": {

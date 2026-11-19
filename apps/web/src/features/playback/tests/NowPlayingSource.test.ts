@@ -27,6 +27,7 @@ const youtube = (recording: string) => ({
   match_kind: "verified",
   ready: true,
   can_prepare: true,
+  community_public: false,
 });
 const fetch = vi.fn(async (path: string) => {
   if (path.endsWith("/playback-sources")) {
