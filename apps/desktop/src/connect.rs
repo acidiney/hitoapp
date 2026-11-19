@@ -89,7 +89,11 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         let router = Router::new().route(
             "/health",
-            get(|| async { axum::Json(serde_json::json!({"ready": true, "api_level": 1, "min_client_api_level": 1})) }),
+            get(|| async {
+                axum::Json(
+                    serde_json::json!({"ready": true, "api_level": 1, "min_client_api_level": 1}),
+                )
+            }),
         );
         tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
         port

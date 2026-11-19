@@ -22,15 +22,23 @@ async fn health_states_the_api_levels_an_app_needs_before_signing_in() {
         hito_server::Hosts::default(),
     );
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     let body: Value =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(body["ready"], true);
     assert_eq!(body["api_level"], hito_server::API_LEVEL);
-    assert_eq!(body["min_client_api_level"], hito_server::MIN_CLIENT_API_LEVEL);
+    assert_eq!(
+        body["min_client_api_level"],
+        hito_server::MIN_CLIENT_API_LEVEL
+    );
     assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
-    assert!(hito_server::MIN_CLIENT_API_LEVEL >= 1);
-    assert!(hito_server::API_LEVEL >= hito_server::MIN_CLIENT_API_LEVEL);
+    const { assert!(hito_server::MIN_CLIENT_API_LEVEL >= 1) };
+    const { assert!(hito_server::API_LEVEL >= hito_server::MIN_CLIENT_API_LEVEL) };
 }
