@@ -260,6 +260,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
         featured_cache: Default::default(),
+        preparation_held: Default::default(),
         local_files: local_files.clone(),
         cover_art: {
             #[cfg(any(test, feature = "test-support"))]

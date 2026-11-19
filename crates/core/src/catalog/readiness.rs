@@ -1,7 +1,7 @@
 use crate::{Actor, Catalog, Error, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use std::{future::Future, time::Instant};
+use std::{future::Future, sync::atomic::Ordering, time::Instant};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -107,11 +107,25 @@ impl Catalog {
         Ok(preference)
     }
 
+    pub fn hold_background_preparation(&self, held: bool) {
+        let was = self.preparation_held.swap(held, Ordering::AcqRel);
+        if was != held {
+            tracing::info!(
+                event = "source_readiness_hold_changed",
+                held,
+                "Background source preparation hold changed"
+            );
+        }
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn run_next_source_readiness_until(
         &self,
         shutdown: impl Future<Output = ()> + Send,
     ) -> Result<bool> {
+        if self.preparation_held.load(Ordering::Acquire) {
+            return Ok(false);
+        }
         let Some(job) = self.claim_readiness_job().await? else {
             return Ok(false);
         };
