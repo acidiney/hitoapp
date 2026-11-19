@@ -26,6 +26,39 @@ import Testing
         #expect(begin.json == ["recording_id": "r1", "source_id": "s1"])
     }
 
+    @Test func aTaggedPlayerNamesItsRunAndEachLeaseRequest() async throws {
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
+            "POST /api/v1/playback/leases": .json(200, lease),
+        ])
+        let tagged = Playback(api: HitoAPI(address: address, token: "session-token-1", session: fake.session), client: "ios-run-2")
+        _ = try await tagged.prepare("r1")
+        let begin = try #require(fake.requests.last?.json)
+        #expect(begin["client"] == "ios-run-2")
+        #expect(UUID(uuidString: begin["request_id"] ?? "") != nil)
+    }
+
+    @Test func aLostAnswerIsAskedAgainWithTheSameRequestOnce() async throws {
+        let fake = FakeServer(
+            routes: ["GET /api/v1/recordings/r1/playback-sources": .json(200, sources)],
+            failures: ["http://192.168.1.20:8080/api/v1/playback/leases": URLError(.networkConnectionLost)]
+        )
+        let tagged = Playback(api: HitoAPI(address: address, token: "session-token-1", session: fake.session), client: "ios-run-2")
+        await #expect(throws: (any Error).self) { try await tagged.prepare("r1") }
+        let begins = fake.requests.filter { $0.line == "POST http://192.168.1.20:8080/api/v1/playback/leases" }.compactMap { $0.json?["request_id"] }
+        #expect(begins.count == 2)
+        #expect(Set(begins).count == 1)
+    }
+
+    @Test func theLeasesAnEarlierRunLeftAreReturnedByItsTag() async throws {
+        let fake = FakeServer(routes: ["DELETE /api/v1/playback/leases": .text(204, "")])
+        await playback(fake).releaseLeft(by: "ios-run-1")
+        let release = try #require(fake.requests.last)
+        #expect(release.line == "DELETE /api/v1/playback/leases")
+        #expect(release.query == "client=ios-run-1")
+        #expect(release.header("x-hito-request") == "1")
+    }
+
     @Test func aServerThatDoesNotNameTheMatchKindStillPlays() async throws {
         let older = #"[{"id":"s1","recording_id":"r1","label":"Local file","ready":true,"can_prepare":false}]"#
         let fake = FakeServer(routes: [

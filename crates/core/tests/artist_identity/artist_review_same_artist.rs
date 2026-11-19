@@ -178,6 +178,17 @@ async fn confirming_applies_the_chosen_identity_and_the_two_cards_become_one_art
         (1, 0, 0)
     );
     let edited = library.recordings.last().unwrap();
+    let metadata = library
+        .hito
+        .catalog
+        .recording_metadata(&library.actor, edited, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&metadata).unwrap()["artist"]["value"],
+        EDITED,
+        "Confirming the chosen artist keeps the listener's personal edit"
+    );
     let associations = library.associations(edited).await;
     assert_eq!(associations[0].provider_artist_id, NOVA);
     assert_eq!(
