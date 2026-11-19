@@ -12,7 +12,7 @@ pub struct SavedPosition {
     pub position_ms: u64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, ToSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, ToSchema, Deserialize)]
 pub struct RecordingProgress {
     pub recording_id: Uuid,
     pub position_ms: u64,
@@ -203,7 +203,7 @@ pub struct PlaylistDetail {
     pub follow_content_revision: Option<i64>,
 }
 
-#[derive(ToSchema, Serialize)]
+#[derive(ToSchema, Serialize, Deserialize)]
 pub struct PlaylistEntry {
     pub entry_id: String,
     pub liked: bool,
