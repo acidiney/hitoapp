@@ -21,7 +21,7 @@ export type ServerPlace = {
   connect: (address: string, acceptPlain: boolean) => Promise<ConnectOutcome>;
   cancel: () => Promise<void>;
   recent: () => Promise<RecentServer[]>;
-  forget: (origin: string) => Promise<void>;
+  forget: (origin: string) => Promise<{ told: boolean }>;
   saved: () => Promise<string | null>;
 };
 
@@ -30,7 +30,7 @@ export const serverPlace: ServerPlace = {
     invoke<ConnectOutcome>("connect_server", { address, acceptPlain }),
   cancel: () => invoke<void>("cancel_connect"),
   recent: () => invoke<RecentServer[]>("recent_servers"),
-  forget: (origin) => invoke<void>("forget_server", { origin }),
+  forget: (origin) => invoke<{ told: boolean }>("forget_server", { origin }),
   saved: () => invoke<string | null>("saved_server"),
 };
 

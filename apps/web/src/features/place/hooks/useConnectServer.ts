@@ -23,6 +23,7 @@ export function useConnectServer(place: ServerPlace) {
     problem: null,
   });
   const [recent, setRecent] = useState<RecentServer[]>([]);
+  const [untold, setUntold] = useState<string | null>(null);
   const attempt = useRef(0);
 
   useEffect(() => {
@@ -93,15 +94,18 @@ export function useConnectServer(place: ServerPlace) {
 
   const forget = useCallback(
     async (origin: string) => {
-      await place.forget(origin);
+      const { told } = await place.forget(origin);
+      const shown = recent.find((server) => server.origin === origin)?.shown;
+      setUntold(told ? null : (shown ?? origin));
       setRecent((servers) =>
         servers.filter((server) => server.origin !== origin),
       );
     },
-    [place],
+    [place, recent],
   );
 
   return {
+    untold,
     address,
     setAddress,
     phase,

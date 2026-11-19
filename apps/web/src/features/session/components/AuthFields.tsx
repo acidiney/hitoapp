@@ -14,12 +14,18 @@ export function AuthDot({ status }: { status: DotStatus }) {
   return <span className="auth-dot" data-status={status} aria-hidden="true" />;
 }
 
-export function ServerLine({ busy }: { busy: boolean }) {
+export function ServerLine({
+  busy,
+  address = window.location.host,
+}: {
+  busy: boolean;
+  address?: string;
+}) {
   return (
     <span className="auth-server">
       <AuthDot status={busy ? "checking" : "ready"} />
       <span>
-        {window.location.host}
+        {address}
         {busy ? " · signing in…" : ""}
       </span>
     </span>

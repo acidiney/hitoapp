@@ -16,6 +16,7 @@ use tower::ServiceExt;
 #[derive(Default)]
 struct Fake {
     changes: AtomicUsize,
+    forgotten: AtomicUsize,
 }
 
 impl HostPlace for Fake {
@@ -25,6 +26,11 @@ impl HostPlace for Fake {
     fn change(&self) -> BoxFuture<'_, ()> {
         Box::pin(async {
             self.changes.fetch_add(1, Ordering::SeqCst);
+        })
+    }
+    fn forget_me(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async {
+            self.forgotten.fetch_add(1, Ordering::SeqCst);
         })
     }
 }
@@ -109,15 +115,25 @@ async fn the_desktop_app_reports_its_place_and_is_asked_to_change_it() {
     let (status, _) = call(&app, "POST", "/api/v1/host/place/change", Some(&token)).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert_eq!(place.changes.load(Ordering::SeqCst), 1);
+    let (status, _) = call(&app, "POST", "/api/v1/host/place/forget-me", Some(&token)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(place.forgotten.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
-async fn changing_the_place_needs_a_signed_in_account() {
+async fn the_place_shows_on_the_sign_in_page_but_changing_it_needs_an_account() {
     let place = Arc::new(Fake::default());
     let (_dir, app, _token) = setup(Some(place.clone())).await;
-    let (status, _) = call(&app, "GET", "/api/v1/host/place", None).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, offer) = call(&app, "GET", "/api/v1/host/place", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        offer,
+        json!({"changeable": true, "current": {"kind": "this_computer"}})
+    );
     let (status, _) = call(&app, "POST", "/api/v1/host/place/change", None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = call(&app, "POST", "/api/v1/host/place/forget-me", None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(place.changes.load(Ordering::SeqCst), 0);
+    assert_eq!(place.forgotten.load(Ordering::SeqCst), 0);
 }

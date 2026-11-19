@@ -1,6 +1,7 @@
 import type { SignInFlow } from "../hooks/useSignIn";
 import Button from "../../../shared/ui/Button";
 import { AuthAlert, AuthField, DotSpinner, ServerLine } from "./AuthFields";
+import type { AppServer } from "../../place/hooks/useAppServer";
 
 export const PASSWORD_MIN = 12;
 
@@ -46,7 +47,8 @@ export default function SetupForm({
   busy,
   error,
   submit,
-}: SignInFlow) {
+  app,
+}: SignInFlow & { app: AppServer }) {
   const hint = passwordHint(password.length);
   return (
     <form
@@ -62,7 +64,7 @@ export default function SetupForm({
           This server has no accounts yet. The first one becomes the
           administrator and can add other people.
         </p>
-        <ServerLine busy={false} />
+        <ServerLine busy={false} address={app.server?.origin} />
       </div>
       <AuthField
         label="Username"
@@ -99,6 +101,11 @@ export default function SetupForm({
           "Create administrator"
         )}
       </Button>
+      {app.server && (
+        <Button variant="link" onClick={app.changeServer} disabled={busy}>
+          Change server
+        </Button>
+      )}
     </form>
   );
 }

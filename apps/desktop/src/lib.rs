@@ -32,9 +32,9 @@ pub use native_picker::NativePicker;
 #[cfg(feature = "native-media")]
 pub use os_controls::{OsControls, WindowHandle};
 pub use place::Place;
-pub use remote::{RemoteHost, current_server};
+pub use remote::{RemoteHost, ServerSession, current_server};
 pub use server_address::{AddressProblem, ServerAddress};
-pub use server_probe::{Probe, Prober};
+pub use server_probe::{Probe, Prober, tls_ready};
 pub use servers::{RecentServer, RecentServers};
 use std::path::PathBuf;
 pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};

@@ -1131,6 +1131,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/host/place/forget-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["host_place_forget_me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{id}": {
         parameters: {
             query?: never;
@@ -4730,6 +4746,7 @@ export interface components {
             /** @enum {string} */
             kind: "server";
             origin: string;
+            remembered?: string | null;
         };
         HostPlaceOffer: {
             changeable: boolean;
@@ -12039,6 +12056,23 @@ export interface operations {
                     "application/json": components["schemas"]["HostPlaceOffer"];
                 };
             };
+        };
+    };
+    host_place_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -12055,9 +12089,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
-    host_place_change: {
+    host_place_forget_me: {
         parameters: {
             query?: never;
             header?: never;

@@ -6925,7 +6925,15 @@
                 }
               }
             }
-          },
+          }
+        }
+      }
+    },
+    "/api/v1/host/place/change": {
+      "post": {
+        "operationId": "host_place_change",
+        "responses": {
+          "204": {},
           "401": {
             "content": {
               "application/json": {
@@ -6936,6 +6944,15 @@
             }
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6955,9 +6972,9 @@
         ]
       }
     },
-    "/api/v1/host/place/change": {
+    "/api/v1/host/place/forget-me": {
       "post": {
-        "operationId": "host_place_change",
+        "operationId": "host_place_forget_me",
         "responses": {
           "204": {},
           "401": {
@@ -28789,6 +28806,12 @@
               },
               "origin": {
                 "type": "string"
+              },
+              "remembered": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             }
           }

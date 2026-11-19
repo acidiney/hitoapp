@@ -13,12 +13,18 @@ use utoipa::ToSchema;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HostPlaceCurrent {
     ThisComputer,
-    Server { origin: String },
+    Server {
+        origin: String,
+        remembered: Option<String>,
+    },
 }
 
 pub trait HostPlace: Send + Sync + 'static {
     fn current(&self) -> HostPlaceCurrent;
     fn change(&self) -> BoxFuture<'_, ()>;
+    fn forget_me(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async {})
+    }
 }
 
 #[derive(Clone)]
@@ -30,13 +36,10 @@ pub struct HostPlaceOffer {
     pub current: Option<HostPlaceCurrent>,
 }
 
-#[utoipa::path(get, path = "/api/v1/host/place", operation_id = "host_place_offer", security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = HostPlaceOffer), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+#[utoipa::path(get, path = "/api/v1/host/place", operation_id = "host_place_offer", responses(
+    (status = 200, body = HostPlaceOffer),
 ))]
-pub async fn offer(
-    Account(_actor): Account,
-    Extension(host): Extension<HostPlaceAccess>,
-) -> ApiResult<Json<HostPlaceOffer>> {
+pub async fn offer(Extension(host): Extension<HostPlaceAccess>) -> ApiResult<Json<HostPlaceOffer>> {
     Ok(Json(match host.0 {
         Some(host) => HostPlaceOffer {
             changeable: true,
@@ -63,5 +66,18 @@ pub async fn change(
         event = "host_place_change_requested",
         "The app was asked to return to its first screen"
     );
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(post, path = "/api/v1/host/place/forget-me", operation_id = "host_place_forget_me", security(("session" = []), ("bearer" = [])), responses(
+    (status = 204), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse),
+))]
+pub async fn forget_me(
+    Account(_actor): Account,
+    Extension(host): Extension<HostPlaceAccess>,
+) -> ApiResult<StatusCode> {
+    let host = host.0.ok_or(Error::NotFound)?;
+    host.forget_me().await;
     Ok(StatusCode::NO_CONTENT)
 }

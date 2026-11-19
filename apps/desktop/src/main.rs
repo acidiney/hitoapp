@@ -2,6 +2,7 @@
 
 mod exit;
 mod launch;
+mod session;
 
 use exit::{Decision, Lifecycle};
 use hito_desktop::{
