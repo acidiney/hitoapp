@@ -1433,13 +1433,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Stream the admitted original representation. Single byte ranges are supported when the source is seekable. If-Range ignores Range because this route supplies no conditional validator. There is no conversion or quality negotiation. */
+        /** @description Stream the admitted audio. The default original representation supports single byte ranges when the source is seekable; If-Range ignores Range because this route supplies no conditional validator. High and saver qualities stream AAC from start_ms with no Content-Length or byte ranges, and Range is ignored. When conversion is unavailable, including remote-only sources, the response is 409 and the client should retry the original. */
         get: operations["playback_lease_audio"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
-        /** @description Read original representation headers without an audio body. Range is ignored for HEAD. */
+        /** @description Read the representation headers without an audio body or starting an encoder. Range is ignored for HEAD. For high or saver quality, the headers report the representation GET would stream; when conversion is unavailable they describe the original. */
         head: operations["playback_lease_audio_head"];
         patch?: never;
         trace?: never;
@@ -13528,7 +13528,10 @@ export interface operations {
     };
     playback_lease_audio: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: {
                 Range?: string | null;
                 "If-Range"?: string | null;
@@ -13542,10 +13545,15 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                    "audio/aac": components["schemas"]["AudioStream"];
                 };
             };
             206: {
@@ -13554,6 +13562,14 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: {
@@ -13630,7 +13646,10 @@ export interface operations {
     };
     playback_lease_audio_head: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -13641,9 +13660,21 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             401: {
                 headers: {

@@ -2,6 +2,8 @@ use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, PlaybackSource, 
 use futures_util::future::BoxFuture;
 use std::{any::Any, sync::Arc};
 
+pub(super) type WarmAudio = (OpenedAudio, Arc<crate::plugins::WarmTicket>);
+
 #[derive(Clone)]
 pub(crate) struct Located(Arc<dyn Any + Send + Sync>);
 
@@ -37,6 +39,15 @@ pub(crate) trait AudioOrigin: Send + Sync {
         located: &'a Located,
     ) -> BoxFuture<'a, Result<bool>>;
 
+    fn warm_still_valid<'a>(
+        &'a self,
+        actor: &'a Actor,
+        source: &'a str,
+        located: &'a Located,
+    ) -> BoxFuture<'a, Result<bool>> {
+        self.still_valid(actor, source, located)
+    }
+
     fn open_file<'a>(
         &'a self,
         _actor: &'a Actor,
@@ -55,12 +66,20 @@ pub(crate) trait AudioOrigin: Send + Sync {
             super::relay::open_file_audio(grant, audio, request).await
         })
     }
+
+    fn open_warm<'a>(
+        &'a self,
+        _grant: &'a PlaybackSource,
+        _request: AudioRequest,
+        _monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
+    ) -> BoxFuture<'a, Result<Option<WarmAudio>>> {
+        Box::pin(async { Ok(None) })
+    }
 }
 
 #[derive(Clone)]
 pub(crate) struct Origins {
     ordered: Arc<[Arc<dyn AudioOrigin>]>,
-    pub provider: Arc<super::provider::ProviderOrigin>,
 }
 
 impl Origins {
@@ -73,7 +92,6 @@ impl Origins {
         let provider = Arc::new(provider);
         Self {
             ordered: Arc::new([provider.clone(), podcast, managed, local]),
-            provider,
         }
     }
 

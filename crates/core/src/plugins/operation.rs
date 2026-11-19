@@ -226,18 +226,22 @@ impl Operation {
         remote_source: &str,
         binding: &str,
         binding_revision: i64,
+        source_generation: i64,
     ) -> super::AudioAuthority {
         super::media::Authority {
             store: self.store.clone(),
             account: self.account.clone(),
             installation: self.installation.clone(),
+            installation_revision: self.installation_revision,
             service: self.service.clone(),
+            service_revision: self.service_revision,
             credential: self.credential.clone(),
             source: source.into(),
             remote_source: remote_source.into(),
             generation: self.audio_generation,
             binding: binding.into(),
             binding_revision,
+            source_generation,
         }
     }
     pub(crate) async fn audio(
@@ -246,9 +250,16 @@ impl Operation {
         remote_source: &str,
         binding: &str,
         binding_revision: i64,
+        source_generation: i64,
         request: crate::AudioRequest,
     ) -> Result<crate::OpenedAudio> {
-        let authority = self.audio_authority(source, remote_source, binding, binding_revision);
+        let authority = self.audio_authority(
+            source,
+            remote_source,
+            binding,
+            binding_revision,
+            source_generation,
+        );
         authority.check().await?;
         let audio = self
             .media
@@ -262,6 +273,49 @@ impl Operation {
         let mut connection = self.store.pool.acquire().await?;
         self.recheck(&mut connection).await?;
         Ok(audio)
+    }
+    pub(crate) async fn audio_warm(
+        &self,
+        authority: super::AudioAuthority,
+        request: crate::AudioRequest,
+        monitors: std::sync::Arc<crate::playback_access::relay::MonitorRegistry>,
+    ) -> Result<(crate::OpenedAudio, std::sync::Arc<super::WarmTicket>)> {
+        authority.check().await?;
+        let (mut audio, ticket) = self
+            .media
+            .open_warm(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+                authority,
+                monitors,
+            )
+            .await?;
+        let mut canceled = ticket.cancelled();
+        if *canceled.borrow() {
+            shutdown_audio(&mut audio).await;
+            return Err(crate::Error::Conflict(
+                "Audio streams are busy. Try again.".into(),
+            ));
+        }
+        let mut connection = tokio::select! {
+            biased;
+            _ = canceled.changed() => {
+                shutdown_audio(&mut audio).await;
+                return Err(crate::Error::Conflict("Audio streams are busy. Try again.".into()));
+            }
+            connection = self.store.pool.acquire() => connection?,
+        };
+        let checked = tokio::select! {
+            biased;
+            _ = canceled.changed() => Err(crate::Error::Conflict("Audio streams are busy. Try again.".into())),
+            result = self.recheck(&mut connection) => result,
+        };
+        if let Err(error) = checked {
+            shutdown_audio(&mut audio).await;
+            return Err(error);
+        }
+        Ok((audio, ticket))
     }
     pub(crate) async fn recording(
         &self,
@@ -383,5 +437,13 @@ impl Operation {
             ));
         }
         Ok(())
+    }
+}
+
+async fn shutdown_audio(audio: &mut crate::OpenedAudio) {
+    if let crate::OpenedAudio::Content(content) = audio
+        && let Some(body) = &mut content.body
+    {
+        body.shutdown().await;
     }
 }
