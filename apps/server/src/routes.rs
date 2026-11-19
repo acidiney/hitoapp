@@ -343,7 +343,7 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(collection::delete_history))
 }
 
-fn player_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+fn player_routes<S: Clone + Send + Sync + 'static>(router: OpenApiRouter<S>) -> OpenApiRouter<S> {
     router
         .routes(routes!(player::inspect))
         .routes(routes!(player::claim))
@@ -404,6 +404,18 @@ pub fn router_with_hosts(
     application(services, config, player, hosts)
 }
 
+pub fn native_player_router(
+    player: hito_playback::Player,
+    identity: player::identity::PlayerIdentity,
+) -> Router {
+    let (router, _) = player_routes(OpenApiRouter::<()>::new()).split_for_parts();
+    router
+        .layer(axum::extract::DefaultBodyLimit::max(262144))
+        .layer(Extension(player::Playback::new(Some(player))))
+        .layer(Extension(identity))
+        .layer(middleware::from_fn(telemetry::request))
+}
+
 pub fn loopback_return_router(services: Services, config: Config) -> Router {
     api::loopback_return::router()
         .layer(middleware::from_fn_with_state(
@@ -460,6 +472,9 @@ fn application(
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))
         .layer(Extension(player::Playback::new(player)))
+        .layer(Extension(player::identity::PlayerIdentity(Arc::new(
+            player::identity::AccountIdentity(services.clone()),
+        ))))
         .layer(Extension(HostFolderAccess(hosts.folders)))
         .layer(Extension(HostBrowserAccess(hosts.browser)))
         .layer(Extension(HostPlaceAccess(hosts.place)))

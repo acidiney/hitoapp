@@ -37,6 +37,7 @@ pub struct RemoteHost {
     entry: Url,
     stop: Option<oneshot::Sender<()>>,
     serving: Option<JoinHandle<std::io::Result<()>>>,
+    player: Option<hito_playback::PlayerOwner>,
 }
 
 pub trait ServerSession: Send + Sync + 'static {
@@ -68,6 +69,28 @@ impl RemoteHost {
         place: Arc<dyn HostPlace>,
         session: Arc<dyn ServerSession>,
     ) -> Result<Self> {
+        Self::launch(server, web, place, session, None).await
+    }
+
+    #[cfg(feature = "device")]
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn start_native(
+        server: Url,
+        web: &Path,
+        place: Arc<dyn HostPlace>,
+        session: Arc<dyn ServerSession>,
+        media: Option<hito_playback::MediaIntegration>,
+    ) -> Result<Self> {
+        Self::launch(server, web, place, session, Some(media)).await
+    }
+
+    async fn launch(
+        server: Url,
+        web: &Path,
+        place: Arc<dyn HostPlace>,
+        session: Arc<dyn ServerSession>,
+        native: Option<Option<hito_playback::MediaIntegration>>,
+    ) -> Result<Self> {
         crate::server_probe::tls_ready();
         let client = reqwest::Client::builder()
             .no_proxy()
@@ -83,6 +106,7 @@ impl RemoteHost {
         let address = listener.local_addr().map_err(|_| Error::Startup)?;
         let origin = Url::parse(&format!("http://{address}")).map_err(|_| Error::Startup)?;
         let (access, entry) = Access::new(&origin);
+        let (player_routes, player) = native_player(&server, &client, &session, native);
         let forwarding = Router::new()
             .fallback(forward)
             .with_state(Arc::new(Forward {
@@ -100,6 +124,7 @@ impl RemoteHost {
                 .route("/api/v1/host/place/change", post(place_change))
                 .route("/api/v1/host/place/forget-me", post(place_forget_me))
                 .with_state(place)
+                .merge(player_routes)
                 .fallback_service(files),
         );
         let (stop, stopped) = oneshot::channel::<()>();
@@ -118,6 +143,7 @@ impl RemoteHost {
             entry,
             stop: Some(stop),
             serving: Some(serving),
+            player,
         })
     }
 
@@ -129,6 +155,14 @@ impl RemoteHost {
     pub async fn shutdown(mut self) -> Result<()> {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
+        }
+        if let Some(player) = self.player.take()
+            && player.close().await.is_err()
+        {
+            tracing::warn!(
+                event = "desktop_remote_player_close_failed",
+                "The native player for the chosen server did not close cleanly"
+            );
         }
         let Some(serving) = self.serving.take() else {
             return Ok(());
@@ -152,6 +186,50 @@ impl Drop for RemoteHost {
             let _ = stop.send(());
         }
     }
+}
+
+#[cfg(feature = "device")]
+fn native_player(
+    server: &Url,
+    client: &reqwest::Client,
+    session: &Arc<dyn ServerSession>,
+    native: Option<Option<hito_playback::MediaIntegration>>,
+) -> (Router, Option<hito_playback::PlayerOwner>) {
+    let Some(media) = native else {
+        return (Router::new(), None);
+    };
+    let remote = Arc::new(crate::remote_player::Server::new(
+        client.clone(),
+        server.clone(),
+        session.clone(),
+    ));
+    let mut tools = hito_core::MediaTools::default();
+    crate::media_tools::resolve(&mut tools, Vec::new());
+    let decoder = hito_core::StreamDecoder::new(tools);
+    let (player, owner) = hito_playback::Player::native_with_seam(
+        crate::remote_player::seam(remote.clone(), decoder),
+        media,
+    );
+    let identity =
+        hito_server::PlayerIdentity(Arc::new(crate::remote_player::RemoteIdentity::new(remote)));
+    tracing::info!(
+        event = "desktop_remote_player_ready",
+        "The native player for the chosen server started"
+    );
+    (
+        hito_server::native_player_router(player, identity),
+        Some(owner),
+    )
+}
+
+#[cfg(not(feature = "device"))]
+fn native_player(
+    _server: &Url,
+    _client: &reqwest::Client,
+    _session: &Arc<dyn ServerSession>,
+    _native: Option<Option<hito_playback::MediaIntegration>>,
+) -> (Router, Option<hito_playback::PlayerOwner>) {
+    (Router::new(), None)
 }
 
 async fn place_offer(State(place): State<Arc<dyn HostPlace>>) -> Json<HostPlaceOffer> {

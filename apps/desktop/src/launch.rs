@@ -69,7 +69,7 @@ impl Launch {
         let host = match place {
             Place::ThisComputer => AppHost::Local(self.start_local(app).await?),
             Place::Server { origin } => AppHost::Remote(
-                RemoteHost::start(
+                RemoteHost::start_native(
                     origin.clone(),
                     &self.web,
                     Arc::new(DesktopPlace {
@@ -77,6 +77,7 @@ impl Launch {
                         server: Some(origin.clone()),
                     }),
                     Arc::new(DesktopSession::new(origin.clone(), self.data.clone())),
+                    Some(self.media()),
                 )
                 .await?,
             ),
@@ -85,14 +86,18 @@ impl Launch {
         Ok(host)
     }
 
-    async fn start_local(&self, app: &AppHandle) -> hito_desktop::Result<LocalHost> {
+    fn media(&self) -> MediaIntegration {
         let (sender, commands) = media_commands();
         let window = self.window.clone();
         let controls = Lazy::new(move || OsControls::create(&sender, &window));
-        let media = MediaIntegration::new(
+        MediaIntegration::new(
             SystemMedia::new(controls, self.data.join("media-artwork")),
             commands,
-        );
+        )
+    }
+
+    async fn start_local(&self, app: &AppHandle) -> hito_desktop::Result<LocalHost> {
+        let media = self.media();
         LocalHost::start_with_folders(
             Paths {
                 data: self.data.clone(),
