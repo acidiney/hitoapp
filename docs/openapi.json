@@ -3046,6 +3046,14 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7519,7 +7527,7 @@
     },
     "/api/v1/playback/leases": {
       "post": {
-        "description": "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access.",
+        "description": "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access. A client may tag its leases with a stable `client` it keeps across restarts, and may send a `request_id`: repeating a request from the same session returns the lease it already began instead of a new one.",
         "operationId": "playback_lease_begin",
         "requestBody": {
           "content": {
@@ -7596,6 +7604,96 @@
             }
           },
           "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "description": "Retire every lease this session began with the given client tag and join their work. A client calls this when it starts, to return the leases an earlier run left behind. Leases of other sessions and other tags are untouched.",
+        "operationId": "playback_lease_release_client",
+        "parameters": [
+          {
+            "name": "client",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {},
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
             "content": {
               "application/json": {
                 "schema": {
@@ -25273,8 +25371,23 @@
           "source_id"
         ],
         "properties": {
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64,
+            "minLength": 1
+          },
           "recording_id": {
             "type": "string"
+          },
+          "request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "source_id": {
             "type": "string"

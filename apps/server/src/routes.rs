@@ -150,7 +150,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
-        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::begin,
+            api::playback_leases::release_client
+        ))
         .routes(routes!(
             api::playback_leases::status,
             api::playback_leases::release

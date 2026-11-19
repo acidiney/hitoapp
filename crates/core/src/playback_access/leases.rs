@@ -18,7 +18,7 @@ use std::{
 };
 use tokio::sync::{Notify, mpsc, oneshot, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
-pub use types::{BeginPlaybackLease, PlaybackLease};
+pub use types::{BeginPlaybackLease, PlaybackLease, ReleaseClientLeases};
 use uuid::Uuid;
 
 static NEXT_LEASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -36,6 +36,10 @@ struct Entry {
     started: std::time::Instant,
     actor: Actor,
     metadata: PlaybackLease,
+    recording: String,
+    source: String,
+    client: Option<String>,
+    request: Option<Uuid>,
     deadline: tokio::time::Instant,
     cancel: watch::Sender<bool>,
     ready: AtomicBool,
@@ -94,6 +98,14 @@ impl PlaybackAccess {
                 "Use recording and source identities of 1 to 1024 bytes".into(),
             ));
         }
+        if let Some(client) = &request.client {
+            check_client(client)?;
+        }
+        if request.request_id.is_some_and(|id| id.is_nil()) {
+            return Err(Error::Invalid(
+                "Use a nonempty playback lease request identity".into(),
+            ));
+        }
         #[cfg(test)]
         let lifetime = self
             .leases
@@ -125,6 +137,10 @@ impl PlaybackAccess {
                     .as_secs() as i64
                     + lifetime.as_secs().max(1) as i64,
             },
+            recording: request.recording_id.clone(),
+            source: request.source_id.clone(),
+            client: request.client.clone(),
+            request: request.request_id,
             deadline: tokio::time::Instant::now() + lifetime,
             cancel: watch::channel(false).0,
             ready: AtomicBool::new(false),
@@ -135,6 +151,14 @@ impl PlaybackAccess {
         let (reply, created) = oneshot::channel();
         {
             let mut state = self.leases.state.lock().map_err(|_| stopped())?;
+            if let Some(replayed) = state.replay(actor, &entry)? {
+                tracing::debug!(
+                    event = "playback_lease_created",
+                    outcome = "replayed",
+                    "Playback lease request repeated; the existing lease was returned"
+                );
+                return Ok(replayed);
+            }
             state.reserve(actor, entry.clone())?;
             #[cfg(test)]
             let admission_pause = state.admission_pause.clone();
@@ -308,6 +332,35 @@ impl PlaybackAccess {
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), released = tracing::field::Empty))]
+    pub async fn release_client_leases(&self, actor: &Actor, client: &str) -> Result<()> {
+        check_client(client)?;
+        self.lease_actor(actor, Uuid::nil()).await?;
+        let completions: Vec<Completion> = {
+            let state = self.leases.state.lock().map_err(|_| stopped())?;
+            let released: Vec<Uuid> = state
+                .entries
+                .values()
+                .filter(|entry| {
+                    actor.same_session(&entry.actor) && entry.client.as_deref() == Some(client)
+                })
+                .map(|entry| {
+                    entry.stop();
+                    entry.metadata.id
+                })
+                .collect();
+            tracing::Span::current().record("released", released.len());
+            released
+                .iter()
+                .filter_map(|id| state.work.get(id).map(|work| work.completion.clone()))
+                .collect()
+        };
+        for completion in completions {
+            completion.await.map_err(|_| stopped())?;
+        }
+        Ok(())
+    }
+
     async fn lease_actor(&self, actor: &Actor, id: Uuid) -> Result<()> {
         actor.require_foreground_session()?;
         let authorization = match actor.require_unlocked() {
@@ -351,3 +404,18 @@ mod publication;
 #[cfg(test)]
 #[path = "../../tests/playback_leases/pin_retirement.rs"]
 mod pin_retirement;
+
+fn check_client(client: &str) -> Result<()> {
+    if client.is_empty()
+        || client.len() > 64
+        || !client
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:".contains(&byte))
+    {
+        return Err(Error::Invalid(
+            "Use a client tag of 1 to 64 letters, digits, dashes, dots, colons or underscores"
+                .into(),
+        ));
+    }
+    Ok(())
+}
