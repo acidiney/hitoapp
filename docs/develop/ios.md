@@ -16,7 +16,7 @@ What it does today:
 - Search can also ask one connected plugin that offers search, and adds or plays its results.
 - **Plugins** shows what your plugins power and your connections. A plugin's page checks its connection, asks before accepting new permissions and disconnects it. Connecting a new plugin still happens on the web.
 - **Settings**, from the account button on Home, has Profile (name and devices), Privacy & lock, Playback (source order) and About.
-- Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Audio keeps playing with the screen locked. The app publishes the track to the system's now playing controls for the lock screen and headphones; those controls are not yet checked on a device.
+- Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Each run of the app tags its leases. On the next start the app returns the leases an earlier run left behind, and a lease request whose answer was lost is sent again with the same request identity, so it can't take a second lease. Audio keeps playing with the screen locked. The app publishes the track to the system's now playing controls for the lock screen and headphones; those controls are not yet checked on a device.
 
 Discover, connecting a plugin, changing your password and the administrator settings are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
 
