@@ -59,17 +59,12 @@ struct Server {
 }
 
 impl Server {
-    async fn start() -> Self {
+    async fn start(music: impl FnOnce(&std::path::Path)) -> Self {
         let directory = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(directory.path().join("web/assets")).unwrap();
         std::fs::write(directory.path().join("web/assets/app.js"), "export {};\n").unwrap();
         std::fs::create_dir(directory.path().join("music")).unwrap();
-        let mut wave = audio::wave(48_000, 1, 480_000, |frame, _| {
-            ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 13_000.) as i16
-        });
-        let mut bytes = Vec::new();
-        wave.read_to_end(&mut bytes).unwrap();
-        std::fs::write(directory.path().join("music/owned.wav"), bytes).unwrap();
+        music(&directory.path().join("music"));
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = Url::parse(&format!("http://{}", listener.local_addr().unwrap())).unwrap();
         let mut config = hito_server::RuntimeConfig::load(
@@ -160,6 +155,28 @@ impl Server {
     }
 }
 
+fn wave(music: &std::path::Path) {
+    let mut wave = audio::wave(48_000, 1, 480_000, |frame, _| {
+        ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 13_000.) as i16
+    });
+    let mut bytes = Vec::new();
+    wave.read_to_end(&mut bytes).unwrap();
+    std::fs::write(music.join("owned.wav"), bytes).unwrap();
+}
+
+fn opus(music: &std::path::Path) {
+    assert!(
+        std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg("sine=frequency=440:sample_rate=48000:duration=10")
+            .args(["-c:a", "libopus", "-ac", "1"])
+            .arg(music.join("owned.opus"))
+            .status()
+            .unwrap()
+            .success()
+    );
+}
+
 struct Window {
     client: Client,
     root: Url,
@@ -237,7 +254,7 @@ impl Window {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn a_remote_library_plays_through_the_native_player_until_the_server_withdraws_it() {
-    let server = Server::start().await;
+    let server = Server::start(wave).await;
     let web = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(web.path().join("assets")).unwrap();
     let session = Arc::new(Kept(Mutex::new(Some(server.token.clone()))));
@@ -310,6 +327,60 @@ async fn a_remote_library_plays_through_the_native_player_until_the_server_withd
     })
     .await
     .expect("playback stopped once the server ended the session");
+
+    host.shutdown().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_remote_opus_track_is_converted_on_this_computer_until_the_server_withdraws_it() {
+    let server = Server::start(opus).await;
+    let web = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(web.path().join("assets")).unwrap();
+    let session = Arc::new(Kept(Mutex::new(Some(server.token.clone()))));
+    let host = RemoteHost::start_native(
+        server.origin.clone(),
+        web.path(),
+        Arc::new(Chosen(server.origin.clone())),
+        session,
+        None,
+    )
+    .await
+    .unwrap();
+    let window = Window::open(&host).await;
+    let inspected = window.call("api/v1/player", Value::Null).await;
+    let attached = window
+        .call("api/v1/player/claim", json!({"epoch": inspected["epoch"]}))
+        .await;
+    let lease = &attached["lease"];
+    let mut state = window.observe(lease, "state").await;
+    let capture = capture::Capture::open();
+    window
+        .command(
+            lease,
+            1,
+            0,
+            json!({"kind": "replace", "recordings": [server.recording], "start": 0}),
+        )
+        .await;
+    window.command(lease, 2, 1, json!({"kind": "resume"})).await;
+    state.until(|state| state["playing"] == true).await;
+    capture.after(capture.mark(), 0.3);
+    assert!(capture::amplitude(&capture.recent(0.1), 440.) > 0.1);
+
+    server
+        .call(Method::POST, "api/v1/logout", Value::Null)
+        .await;
+    tokio::time::timeout(Duration::from_secs(8), async {
+        loop {
+            capture.after(capture.mark(), 0.2);
+            if capture::energy(&capture.recent(0.1)) < 0.000001 {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("converted playback stopped once the server ended the session");
 
     host.shutdown().await.unwrap();
 }

@@ -1,9 +1,10 @@
 use super::server::{Server, failure};
 use bytes::Bytes;
+use futures_util::{FutureExt, future::BoxFuture, stream::BoxStream};
 use futures_util::{Stream, StreamExt};
 use hito_core::{
-    AudioFile, AudioRequest, BeginPlaybackLease, ByteRange, CandidatesEnd, Error, PcmOpening,
-    PlaybackLease, Result, Source,
+    AudioFile, AudioRequest, BeginPlaybackLease, ByteRange, CandidatesEnd, Error, PcmInput,
+    PcmOpening, PlaybackLease, Result, Source, StreamDecoder,
 };
 use hito_playback::seam::{AudioAccess, Call, Candidates, Chunks, Content, Grant, Opened};
 use reqwest::{Method, StatusCode, header};
@@ -21,6 +22,7 @@ const MAX_ATTEMPTS: u64 = 6;
 
 pub struct RemoteCandidates {
     server: Arc<Server>,
+    decoder: StreamDecoder,
     recording: String,
     waiting: VecDeque<Source>,
     offered: u64,
@@ -28,9 +30,15 @@ pub struct RemoteCandidates {
 }
 
 impl RemoteCandidates {
-    pub fn new(server: Arc<Server>, recording: &str, sources: Vec<Source>) -> Self {
+    pub fn new(
+        server: Arc<Server>,
+        decoder: StreamDecoder,
+        recording: &str,
+        sources: Vec<Source>,
+    ) -> Self {
         Self {
             server,
+            decoder,
             recording: recording.to_owned(),
             waiting: sources.into_iter().filter(|source| source.ready).collect(),
             offered: 0,
@@ -74,6 +82,7 @@ impl Candidates for RemoteCandidates {
                         );
                         return Ok(Some(Grant::new(RemoteAudio::start(
                             self.server.clone(),
+                            self.decoder.clone(),
                             lease,
                             source.id,
                         ))));
@@ -102,6 +111,7 @@ enum Standing {
 
 pub struct RemoteAudio {
     server: Arc<Server>,
+    decoder: StreamDecoder,
     lease: PlaybackLease,
     source_id: String,
     standing: watch::Receiver<Standing>,
@@ -110,11 +120,17 @@ pub struct RemoteAudio {
 }
 
 impl RemoteAudio {
-    fn start(server: Arc<Server>, lease: PlaybackLease, source_id: String) -> Self {
+    fn start(
+        server: Arc<Server>,
+        decoder: StreamDecoder,
+        lease: PlaybackLease,
+        source_id: String,
+    ) -> Self {
         let (report, standing) = watch::channel(Standing::Current);
         let watching = tokio::spawn(watch_lease(server.clone(), lease.id, report));
         Self {
             server,
+            decoder,
             lease,
             source_id,
             standing,
@@ -303,8 +319,65 @@ impl AudioAccess for RemoteAudio {
         })
     }
 
-    fn begin_pcm(&self, _start: Duration) -> Result<PcmOpening> {
-        Err(Error::UnsupportedAudio)
+    fn begin_pcm(&self, start: Duration) -> Result<PcmOpening> {
+        let input = RemoteInput {
+            server: self.server.clone(),
+            lease: self.lease.id,
+            standing: self.standing.clone(),
+        };
+        self.decoder.begin(Arc::new(input), start)
+    }
+}
+
+struct RemoteInput {
+    server: Arc<Server>,
+    lease: uuid::Uuid,
+    standing: watch::Receiver<Standing>,
+}
+
+impl RemoteInput {
+    fn lost(&self) -> bool {
+        *self.standing.borrow() == Standing::Lost
+    }
+}
+
+impl PcmInput for RemoteInput {
+    fn correlation_id(&self) -> u64 {
+        self.lease.as_u64_pair().0
+    }
+
+    fn check(&self) -> BoxFuture<'_, Result<()>> {
+        let lost = self.lost();
+        async move { if lost { Err(Error::Forbidden) } else { Ok(()) } }.boxed()
+    }
+
+    fn revoked(&self) -> BoxFuture<'_, Error> {
+        let mut standing = self.standing.clone();
+        async move {
+            let _ = standing
+                .wait_for(|standing| *standing == Standing::Lost)
+                .await;
+            Error::Forbidden
+        }
+        .boxed()
+    }
+
+    fn bytes(&self) -> BoxFuture<'_, Result<BoxStream<'static, Result<Bytes>>>> {
+        async move {
+            if self.lost() {
+                return Err(Error::Forbidden);
+            }
+            let id = self.lease.to_string();
+            let request = self
+                .server
+                .request(Method::GET, &["playback", "leases", &id, "audio"])?;
+            let response = self.server.send(request).await?;
+            Ok(response
+                .bytes_stream()
+                .map(|chunk| chunk.map_err(|_| Error::Upstream("The server stopped sending audio")))
+                .boxed())
+        }
+        .boxed()
     }
 }
 

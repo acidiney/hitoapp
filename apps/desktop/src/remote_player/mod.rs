@@ -26,9 +26,10 @@ const LOOKUP_LIMIT: usize = 500;
 const CHAPTER_LIMIT: usize = 1000;
 const SESSION_TRUST: Duration = Duration::from_secs(2);
 
-pub fn seam(server: Arc<Server>) -> Seam {
+pub fn seam(server: Arc<Server>, decoder: hito_core::StreamDecoder) -> Seam {
     let remote = Arc::new(Remote {
         server,
+        decoder,
         checked: Mutex::new(None),
     });
     Seam {
@@ -41,6 +42,7 @@ pub fn seam(server: Arc<Server>) -> Seam {
 
 struct Remote {
     server: Arc<Server>,
+    decoder: hito_core::StreamDecoder,
     checked: Mutex<Option<Instant>>,
 }
 
@@ -249,6 +251,7 @@ impl Sources for Remote {
             let sources: Vec<Source> = self.server.json(request).await?;
             Ok(Box::new(RemoteCandidates::new(
                 self.server.clone(),
+                self.decoder.clone(),
                 recording,
                 sources,
             )) as Box<dyn Candidates>)

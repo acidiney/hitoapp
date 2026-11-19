@@ -203,8 +203,13 @@ fn native_player(
         server.clone(),
         session.clone(),
     ));
-    let (player, owner) =
-        hito_playback::Player::native_with_seam(crate::remote_player::seam(remote.clone()), media);
+    let mut tools = hito_core::MediaTools::default();
+    crate::media_tools::resolve(&mut tools, Vec::new());
+    let decoder = hito_core::StreamDecoder::new(tools);
+    let (player, owner) = hito_playback::Player::native_with_seam(
+        crate::remote_player::seam(remote.clone(), decoder),
+        media,
+    );
     let identity =
         hito_server::PlayerIdentity(Arc::new(crate::remote_player::RemoteIdentity::new(remote)));
     tracing::info!(
