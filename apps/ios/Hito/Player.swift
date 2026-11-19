@@ -45,6 +45,7 @@ final class Player {
     private var loading: Task<Void, Never>?
     private var tried: Set<String> = []
     private static let leaseKey = "app.hito.lease"
+    private static let leaseClientKey = "app.hito.lease-client"
     private var leaseId: String? {
         didSet { UserDefaults.standard.set(leaseId, forKey: Self.leaseKey) }
     }
@@ -64,7 +65,14 @@ final class Player {
         self.api = api
         self.account = account
         memory = QueueMemory(account: account)
-        playback = Playback(api: api)
+        let previousClient = UserDefaults.standard.string(forKey: Self.leaseClientKey)
+        let client = "ios-\(UUID().uuidString.lowercased())"
+        UserDefaults.standard.set(client, forKey: Self.leaseClientKey)
+        playback = Playback(api: api, client: client)
+        if let previousClient {
+            log.info("player.previous_run_leases_released")
+            Task { [playback] in await playback.releaseLeft(by: previousClient) }
+        }
         likes = Likes(api: api, device: Self.device)
         listening = ListeningProgress(api: api, device: Self.device)
         if let left = UserDefaults.standard.string(forKey: Self.leaseKey) {

@@ -1,7 +1,7 @@
 use crate::{
     auth::{Account, LockableAccount},
     error::{ApiResult, ErrorResponse},
-    extract::JsonBody,
+    extract::{JsonBody, QueryParams},
 };
 use axum::{
     Json,
@@ -9,11 +9,13 @@ use axum::{
     http::StatusCode,
     response::Response,
 };
-use hito_core::{AudioStream, BeginPlaybackLease, Error, PlaybackLease, Services};
+use hito_core::{
+    AudioStream, BeginPlaybackLease, Error, PlaybackLease, ReleaseClientLeases, Services,
+};
 use uuid::Uuid;
 
 #[utoipa::path(post, path = "/api/v1/playback/leases", operation_id = "playback_lease_begin",
-    description = "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access.",
+    description = "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access. A client may tag its leases with a stable `client` it keeps across restarts, and may send a `request_id`: repeating a request from the same session returns the lease it already began instead of a new one.",
     request_body = BeginPlaybackLease,
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = PlaybackLease), (status = 400, body = ErrorResponse),
@@ -34,6 +36,31 @@ pub async fn begin(
     JsonBody(request): JsonBody<BeginPlaybackLease>,
 ) -> ApiResult<Json<PlaybackLease>> {
     Ok(Json(services.playback.begin_lease(&actor, request).await?))
+}
+
+#[utoipa::path(delete, path = "/api/v1/playback/leases", operation_id = "playback_lease_release_client",
+    description = "Retire every lease this session began with the given client tag and join their work. A client calls this when it starts, to return the leases an earlier run left behind. Leases of other sessions and other tags are untouched.",
+    params(ReleaseClientLeases), security(("session" = []), ("bearer" = [])), responses(
+    (status = 204), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(
+    level = "debug",
+    skip_all,
+    fields(operation = "http_playback_lease_release_client")
+)]
+pub async fn release_client(
+    State(services): State<Services>,
+    LockableAccount(actor): LockableAccount,
+    QueryParams(query): QueryParams<ReleaseClientLeases>,
+) -> ApiResult<StatusCode> {
+    services
+        .playback
+        .release_client_leases(&actor, &query.client)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(get, path = "/api/v1/playback/leases/{id}", operation_id = "playback_lease_status",
