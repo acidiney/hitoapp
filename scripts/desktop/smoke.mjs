@@ -806,7 +806,7 @@ try {
     });
     if (request.url === "/health") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end('{"ready":true}');
+      response.end('{"ready":true,"version":"0.1.0-dev","api_level":1,"min_client_api_level":1}');
       return;
     }
     response.writeHead(200, { "content-type": "text/html" });

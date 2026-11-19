@@ -288,3 +288,28 @@ test("forgetting a server that can't be told says the sign-in may stay listed th
     "https://music.example.org could not be told. This device may stay in the server's list of signed-in devices.",
   );
 });
+
+test("a server and app that don't match say which one to update", async () => {
+  const server = place([
+    { outcome: "server_too_old", version: "0.3.0" },
+    { outcome: "server_too_old", version: null },
+    { outcome: "app_too_old" },
+  ]);
+  render(createElement(ConnectServer, { place: server, onBack: vi.fn() }));
+  type("hito.home:8080");
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    "This server runs Hito 0.3.0, which is too old for this app. Update the server, or open it in a browser.",
+  );
+  type("hito.home:8080");
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toBe(
+      "This server runs an older Hito, which is too old for this app. Update the server, or open it in a browser.",
+    ),
+  );
+  type("hito.home:8080");
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toBe(
+      "This app is older than the server. Update the app.",
+    ),
+  );
+});

@@ -98,6 +98,10 @@ enum ConnectionMessage {
             ]
         case .notReady:
             ["\(display) is still starting. Try again in a moment."]
+        case let .serverTooOld(version):
+            ["This server runs \(version.map { "Hito \($0)" } ?? "an older Hito"), which is too old for this app. Update the server, or open it in a browser."]
+        case .appTooOld:
+            ["This app is older than the server. Update the app."]
         default:
             ["No answer from \(display). Check the address, and that this device is on the same network or VPN."]
         }
@@ -105,7 +109,7 @@ enum ConnectionMessage {
 
     static func canRetry(_ error: Error) -> Bool {
         switch error as? ServerConnection.Problem {
-        case .notHito, .certificate: false
+        case .notHito, .certificate, .serverTooOld, .appTooOld: false
         default: true
         }
     }

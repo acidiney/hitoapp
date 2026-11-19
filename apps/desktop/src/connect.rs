@@ -10,6 +10,8 @@ pub enum Outcome {
     NoAnswer { shown: String },
     NotHito { host: String },
     Certificate { host: String },
+    ServerTooOld { version: Option<String> },
+    AppTooOld,
     NotEncrypted { origin: String, shown: String },
     Busy,
     Failed,
@@ -23,6 +25,8 @@ impl Outcome {
             Self::NoAnswer { .. } => "no_answer",
             Self::NotHito { .. } => "not_hito",
             Self::Certificate { .. } => "certificate",
+            Self::ServerTooOld { .. } => "server_too_old",
+            Self::AppTooOld => "app_too_old",
             Self::NotEncrypted { .. } => "not_encrypted",
             Self::Busy => "busy",
             Self::Failed => "failed",
@@ -65,6 +69,8 @@ pub async fn check(
         }),
         Probe::NotHito(host) => Next::Answer(Outcome::NotHito { host }),
         Probe::Certificate(host) => Next::Answer(Outcome::Certificate { host }),
+        Probe::ServerTooOld { version, .. } => Next::Answer(Outcome::ServerTooOld { version }),
+        Probe::AppTooOld(_) => Next::Answer(Outcome::AppTooOld),
     }
 }
 
@@ -83,7 +89,7 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         let router = Router::new().route(
             "/health",
-            get(|| async { axum::Json(serde_json::json!({"ready": true})) }),
+            get(|| async { axum::Json(serde_json::json!({"ready": true, "api_level": 1, "min_client_api_level": 1})) }),
         );
         tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
         port
