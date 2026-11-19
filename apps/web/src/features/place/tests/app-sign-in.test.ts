@@ -55,12 +55,12 @@ test("inside the app, sign in names the server and can change it", async () => {
 });
 
 test("a remembered account is welcomed back and signs in with its own name", async () => {
-  inApp("acidiney");
+  inApp("river");
   render(createElement(LoginPage, { needs_setup: false } as Props));
   expect(
     await screen.findByRole("heading", { name: "Welcome back" }),
   ).toBeTruthy();
-  expect(screen.getByText("acidiney")).toBeTruthy();
+  expect(screen.getByText("river")).toBeTruthy();
   expect(screen.queryByLabelText("Username")).toBeNull();
   fireEvent.change(screen.getByLabelText("Password"), {
     target: { value: "correct horse battery" },
@@ -69,14 +69,14 @@ test("a remembered account is welcomed back and signs in with its own name", asy
   await waitFor(() =>
     expect(sessionApi.signIn).toHaveBeenCalledWith(
       false,
-      "acidiney",
+      "river",
       "correct horse battery",
     ),
   );
 });
 
 test("another account starts empty, and forget me drops the remembered name", async () => {
-  inApp("acidiney");
+  inApp("river");
   render(createElement(LoginPage, { needs_setup: false } as Props));
   fireEvent.click(
     await screen.findByRole("button", { name: "Use another account" }),
