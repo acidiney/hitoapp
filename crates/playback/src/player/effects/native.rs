@@ -7,11 +7,11 @@ use super::{
     lookahead::{Event, Lookahead, PREPARATION_WINDOW, WINDOW},
     sources::Sources,
 };
+use crate::seam::Seam;
 use crate::{PlayerError, PlayerPhase, Session, Status};
 use acquisition::{
     Acquisition, FinalizationId, FinalizationTaskResult, FinalizationTasks, Finalized,
 };
-use hito_core::{Catalog, PlaybackAccess};
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::watch;
 use tokio::time::{Instant, sleep_until};
@@ -36,8 +36,7 @@ enum Boundary {
 }
 
 pub(crate) struct Native {
-    catalog: Catalog,
-    playback: PlaybackAccess,
+    seam: Seam,
     sources: Sources,
     acquisition: Option<Acquisition>,
     acquired: Option<(Key, uuid::Uuid)>,
@@ -63,17 +62,16 @@ pub(crate) struct Native {
     held_out: Option<Key>,
 }
 impl Native {
-    pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
+    pub fn new(seam: Seam) -> Self {
         Self {
-            catalog: catalog.clone(),
-            playback: playback.clone(),
-            lookahead: Lookahead::new(catalog.clone(), playback.clone()),
+            lookahead: Lookahead::new(seam.sources.clone()),
             track: 0,
             crossed: None,
             tail: None,
             boundary: Boundary::Open,
             held_out: None,
-            sources: Sources::new(catalog, playback),
+            sources: Sources::new(seam.sources.clone()),
+            seam,
             acquisition: None,
             acquired: None,
             finalizing: FinalizationTasks::new(),
@@ -196,11 +194,10 @@ impl Native {
         if let Some(session) = &self.session {
             session.stop();
         }
-        let catalog = self.catalog.clone();
-        let playback = self.playback.clone();
+        let catalog = self.seam.catalog.clone();
         let mut lookahead = std::mem::replace(
             &mut self.lookahead,
-            Lookahead::new(catalog.clone(), playback.clone()),
+            Lookahead::new(self.seam.sources.clone()),
         );
         self.observed = None;
         self.controls
@@ -212,7 +209,7 @@ impl Native {
         let session = self.session.take();
         let closing = self.closing.take();
         self.sources.reset(None);
-        let mut fresh_sources = Sources::new(catalog.clone(), playback);
+        let mut fresh_sources = Sources::new(self.seam.sources.clone());
         fresh_sources.reset(Some(run.key));
         let mut sources = std::mem::replace(&mut self.sources, fresh_sources);
         self.update = Some(self.status(PlayerPhase::Resolving, None));
@@ -237,7 +234,7 @@ impl Native {
         let access = async move {
             match (actor, recording) {
                 (Some(actor), Some(recording)) => catalog
-                    .recordings_by_ids(&actor, &[recording])
+                    .recordings(&actor, &[recording])
                     .await
                     .map(|_| ())
                     .map_err(PlayerError::from),

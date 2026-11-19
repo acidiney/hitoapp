@@ -3,10 +3,12 @@ use crate::media::{
     MediaCommand, MediaIntegration, artwork,
     publisher::{Loaded, Observation, Publisher, TrackKey, reconcile},
 };
-use hito_core::{Actor, Catalog};
+use crate::seam::CatalogReads;
+use hito_core::Actor;
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::{mpsc, oneshot};
@@ -54,7 +56,7 @@ struct CommandTarget {
 pub(super) struct Driver {
     publisher: Publisher,
     commands: Option<mpsc::Receiver<MediaCommand>>,
-    catalog: Catalog,
+    catalog: Arc<dyn CatalogReads>,
     target: Option<Target>,
     command_target: Option<CommandTarget>,
     text: Option<TextLoading>,
@@ -108,7 +110,7 @@ pub(super) fn retry_delay(attempt: usize) -> Option<Duration> {
 }
 
 impl Driver {
-    pub fn new(integration: MediaIntegration, catalog: Catalog) -> Self {
+    pub fn new(integration: MediaIntegration, catalog: Arc<dyn CatalogReads>) -> Self {
         Self {
             publisher: Publisher::new(integration.sink),
             commands: Some(integration.commands),
@@ -359,7 +361,7 @@ pub(super) fn host_request(
 }
 
 async fn fetch_text(
-    catalog: Catalog,
+    catalog: Arc<dyn CatalogReads>,
     actor: Actor,
     key: TrackKey,
     delay: Duration,
@@ -367,7 +369,7 @@ async fn fetch_text(
     if !delay.is_zero() {
         tokio::time::sleep(delay).await;
     }
-    let fetched = match catalog.recordings_by_ids(&actor, &[key.recording]).await {
+    let fetched = match catalog.recordings(&actor, &[key.recording]).await {
         Ok(recordings) => match recordings.into_iter().next() {
             Some(recording) => Fetched::Found(
                 Loaded {
@@ -398,7 +400,7 @@ async fn fetch_text(
 }
 
 async fn fetch_artwork(
-    catalog: Catalog,
+    catalog: Arc<dyn CatalogReads>,
     actor: Actor,
     key: TrackKey,
     release: Option<String>,

@@ -4,7 +4,9 @@ use super::{
     effects::{Key, Update},
     ownership::State,
 };
-use hito_core::{Actor, AudiobookChapterAnchor, Collection};
+use crate::seam;
+use hito_core::{Actor, AudiobookChapterAnchor};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -46,9 +48,9 @@ pub(super) struct Progress {
     sample_at: Instant,
 }
 impl Progress {
-    pub fn new(collection: Collection) -> Self {
+    pub fn new(progress: Arc<dyn seam::Progress>) -> Self {
         Self {
-            writer: Writer::new(collection),
+            writer: Writer::new(progress),
             current: None,
             sample_at: Instant::now() + Duration::from_secs(5),
         }

@@ -1,4 +1,5 @@
 use super::{Action, PlayerError, Request, Result, ownership::State};
+use crate::seam::Seam;
 use hito_core::{Recording, Services};
 use std::{future::Future, pin::Pin};
 use tokio::sync::{mpsc, oneshot};
@@ -15,7 +16,8 @@ pub(super) async fn run(
     mut effects: super::effects::Effects,
     media: Option<crate::MediaIntegration>,
 ) -> Result<()> {
-    let mut media = media.map(|media| super::media::Driver::new(media, services.catalog.clone()));
+    let seam = Seam::in_process(&services);
+    let mut media = media.map(|media| super::media::Driver::new(media, seam.catalog.clone()));
     let mut state = State {
         epoch: Uuid::new_v4(),
         owner: None,
@@ -23,10 +25,10 @@ pub(super) async fn run(
     };
     let mut pending: Option<Admission> = None;
     let mut committing: Option<super::continuation_commit::Commit> = None;
-    let mut authority = super::authority::Monitor::new(&services);
-    let mut progress = super::progress::Progress::new(services.collection.clone());
-    let mut loader = super::loading::Loader::new(services.collection.clone());
-    let mut continuation = super::continuation::Continuation::new(services.clone());
+    let mut authority = super::authority::Monitor::new(&seam);
+    let mut progress = super::progress::Progress::new(seam.progress.clone());
+    let mut loader = super::loading::Loader::new(seam.progress.clone());
+    let mut continuation = super::continuation::Continuation::new(seam.catalog.clone());
     loop {
         authority.sync(&state);
         progress.sync(&state);
@@ -104,6 +106,7 @@ pub(super) async fn run(
             request = requests.recv(), if pending.is_none() => {
                 let Some(request) = request else { break; };
                 let services = services.clone();
+                let seam = seam.clone();
                 let preflight = state.preflight(&request.actor, &request.action);
                 if preflight.as_ref().is_ok_and(|selection| selection.continuation.is_some()) {
                     if committing.is_some() { let _ = request.reply.send(Err(PlayerError::Busy)); }
@@ -113,15 +116,15 @@ pub(super) async fn run(
                 let span = request.span.clone();
                 pending = Some(Box::pin(async move {
                     let result = async {
-                        services.identity.check_session(&request.actor).await.map_err(PlayerError::from)?;
+                        seam.authorization.check_session(&request.actor).await.map_err(PlayerError::from)?;
                         let selection = preflight?;
                         if selection.recordings.is_empty() { return Ok(Vec::new()); }
                         for chapters in selection.chapters.chunks(1000) {
-                            services.collection.check_audiobook_chapters(&request.actor, chapters).await.map_err(PlayerError::from)?;
+                            seam.authorization.check_audiobook_chapters(&request.actor, chapters).await.map_err(PlayerError::from)?;
                         }
                         let mut selected = Vec::with_capacity(selection.recordings.len());
                         for chunk in selection.recordings.chunks(1000) {
-                            selected.extend(services.catalog.recordings_by_ids(&request.actor, chunk).await.map_err(PlayerError::from)?);
+                            selected.extend(seam.catalog.recordings(&request.actor, chunk).await.map_err(PlayerError::from)?);
                         }
                         Ok(selected)
                     }.await;

@@ -100,7 +100,7 @@ impl Player {
     #[cfg(feature = "device")]
     #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
     pub fn native(services: hito_core::Services) -> (Self, PlayerOwner) {
-        let effects = effects::Effects::native(services.catalog.clone(), services.playback.clone());
+        let effects = effects::Effects::native(crate::seam::Seam::in_process(&services));
         Self::spawn(services, effects, None)
     }
 
@@ -110,7 +110,7 @@ impl Player {
         services: hito_core::Services,
         media: crate::MediaIntegration,
     ) -> (Self, PlayerOwner) {
-        let effects = effects::Effects::native(services.catalog.clone(), services.playback.clone());
+        let effects = effects::Effects::native(crate::seam::Seam::in_process(&services));
         Self::spawn(services, effects, Some(media))
     }
 

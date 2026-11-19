@@ -2,8 +2,9 @@ use super::{
     Action, PlayerAudiobookContinuation, PlayerAudiobookRequest, PlayerError, PlayerQueueInput,
     Request, Response, Result, attachment::Owned, ownership::State, progress::Progress,
 };
-use hito_core::{Actor, Services};
-use std::{future::Future, pin::Pin};
+use crate::seam::CatalogReads;
+use hito_core::Actor;
+use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::time::{Duration, Instant};
 use tracing::Instrument;
 use uuid::Uuid;
@@ -67,15 +68,12 @@ struct Job {
     read: Option<Read>,
 }
 pub(super) struct Continuation {
-    services: Services,
+    catalog: Arc<dyn CatalogReads>,
     job: Option<Job>,
 }
 impl Continuation {
-    pub fn new(services: Services) -> Self {
-        Self {
-            services,
-            job: None,
-        }
+    pub fn new(catalog: Arc<dyn CatalogReads>) -> Self {
+        Self { catalog, job: None }
     }
     pub fn prepare(&mut self, state: &mut State, progress: &mut Progress, request: Request) {
         let Action::PrepareAudiobook(input) = &request.action else {
@@ -204,12 +202,12 @@ impl Continuation {
         }
         let job = self.job.as_mut().unwrap();
         if job.read.is_none() && progress.settled(job.watermark) {
-            let services = self.services.clone();
+            let catalog = self.catalog.clone();
             let actor = job.request.actor.clone();
             let input = job.input.clone();
             let fence = job.fence;
             job.read = Some(Box::pin(
-                read(services, actor, input, fence).instrument(job.request.span.clone()),
+                read(catalog, actor, input, fence).instrument(job.request.span.clone()),
             ));
         }
     }
@@ -260,13 +258,12 @@ impl Continuation {
 }
 
 async fn read(
-    services: Services,
+    catalog: Arc<dyn CatalogReads>,
     actor: Actor,
     input: PlayerAudiobookRequest,
     fence: Fence,
 ) -> Result<Prepared> {
-    let playback = services
-        .collection
+    let playback = catalog
         .audiobook_playback(&actor, &input.audiobook_id.to_string())
         .await
         .map_err(PlayerError::from)?;
