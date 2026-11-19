@@ -144,8 +144,14 @@ test("HTTP LAN navigation fetches fresh private pages through history while pres
   expect(document.querySelector("audio")).toBe(audio);
   expect(recoveries).toEqual(["/history"]);
 
-  window.scrollTo(0, 120);
+  Object.defineProperty(window, "scrollY", { configurable: true, value: 120 });
   window.dispatchEvent(new Event("scroll"));
+  await waitFor(() =>
+    expect(nativeState.call(history).documentScrollPosition).toEqual({
+      top: 120,
+      left: 0,
+    }),
+  );
   router.remember({ privateTitle }, "owned-private-form");
   await waitFor(() => expect(replaced.mock.calls.length).toBeGreaterThan(1));
   history.replaceState(
