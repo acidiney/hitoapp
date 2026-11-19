@@ -5,7 +5,8 @@ use super::{
     ownership::State,
 };
 use crate::seam;
-use hito_core::{Actor, AudiobookChapterAnchor};
+use crate::seam::Listener;
+use hito_core::AudiobookChapterAnchor;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -24,7 +25,7 @@ pub(super) struct Report {
 #[derive(Clone)]
 struct Checkpoint {
     id: Uuid,
-    actor: Actor,
+    actor: Listener,
     key: Key,
     recording: Uuid,
     chapter: Option<ChapterCheckpoint>,

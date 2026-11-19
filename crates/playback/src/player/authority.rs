@@ -1,6 +1,6 @@
 use super::{PlayerError, Result, ownership::State};
+use crate::seam::Listener;
 use crate::seam::{Authorization, CatalogReads, Seam};
-use hito_core::Actor;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::time::{Interval, MissedTickBehavior};
 use uuid::Uuid;
@@ -12,7 +12,7 @@ pub(super) struct Report {
 }
 #[derive(Clone)]
 struct Demand {
-    actor: Actor,
+    actor: Listener,
     lease: Uuid,
     recovering: bool,
     recording: Option<Uuid>,
@@ -97,7 +97,7 @@ impl State {
             result => owned.authority(result.is_ok(), self.native),
         }
     }
-    pub fn failed_request(&mut self, actor: &Actor, error: PlayerError) {
+    pub fn failed_request(&mut self, actor: &Listener, error: PlayerError) {
         if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable)
             && let Some(owned) = self
                 .owner

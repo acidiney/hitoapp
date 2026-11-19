@@ -4,7 +4,7 @@ use hito_core::{
     AudiobookPlaybackAdmission, CandidatesEnd, Error, OpenedAudio, PcmOpening, PlaybackCandidates,
     PlaybackSource, PrepareSource, Recording, ResolveSource, Result, SavedPosition, Services,
     Source, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SyncBatch,
-    SyncReceipt,
+    SyncReceipt, User,
 };
 use std::{future::Future, ops::Deref, ops::RangeInclusive, pin::Pin, sync::Arc, time::Duration};
 use uuid::Uuid;
@@ -13,15 +13,15 @@ pub type Call<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 pub type Stop<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
 pub trait Authorization: Send + Sync {
-    fn check_session<'a>(&'a self, actor: &'a Actor) -> Call<'a, ()>;
+    fn check_session<'a>(&'a self, actor: &'a Listener) -> Call<'a, ()>;
     fn check_audiobook_chapters<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         chapters: &'a [AudiobookChapterAnchor],
     ) -> Call<'a, ()>;
     fn admit_audiobook<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         target: AudiobookChapterAnchor,
         chapters: &'a [AudiobookChapterAnchor],
     ) -> Call<'a, Box<dyn Admission>>;
@@ -32,16 +32,16 @@ pub trait Admission: Send {
 }
 
 pub trait CatalogReads: Send + Sync {
-    fn recordings<'a>(&'a self, actor: &'a Actor, ids: &'a [Uuid]) -> Call<'a, Vec<Recording>>;
+    fn recordings<'a>(&'a self, actor: &'a Listener, ids: &'a [Uuid]) -> Call<'a, Vec<Recording>>;
     fn release_artwork<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         release: &'a str,
     ) -> Call<'a, Option<Artwork>>;
-    fn artwork<'a>(&'a self, actor: &'a Actor, recording: &'a str) -> Call<'a, Option<Artwork>>;
+    fn artwork<'a>(&'a self, actor: &'a Listener, recording: &'a str) -> Call<'a, Option<Artwork>>;
     fn audiobook_playback<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         audiobook: &'a str,
     ) -> Call<'a, AudiobookPlayback>;
 }
@@ -49,10 +49,10 @@ pub trait CatalogReads: Send + Sync {
 pub trait Progress: Send + Sync {
     fn saved_position<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: Uuid,
     ) -> Call<'a, Option<SavedPosition>>;
-    fn apply<'a>(&'a self, actor: &'a Actor, batch: SyncBatch) -> Call<'a, SyncReceipt>;
+    fn apply<'a>(&'a self, actor: &'a Listener, batch: SyncBatch) -> Call<'a, SyncReceipt>;
 }
 
 pub trait Candidates: Send {
@@ -112,36 +112,102 @@ impl From<PlaybackSource> for Grant {
 pub trait Sources: Send + Sync {
     fn candidates<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
     ) -> Call<'a, Box<dyn Candidates>>;
     fn refresh_until<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         stop: Stop<'a>,
     ) -> Call<'a, bool>;
     fn resolve_until<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         request: ResolveSource,
         stop: Stop<'a>,
     ) -> Call<'a, SourceResolution>;
-    fn sources<'a>(&'a self, actor: &'a Actor, recording: &'a str) -> Call<'a, Vec<Source>>;
+    fn sources<'a>(&'a self, actor: &'a Listener, recording: &'a str) -> Call<'a, Vec<Source>>;
     fn prepare<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         source: &'a str,
         request: PrepareSource,
     ) -> Call<'a, SourcePreparationReceipt>;
     fn preparation<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         source: &'a str,
     ) -> Call<'a, SourcePreparationStatus>;
+}
+
+#[derive(Clone)]
+pub struct Listener(Identity);
+
+#[derive(Clone)]
+enum Identity {
+    Local(Actor),
+    Remote { user: User, session: Arc<str> },
+}
+
+impl Listener {
+    pub fn remote(user: User, session: impl Into<Arc<str>>) -> Self {
+        Self(Identity::Remote {
+            user,
+            session: session.into(),
+        })
+    }
+
+    pub fn user(&self) -> &User {
+        match &self.0 {
+            Identity::Local(actor) => actor.user(),
+            Identity::Remote { user, .. } => user,
+        }
+    }
+
+    pub fn same_session(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Identity::Local(left), Identity::Local(right)) => left.same_session(right),
+            (
+                Identity::Remote { user, session },
+                Identity::Remote {
+                    user: other_user,
+                    session: other_session,
+                },
+            ) => user.id == other_user.id && session == other_session,
+            _ => false,
+        }
+    }
+
+    pub fn local(&self) -> Result<&Actor> {
+        match &self.0 {
+            Identity::Local(actor) => Ok(actor),
+            Identity::Remote { .. } => Err(Error::Unauthorized),
+        }
+    }
+}
+
+impl std::fmt::Debug for Listener {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Listener")
+            .field("user", &self.user().id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl From<Actor> for Listener {
+    fn from(actor: Actor) -> Self {
+        Self(Identity::Local(actor))
+    }
+}
+
+impl From<&Actor> for Listener {
+    fn from(actor: &Actor) -> Self {
+        Self(Identity::Local(actor.clone()))
+    }
 }
 
 #[derive(Clone)]
@@ -167,21 +233,26 @@ impl Seam {
 struct InProcess(Services);
 
 impl Authorization for InProcess {
-    fn check_session<'a>(&'a self, actor: &'a Actor) -> Call<'a, ()> {
-        Box::pin(self.0.identity.check_session(actor))
+    fn check_session<'a>(&'a self, actor: &'a Listener) -> Call<'a, ()> {
+        Box::pin(async move { self.0.identity.check_session(actor.local()?).await })
     }
 
     fn check_audiobook_chapters<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         chapters: &'a [AudiobookChapterAnchor],
     ) -> Call<'a, ()> {
-        Box::pin(self.0.collection.check_audiobook_chapters(actor, chapters))
+        Box::pin(async move {
+            self.0
+                .collection
+                .check_audiobook_chapters(actor.local()?, chapters)
+                .await
+        })
     }
 
     fn admit_audiobook<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         target: AudiobookChapterAnchor,
         chapters: &'a [AudiobookChapterAnchor],
     ) -> Call<'a, Box<dyn Admission>> {
@@ -189,7 +260,7 @@ impl Authorization for InProcess {
             let admission = self
                 .0
                 .collection
-                .admit_audiobook_playback(actor, target, chapters)
+                .admit_audiobook_playback(actor.local()?, target, chapters)
                 .await?;
             Ok(Box::new(LocalAdmission(admission)) as Box<dyn Admission>)
         })
@@ -205,42 +276,57 @@ impl Admission for LocalAdmission {
 }
 
 impl CatalogReads for InProcess {
-    fn recordings<'a>(&'a self, actor: &'a Actor, ids: &'a [Uuid]) -> Call<'a, Vec<Recording>> {
-        Box::pin(self.0.catalog.recordings_by_ids(actor, ids))
+    fn recordings<'a>(&'a self, actor: &'a Listener, ids: &'a [Uuid]) -> Call<'a, Vec<Recording>> {
+        Box::pin(async move { self.0.catalog.recordings_by_ids(actor.local()?, ids).await })
     }
 
     fn release_artwork<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         release: &'a str,
     ) -> Call<'a, Option<Artwork>> {
-        Box::pin(self.0.catalog.release_artwork(actor, release))
+        Box::pin(async move {
+            self.0
+                .catalog
+                .release_artwork(actor.local()?, release)
+                .await
+        })
     }
 
-    fn artwork<'a>(&'a self, actor: &'a Actor, recording: &'a str) -> Call<'a, Option<Artwork>> {
-        Box::pin(self.0.catalog.artwork(actor, recording))
+    fn artwork<'a>(&'a self, actor: &'a Listener, recording: &'a str) -> Call<'a, Option<Artwork>> {
+        Box::pin(async move { self.0.catalog.artwork(actor.local()?, recording).await })
     }
 
     fn audiobook_playback<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         audiobook: &'a str,
     ) -> Call<'a, AudiobookPlayback> {
-        Box::pin(self.0.collection.audiobook_playback(actor, audiobook))
+        Box::pin(async move {
+            self.0
+                .collection
+                .audiobook_playback(actor.local()?, audiobook)
+                .await
+        })
     }
 }
 
 impl Progress for InProcess {
     fn saved_position<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: Uuid,
     ) -> Call<'a, Option<SavedPosition>> {
-        Box::pin(self.0.collection.saved_position(actor, recording))
+        Box::pin(async move {
+            self.0
+                .collection
+                .saved_position(actor.local()?, recording)
+                .await
+        })
     }
 
-    fn apply<'a>(&'a self, actor: &'a Actor, batch: SyncBatch) -> Call<'a, SyncReceipt> {
-        Box::pin(self.0.collection.apply(actor, batch))
+    fn apply<'a>(&'a self, actor: &'a Listener, batch: SyncBatch) -> Call<'a, SyncReceipt> {
+        Box::pin(async move { self.0.collection.apply(actor.local()?, batch).await })
     }
 }
 
@@ -259,14 +345,14 @@ impl Candidates for LocalCandidates {
 impl Sources for InProcess {
     fn candidates<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
     ) -> Call<'a, Box<dyn Candidates>> {
         Box::pin(async move {
             let candidates = self
                 .0
                 .playback
-                .playback_candidates(actor, recording)
+                .playback_candidates(actor.local()?, recording)
                 .await?;
             Ok(Box::new(LocalCandidates(candidates)) as Box<dyn Candidates>)
         })
@@ -274,56 +360,64 @@ impl Sources for InProcess {
 
     fn refresh_until<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         stop: Stop<'a>,
     ) -> Call<'a, bool> {
-        Box::pin(
+        Box::pin(async move {
             self.0
                 .catalog
-                .refresh_playback_sources_until(actor, recording, stop),
-        )
+                .refresh_playback_sources_until(actor.local()?, recording, stop)
+                .await
+        })
     }
 
     fn resolve_until<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         request: ResolveSource,
         stop: Stop<'a>,
     ) -> Call<'a, SourceResolution> {
-        Box::pin(
+        Box::pin(async move {
             self.0
                 .catalog
-                .resolve_source_until(actor, recording, request, stop),
-        )
+                .resolve_source_until(actor.local()?, recording, request, stop)
+                .await
+        })
     }
 
-    fn sources<'a>(&'a self, actor: &'a Actor, recording: &'a str) -> Call<'a, Vec<Source>> {
-        Box::pin(self.0.catalog.sources(actor, recording))
+    fn sources<'a>(&'a self, actor: &'a Listener, recording: &'a str) -> Call<'a, Vec<Source>> {
+        Box::pin(async move { self.0.catalog.sources(actor.local()?, recording).await })
     }
 
     fn prepare<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         source: &'a str,
         request: PrepareSource,
     ) -> Call<'a, SourcePreparationReceipt> {
-        Box::pin(
+        Box::pin(async move {
             self.0
                 .catalog
-                .prepare_source(actor, recording, source, request),
-        )
+                .prepare_source(actor.local()?, recording, source, request)
+                .await
+        })
     }
 
     fn preparation<'a>(
         &'a self,
-        actor: &'a Actor,
+        actor: &'a Listener,
         recording: &'a str,
         source: &'a str,
     ) -> Call<'a, SourcePreparationStatus> {
-        Box::pin(self.0.catalog.source_preparation(actor, recording, source))
+        Box::pin(async move {
+            self.0
+                .catalog
+                .source_preparation(actor.local()?, recording, source)
+                .await
+        })
     }
 }
 
@@ -379,5 +473,41 @@ impl AudioAccess for LocalAudio {
 
     fn begin_pcm(&self, start: Duration) -> Result<PcmOpening> {
         self.0.begin_pcm(start)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn user(id: &str) -> User {
+        User {
+            id: id.into(),
+            username: id.into(),
+            admin: false,
+            display_name: None,
+            avatar_version: None,
+        }
+    }
+
+    #[test]
+    fn a_remote_listener_never_yields_a_core_actor() {
+        let listener = Listener::remote(user("remote-account"), "session-key");
+        assert!(matches!(listener.local(), Err(Error::Unauthorized)));
+        assert_eq!(listener.user().id, "remote-account");
+    }
+
+    #[test]
+    fn remote_listeners_share_a_session_only_with_the_same_account_and_session() {
+        let first = Listener::remote(user("remote-account"), "session-key");
+        assert!(first.same_session(&Listener::remote(user("remote-account"), "session-key")));
+        assert!(!first.same_session(&Listener::remote(user("remote-account"), "other-key")));
+        assert!(!first.same_session(&Listener::remote(user("other-account"), "session-key")));
+    }
+
+    #[test]
+    fn a_listener_never_prints_its_session() {
+        let listener = Listener::remote(user("remote-account"), "session-key");
+        assert!(!format!("{listener:?}").contains("session-key"));
     }
 }

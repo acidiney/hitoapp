@@ -5,7 +5,7 @@ use super::{
 };
 use crate::Session;
 use crate::seam;
-use hito_core::Actor;
+use crate::seam::Listener;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use uuid::Uuid;
 
@@ -36,7 +36,7 @@ pub(super) struct Lookahead {
     key: Option<Key>,
     stage: Stage,
     cancelling: Option<Pending<bool>>,
-    demand: Option<(Actor, Uuid)>,
+    demand: Option<(Listener, Uuid)>,
     early_key: Option<Key>,
     deferral: Option<Deferral>,
     outcome: Option<Outcome>,
@@ -112,7 +112,7 @@ impl Lookahead {
         early: Option<NextTarget>,
         wanted: Option<NextTarget>,
         session: &Arc<Session>,
-        actor: &Actor,
+        actor: &Listener,
     ) {
         let early_key = early.map(|next| next.key);
         if self.early_key != early_key {

@@ -1,6 +1,7 @@
 use crate::seam;
+use crate::seam::Listener;
 use hito_core::{
-    Actor, PrepareSource, ResolveSource, Source, SourcePreparationPhase, SourcePreparationStatus,
+    PrepareSource, ResolveSource, Source, SourcePreparationPhase, SourcePreparationStatus,
 };
 use std::{
     future::Future,
@@ -31,7 +32,7 @@ pub(super) struct Deferral {
 }
 
 impl Deferral {
-    pub fn start(access: Arc<dyn seam::Sources>, actor: Actor, recording: Uuid) -> Self {
+    pub fn start(access: Arc<dyn seam::Sources>, actor: Listener, recording: Uuid) -> Self {
         let (stop, stopped) = watch::channel(false);
         let work = Work {
             access,
@@ -61,7 +62,7 @@ impl Deferral {
 
 struct Work {
     access: Arc<dyn seam::Sources>,
-    actor: Actor,
+    actor: Listener,
     recording: String,
     stopped: watch::Receiver<bool>,
     started: Instant,

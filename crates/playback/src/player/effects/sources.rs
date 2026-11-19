@@ -1,9 +1,10 @@
 use super::Key;
 use crate::PlayerError;
 mod discovery;
+use crate::seam::Listener;
 use crate::seam::{self, Candidates, Grant};
 use discovery::{Discovery, Outcome};
-use hito_core::{Actor, CandidatesEnd};
+use hito_core::CandidatesEnd;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::oneshot;
 use tokio::time::Instant;
@@ -22,7 +23,7 @@ pub(super) struct PassFailure {
 struct Demand {
     id: Uuid,
     key: Key,
-    actor: Actor,
+    actor: Listener,
     recording: String,
 }
 struct Refresh {
@@ -107,7 +108,7 @@ impl Sources {
     pub fn failure(&self) -> PlayerError {
         self.error
     }
-    pub fn prepare_request(&mut self, actor: &Actor, recording: &str) -> Option<Uuid> {
+    pub fn prepare_request(&mut self, actor: &Listener, recording: &str) -> Option<Uuid> {
         if self.demand.is_none() {
             let key = self.key?;
             self.demand = Some(Demand {
@@ -119,7 +120,7 @@ impl Sources {
         }
         self.demand.as_ref().map(|demand| demand.id)
     }
-    pub fn request(&mut self, actor: &Actor, recording: &str) -> bool {
+    pub fn request(&mut self, actor: &Listener, recording: &str) -> bool {
         self.prepare_request(actor, recording);
         self.start()
     }
@@ -380,11 +381,11 @@ mod tests {
             .unwrap();
         let mut sources = Sources::cached(crate::seam::Seam::in_process(&library.hito).sources);
         sources.reset(Some(key()));
-        assert!(sources.request(&library.actor, &library.source.recording_id));
+        assert!(sources.request(&(&library.actor).into(), &library.source.recording_id));
         let grant = sources.next().await.unwrap().unwrap();
         assert_eq!(grant.source_id(), alternate.second);
         sources.failed(PlayerError::Playback, false);
-        assert!(sources.request(&library.actor, &library.source.recording_id));
+        assert!(sources.request(&(&library.actor).into(), &library.source.recording_id));
         assert!(sources.next().await.is_err());
         assert!(sources.current().is_none());
     }

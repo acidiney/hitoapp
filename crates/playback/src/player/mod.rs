@@ -10,7 +10,7 @@ mod ownership;
 mod progress;
 mod queue;
 mod types;
-use hito_core::Actor;
+use crate::seam::Listener;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::{
     sync::{mpsc, oneshot, watch},
@@ -76,7 +76,7 @@ enum Response {
     AudiobookSettlement(Option<PlayerReceipt>),
 }
 struct Request {
-    actor: Actor,
+    actor: Listener,
     action: Action,
     reply: oneshot::Sender<Result<Response>>,
     span: tracing::Span,
@@ -153,12 +153,14 @@ impl Player {
         self.native
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %input.id))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty, request_id = %input.id))]
     pub async fn prepare_audiobook(
         &self,
-        actor: &Actor,
+        actor: impl Into<Listener>,
         input: PlayerAudiobookRequest,
     ) -> Result<PlayerAudiobookContinuation> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         if input.id.is_nil() || input.lease.is_nil() || input.audiobook_id.is_nil() {
             return Err(PlayerError::Invalid);
         }
@@ -168,8 +170,15 @@ impl Player {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %id))]
-    pub async fn cancel_audiobook(&self, actor: &Actor, lease: Uuid, id: Uuid) -> Result<()> {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty, request_id = %id))]
+    pub async fn cancel_audiobook(
+        &self,
+        actor: impl Into<Listener>,
+        lease: Uuid,
+        id: Uuid,
+    ) -> Result<()> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         if lease.is_nil() || id.is_nil() {
             return Err(PlayerError::Invalid);
         }
@@ -189,14 +198,16 @@ impl Player {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %id))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty, request_id = %id))]
     pub async fn settle_audiobook(
         &self,
-        actor: &Actor,
+        actor: impl Into<Listener>,
         lease: Uuid,
         id: Uuid,
         command: PlayerCommand,
     ) -> Result<Option<PlayerReceipt>> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         if lease.is_nil()
             || id.is_nil()
             || command.lease != lease
@@ -221,48 +232,62 @@ impl Player {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
-    pub async fn inspect(&self, actor: &Actor) -> Result<PlayerInspection> {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty))]
+    pub async fn inspect(&self, actor: impl Into<Listener>) -> Result<PlayerInspection> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         match self.request(actor, Action::Inspect).await? {
             Response::Inspection(value) => Ok(value),
             _ => Err(PlayerError::Closed),
         }
     }
 
-    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
-    pub async fn claim(&self, actor: &Actor, epoch: Uuid) -> Result<PlayerAttachment> {
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty))]
+    pub async fn claim(&self, actor: impl Into<Listener>, epoch: Uuid) -> Result<PlayerAttachment> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         match self.request(actor, Action::Claim(epoch)).await? {
             Response::Attachment(value) => Ok(value),
             _ => Err(PlayerError::Closed),
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty))]
     pub async fn subscribe(
         &self,
-        actor: &Actor,
+        actor: impl Into<Listener>,
         lease: Uuid,
     ) -> Result<watch::Receiver<PlayerSnapshot>> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         match self.request(actor, Action::Subscribe(lease)).await? {
             Response::Observation(value) => Ok(value),
             _ => Err(PlayerError::Closed),
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty))]
     pub async fn subscribe_position(
         &self,
-        actor: &Actor,
+        actor: impl Into<Listener>,
         lease: Uuid,
     ) -> Result<watch::Receiver<PlayerPosition>> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         match self.request(actor, Action::Position(lease)).await? {
             Response::Position(value) => Ok(value),
             _ => Err(PlayerError::Closed),
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, command_id = %command.id, sequence = command.sequence, action = command.action.name()))]
-    pub async fn submit(&self, actor: &Actor, command: PlayerCommand) -> Result<PlayerReceipt> {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty, command_id = %command.id, sequence = command.sequence, action = command.action.name()))]
+    pub async fn submit(
+        &self,
+        actor: impl Into<Listener>,
+        command: PlayerCommand,
+    ) -> Result<PlayerReceipt> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         match &command.action {
             PlayerAction::Volume { level } if *level > 1000 => {
                 return Err(PlayerError::Invalid);
@@ -314,15 +339,17 @@ impl Player {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, offset, limit))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = tracing::field::Empty, offset, limit))]
     pub async fn queue(
         &self,
-        actor: &Actor,
+        actor: impl Into<Listener>,
         lease: Uuid,
         revision: u64,
         offset: usize,
         limit: usize,
     ) -> Result<PlayerQueuePage> {
+        let actor = &actor.into();
+        tracing::Span::current().record("account_id", actor.user().id.as_str());
         if limit == 0 || limit > 1000 {
             return Err(PlayerError::Invalid);
         }
@@ -343,7 +370,7 @@ impl Player {
         }
     }
 
-    async fn request(&self, actor: &Actor, action: Action) -> Result<Response> {
+    async fn request(&self, actor: &Listener, action: Action) -> Result<Response> {
         let (reply, received) = oneshot::channel();
         self.requests
             .try_send(Request {

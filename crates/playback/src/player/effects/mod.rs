@@ -11,7 +11,7 @@ mod sources;
 #[cfg(feature = "device")]
 pub(super) struct Target {
     pub key: Key,
-    pub actor: hito_core::Actor,
+    pub actor: crate::seam::Listener,
     pub recording: Uuid,
     pub playing: bool,
     pub play_revision: u64,

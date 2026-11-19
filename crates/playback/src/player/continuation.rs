@@ -3,7 +3,7 @@ use super::{
     Request, Response, Result, attachment::Owned, ownership::State, progress::Progress,
 };
 use crate::seam::CatalogReads;
-use hito_core::Actor;
+use crate::seam::Listener;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::time::{Duration, Instant};
 use tracing::Instrument;
@@ -115,7 +115,7 @@ impl Continuation {
     pub fn cancel(
         &mut self,
         state: &mut State,
-        actor: &Actor,
+        actor: &Listener,
         lease: Uuid,
         id: Uuid,
     ) -> Result<()> {
@@ -136,7 +136,7 @@ impl Continuation {
     pub fn settle(
         &mut self,
         state: &mut State,
-        actor: &Actor,
+        actor: &Listener,
         lease: Uuid,
         id: Uuid,
         command: super::PlayerCommand,
@@ -259,7 +259,7 @@ impl Continuation {
 
 async fn read(
     catalog: Arc<dyn CatalogReads>,
-    actor: Actor,
+    actor: Listener,
     input: PlayerAudiobookRequest,
     fence: Fence,
 ) -> Result<Prepared> {

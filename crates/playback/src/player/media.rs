@@ -4,7 +4,7 @@ use crate::media::{
     publisher::{Loaded, Observation, Publisher, TrackKey, reconcile},
 };
 use crate::seam::CatalogReads;
-use hito_core::Actor;
+use crate::seam::Listener;
 use std::{
     future::Future,
     pin::Pin,
@@ -35,7 +35,7 @@ type ArtworkLoading =
     Pin<Box<dyn Future<Output = (TrackKey, Option<artwork::MediaArtwork>)> + Send>>;
 
 struct Target {
-    actor: Actor,
+    actor: Listener,
     attempt: usize,
 }
 
@@ -49,7 +49,7 @@ pub(super) struct TrackScope {
 
 struct CommandTarget {
     id: Uuid,
-    actor: Actor,
+    actor: Listener,
     scope: TrackScope,
 }
 
@@ -201,7 +201,7 @@ impl Driver {
         self.artwork = None;
     }
 
-    pub fn request(&self, actor: Option<Actor>, command: MediaCommand) -> Option<Request> {
+    pub fn request(&self, actor: Option<Listener>, command: MediaCommand) -> Option<Request> {
         let (actor, scope) = if let MediaCommand::SeekTrack { track, .. } = command {
             self.duration_ms()?;
             let target = self
@@ -285,7 +285,7 @@ impl Driver {
 impl State {
     pub(super) fn resolve_host(
         &self,
-        actor: &Actor,
+        actor: &Listener,
         command: MediaCommand,
         duration_ms: Option<u64>,
         scope: Option<TrackScope>,
@@ -341,7 +341,7 @@ impl State {
 }
 
 pub(super) fn host_request(
-    actor: Actor,
+    actor: Listener,
     command: MediaCommand,
     duration_ms: Option<u64>,
     scope: Option<TrackScope>,
@@ -362,7 +362,7 @@ pub(super) fn host_request(
 
 async fn fetch_text(
     catalog: Arc<dyn CatalogReads>,
-    actor: Actor,
+    actor: Listener,
     key: TrackKey,
     delay: Duration,
 ) -> (TrackKey, Fetched) {
@@ -401,7 +401,7 @@ async fn fetch_text(
 
 async fn fetch_artwork(
     catalog: Arc<dyn CatalogReads>,
-    actor: Actor,
+    actor: Listener,
     key: TrackKey,
     release: Option<String>,
 ) -> (TrackKey, Option<artwork::MediaArtwork>) {
