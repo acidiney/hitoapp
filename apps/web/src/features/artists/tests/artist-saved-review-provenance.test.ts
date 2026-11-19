@@ -44,6 +44,10 @@ test.each([
     "user_confirmed_candidate",
     "You confirmed this artist from the candidates Hito found.",
   ],
+  [
+    "matched_credit_completion",
+    "Matched to the artist you chose for this credit's other tracks.",
+  ],
 ] as const)("a %s review says how it was matched", (evidence, text) => {
   show(evidence);
   expect(screen.getByText(text)).toBeTruthy();
