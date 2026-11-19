@@ -114,7 +114,7 @@ export default function MemberArtistIdentity({
           {identity.step === "loading" && (
             <p role="status">Looking for artists you reviewed…</p>
           )}
-          {identity.step === "choosing" && (
+          {identity.step === "choosing" && identity.groups.length > 0 && (
             <ArtistChoiceOptions
               credit={artist.name}
               suggestions={[]}
@@ -129,10 +129,15 @@ export default function MemberArtistIdentity({
             />
           )}
           {identity.step === "choosing" && identity.groups.length === 0 && (
-            <p className="dialog-empty">
-              No artist you reviewed matches this name yet. Review it on one of
-              the tracks it appears on first.
-            </p>
+            <>
+              <p className="dialog-empty">
+                No artist you reviewed matches this name yet. Review it on one
+                of the tracks it appears on first.
+              </p>
+              <footer className="review-actions credit-dialog-actions">
+                <Button onClick={close}>Close</Button>
+              </footer>
+            </>
           )}
           {identity.step === "confirming" && identity.selected && (
             <div

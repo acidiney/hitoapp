@@ -112,3 +112,26 @@ test("a partly identified guest links its artist and counts the rest", async () 
     screen.getByRole("button", { name: "Choose the artist" }),
   ).toBeTruthy();
 });
+
+test("with no reviewed artist of that name the dialog explains it and only closes", async () => {
+  vi.mocked(artistIdentityApi.memberIdentity).mockResolvedValue({
+    artist_id: artist.id,
+    chosen: [],
+    undecided_tracks: 1,
+  });
+  vi.mocked(artistIdentityApi.groupsForCredit).mockResolvedValue({
+    items: [],
+  } as never);
+  show();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
+  expect(
+    await screen.findByText(
+      "No artist you reviewed matches this name yet. Review it on one of the tracks it appears on first.",
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
