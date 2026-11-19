@@ -69,6 +69,7 @@ pub(super) async fn state(database: &Path) -> State {
         schema_history::credit_member_identity_choice_schema::ADDED,
         schema_history::community_corrections_schema::ADDED,
         schema_history::source_readiness_schema::ADDED,
+        schema_history::album_additions_schema::ADDED,
     ];
     let schema_limit = 727
         + declared_additions
