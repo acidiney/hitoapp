@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub struct ArtistReviewQueuePage(pub Page<ArtistReviewItem>);
 
 #[utoipa::path(get, path = "/api/v1/artist-matching/review-queue", operation_id = "artist_review_queue",
-    params(("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query)),
+    params(("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query), ("artist" = Option<String>, Query)),
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = ArtistReviewQueuePage), (status = 400, body = ErrorResponse),
     (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),

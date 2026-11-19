@@ -87,10 +87,14 @@ public struct Playback: Sendable {
     struct Begin: Encodable {
         let recordingId: String
         let sourceId: String
+        let client: String?
+        let requestId: String?
 
         enum CodingKeys: String, CodingKey {
             case recordingId = "recording_id"
             case sourceId = "source_id"
+            case client
+            case requestId = "request_id"
         }
     }
 
@@ -98,8 +102,24 @@ public struct Playback: Sendable {
 
     let api: HitoAPI
 
-    public init(api: HitoAPI) {
+    let client: String?
+
+    public init(api: HitoAPI, client: String? = nil) {
         self.api = api
+        self.client = client
+    }
+
+    public func releaseLeft(by client: String) async {
+        _ = try? await api.delete(["api", "v1", "playback", "leases"], query: [URLQueryItem(name: "client", value: client)], as: Nothing.self)
+    }
+
+    private func begin(_ body: Begin) async throws -> Lease {
+        let path = ["api", "v1", "playback", "leases"]
+        do {
+            return try await api.post(path, body: body, as: Lease.self)
+        } catch HitoAPI.Problem.noAnswer where body.requestId != nil {
+            return try await api.post(path, body: body, as: Lease.self)
+        }
     }
 
     public func sources(_ recordingId: String) async throws -> [PlaybackSource] {
@@ -146,7 +166,7 @@ public struct Playback: Sendable {
             try Task.checkCancellation()
             let lease: Lease
             do {
-                lease = try await api.post(["api", "v1", "playback", "leases"], body: Begin(recordingId: recordingId, sourceId: source.id), as: Lease.self)
+                lease = try await begin(Begin(recordingId: recordingId, sourceId: source.id, client: client, requestId: client.map { _ in UUID().uuidString.lowercased() }))
             } catch HitoAPI.Problem.refused {
                 continue
             }
