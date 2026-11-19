@@ -9,10 +9,8 @@ import {
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import type { RecentServer, ServerPlace } from "../api/desktopPlace";
-import {
-  useConnectServer,
-  type ConnectProblem,
-} from "../hooks/useConnectServer";
+import { useConnectServer } from "../hooks/useConnectServer";
+import ProblemText from "./ProblemText";
 
 const FIELD = "server-address";
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -25,35 +23,6 @@ function usedAgo(usedAt: number, now = Date.now() / 1000) {
   if (days < 365)
     return `used ${relative.format(-Math.floor(days / 30), "month")}`;
   return `used ${relative.format(-Math.floor(days / 365), "year")}`;
-}
-
-function ProblemText({ problem }: { problem: ConnectProblem }) {
-  switch (problem.outcome) {
-    case "not_an_address":
-      return <>Type an address like hito.home:8080 or 192.168.1.20:8080.</>;
-    case "no_answer":
-      return (
-        <>
-          No answer from {problem.shown}. Check the address, and that this
-          device is on the same network or VPN.
-        </>
-      );
-    case "not_hito":
-      return <>{problem.host} answered, but it is not a Hito server.</>;
-    case "certificate":
-      return (
-        <>
-          The certificate for {problem.host} can't be checked, so Hito won't
-          send your password there.
-          <span className="connect-detail">
-            Give the server a certificate this device trusts, or use http://
-            inside your VPN.
-          </span>
-        </>
-      );
-    case "failed":
-      return <>Hito couldn't open this server. Try again.</>;
-  }
 }
 
 function NotEncrypted({

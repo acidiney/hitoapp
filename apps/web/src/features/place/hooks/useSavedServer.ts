@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConnectOutcome, ServerPlace } from "../api/desktopPlace";
+import type { ConnectProblem } from "./useConnectServer";
 
 export const RETRY_MS = 10_000;
 
@@ -7,7 +8,7 @@ export type SavedPhase =
   | { kind: "opening" }
   | { kind: "unreachable"; shown: string }
   | { kind: "certificate"; host: string }
-  | { kind: "other" };
+  | { kind: "other"; outcome: ConnectProblem };
 
 function phaseFor(outcome: ConnectOutcome): SavedPhase {
   switch (outcome.outcome) {
@@ -18,8 +19,10 @@ function phaseFor(outcome: ConnectOutcome): SavedPhase {
       return { kind: "unreachable", shown: outcome.shown };
     case "certificate":
       return { kind: "certificate", host: outcome.host };
+    case "not_encrypted":
+      return { kind: "other", outcome: { outcome: "failed" } };
     default:
-      return { kind: "other" };
+      return { kind: "other", outcome };
   }
 }
 

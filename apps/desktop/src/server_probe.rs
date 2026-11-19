@@ -6,6 +6,11 @@ use url::Url;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Probe {
     Found(Url),
+    ServerTooOld {
+        host: String,
+        version: Option<String>,
+    },
+    AppTooOld(String),
     NoAnswer,
     NotHito(String),
     Certificate(String),
@@ -94,17 +99,36 @@ impl Prober {
         ) {
             return Attempt::Answered(Probe::NotHito(host));
         }
-        let reports_health = response
-            .json::<serde_json::Value>()
-            .await
-            .is_ok_and(|body| body.get("ready").is_some_and(serde_json::Value::is_boolean));
-        if reports_health {
-            Attempt::Answered(Probe::Found(origin.clone()))
-        } else {
-            Attempt::Answered(Probe::NotHito(host))
+        let Ok(health) = response.json::<serde_json::Value>().await else {
+            return Attempt::Answered(Probe::NotHito(host));
+        };
+        if !health
+            .get("ready")
+            .is_some_and(serde_json::Value::is_boolean)
+        {
+            return Attempt::Answered(Probe::NotHito(host));
         }
+        let level = |name: &str| health.get(name).and_then(serde_json::Value::as_u64);
+        let server_level = level("api_level").unwrap_or(0);
+        let lowest_client = level("min_client_api_level").unwrap_or(0);
+        if server_level < MIN_SERVER_API_LEVEL {
+            return Attempt::Answered(Probe::ServerTooOld {
+                host,
+                version: health
+                    .get("version")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned),
+            });
+        }
+        if CLIENT_API_LEVEL < lowest_client {
+            return Attempt::Answered(Probe::AppTooOld(host));
+        }
+        Attempt::Answered(Probe::Found(origin.clone()))
     }
 }
+
+pub const CLIENT_API_LEVEL: u64 = 1;
+pub const MIN_SERVER_API_LEVEL: u64 = 1;
 
 pub fn tls_ready() {
     if rustls::crypto::CryptoProvider::get_default().is_none() {
@@ -152,7 +176,7 @@ mod tests {
     fn hito() -> Router {
         Router::new().route(
             "/health",
-            get(|| async { axum::Json(serde_json::json!({"ready": true})) }),
+            get(|| async { axum::Json(serde_json::json!({"ready": true, "version": "0.5.0", "api_level": 1, "min_client_api_level": 1})) }),
         )
     }
 
@@ -209,7 +233,11 @@ mod tests {
 
     #[tokio::test]
     async fn a_trusted_https_server_is_found_first() {
-        let fixture = Fixture::start("localhost", vec![br#"{"ready":true}"#.to_vec()]).await;
+        let fixture = Fixture::start(
+            "localhost",
+            vec![br#"{"ready":true,"api_level":1,"min_client_api_level":1}"#.to_vec()],
+        )
+        .await;
         let port = fixture.address().port();
         let prober = Prober::with_roots(&[fixture.ca_der()]).unwrap();
         let probe = prober.probe(&address(&format!("localhost:{port}"))).await;
@@ -259,7 +287,7 @@ mod tests {
             get(|| async {
                 (
                     AxumStatus::SERVICE_UNAVAILABLE,
-                    axum::Json(serde_json::json!({"ready": false})),
+                    axum::Json(serde_json::json!({"ready": false, "api_level": 1, "min_client_api_level": 1})),
                 )
             }),
         ))
@@ -276,7 +304,11 @@ mod tests {
 
     #[tokio::test]
     async fn a_plain_server_that_upgrades_to_https_on_the_same_host_is_checked_there() {
-        let fixture = Fixture::start("localhost", vec![br#"{"ready":true}"#.to_vec()]).await;
+        let fixture = Fixture::start(
+            "localhost",
+            vec![br#"{"ready":true,"api_level":1,"min_client_api_level":1}"#.to_vec()],
+        )
+        .await;
         let secure = fixture.address().port();
         let port = plain(Router::new().route(
             "/health",
@@ -299,6 +331,56 @@ mod tests {
             Probe::Found(Url::parse(&format!("https://localhost:{secure}/")).unwrap())
         );
         fixture.close().await;
+    }
+
+    async fn health(body: serde_json::Value) -> u16 {
+        plain(Router::new().route(
+            "/health",
+            get(move || {
+                let body = body.clone();
+                async move { axum::Json(body) }
+            }),
+        ))
+        .await
+    }
+
+    #[tokio::test]
+    async fn a_server_without_api_levels_is_too_old_and_names_its_version() {
+        let port = health(serde_json::json!({"ready": true, "version": "0.3.0"})).await;
+        let probe = Prober::new()
+            .unwrap()
+            .probe(&address(&format!("http://127.0.0.1:{port}")))
+            .await;
+        assert_eq!(
+            probe,
+            Probe::ServerTooOld {
+                host: "127.0.0.1".into(),
+                version: Some("0.3.0".into()),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn a_server_that_needs_a_newer_app_says_so() {
+        let port = health(serde_json::json!({"ready": true, "api_level": CLIENT_API_LEVEL + 1, "min_client_api_level": CLIENT_API_LEVEL + 1})).await;
+        let probe = Prober::new()
+            .unwrap()
+            .probe(&address(&format!("http://127.0.0.1:{port}")))
+            .await;
+        assert_eq!(probe, Probe::AppTooOld("127.0.0.1".into()));
+    }
+
+    #[tokio::test]
+    async fn a_newer_server_that_still_accepts_this_app_is_found() {
+        let port = health(serde_json::json!({"ready": true, "api_level": CLIENT_API_LEVEL + 3, "min_client_api_level": CLIENT_API_LEVEL})).await;
+        let probe = Prober::new()
+            .unwrap()
+            .probe(&address(&format!("http://127.0.0.1:{port}")))
+            .await;
+        assert_eq!(
+            probe,
+            Probe::Found(Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap())
+        );
     }
 
     #[tokio::test]

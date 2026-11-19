@@ -2,6 +2,7 @@ import AuthPage from "../../session/components/AuthPage";
 import Button from "../../../shared/ui/Button";
 import type { ServerPlace } from "../api/desktopPlace";
 import { useSavedServer } from "../hooks/useSavedServer";
+import ProblemText from "./ProblemText";
 
 function shown(origin: string) {
   try {
@@ -72,7 +73,7 @@ export default function SavedServer({
           </>
         ) : (
           <p className="connect-text">
-            Hito couldn't open this server. Check the address again.
+            <ProblemText problem={phase.outcome} />
           </p>
         )}
         <Button onClick={onChangeServer}>Change server</Button>

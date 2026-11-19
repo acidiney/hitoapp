@@ -6,6 +6,8 @@ export type ConnectOutcome =
   | { outcome: "no_answer"; shown: string }
   | { outcome: "not_hito"; host: string }
   | { outcome: "certificate"; host: string }
+  | { outcome: "server_too_old"; version: string | null }
+  | { outcome: "app_too_old" }
   | { outcome: "not_encrypted"; origin: string; shown: string }
   | { outcome: "busy" }
   | { outcome: "failed" };

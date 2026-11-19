@@ -28490,11 +28490,27 @@
       "Health": {
         "type": "object",
         "required": [
-          "ready"
+          "ready",
+          "version",
+          "api_level",
+          "min_client_api_level"
         ],
         "properties": {
+          "api_level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "min_client_api_level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
           "ready": {
             "type": "boolean"
+          },
+          "version": {
+            "type": "string"
           }
         }
       },

@@ -4673,7 +4673,12 @@ export interface components {
             genre: components["schemas"]["GenreDetail"];
         };
         Health: {
+            /** Format: int32 */
+            api_level: number;
+            /** Format: int32 */
+            min_client_api_level: number;
             ready: boolean;
+            version: string;
         };
         /** @enum {string} */
         HealthReason: "network" | "refused";
