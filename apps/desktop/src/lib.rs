@@ -13,6 +13,8 @@ mod native_picker;
 mod os_controls;
 mod place;
 mod remote;
+#[cfg(feature = "device")]
+mod remote_player;
 mod server_address;
 mod server_probe;
 mod servers;
