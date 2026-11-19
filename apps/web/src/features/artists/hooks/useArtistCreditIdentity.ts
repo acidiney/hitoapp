@@ -72,6 +72,7 @@ function validReceipt(
 export function useArtistCreditIdentity(
   account: string,
   artist: { id: string; name: string },
+  scope: "credit" | "members" = "credit",
 ) {
   const owner = useMemo<Owner>(
     () => ({
@@ -162,7 +163,14 @@ export function useArtistCreditIdentity(
       while (owner.attempt) {
         const body = owner.attempt;
         const receipt = await run((signal) =>
-          artistIdentityApi.applyToCredit(account, artist.id, body, signal),
+          scope === "members"
+            ? artistIdentityApi.applyToMemberCredits(
+                account,
+                artist.id,
+                body,
+                signal,
+              )
+            : artistIdentityApi.applyToCredit(account, artist.id, body, signal),
         );
         if (!receipt) return;
         if (!validReceipt(receipt, artist.id, body))
