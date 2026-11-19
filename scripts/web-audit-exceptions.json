@@ -1,9 +1,1 @@
-[
-  {
-    "advisory": "GHSA-fc5q-39xc-vjpf",
-    "package": "picomatch",
-    "reason": "Every published picomatch version (up to 4.0.7) is affected and no fix exists yet. It reaches the project only through vite and vitest, which run during development and builds.",
-    "added": "2026-11-17",
-    "remove_when": "picomatch publishes a fixed version; then update it and delete this entry"
-  }
-]
+[]

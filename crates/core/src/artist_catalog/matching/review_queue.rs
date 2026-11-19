@@ -459,9 +459,15 @@ impl ArtistCatalog {
     ) -> Result<Page<ArtistReviewItem>> {
         let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
         let offset = query.offset.unwrap_or(0);
-        if !(1..=MAX_LIMIT).contains(&limit) || !(0..=MAX_OFFSET).contains(&offset) {
+        if !(1..=MAX_LIMIT).contains(&limit)
+            || !(0..=MAX_OFFSET).contains(&offset)
+            || query
+                .artist
+                .as_ref()
+                .is_some_and(|artist| artist.is_empty() || artist.len() > 64)
+        {
             return Err(Error::Invalid(
-                "Use a page of 1 to 50 credits and a smaller offset".into(),
+                "Use a page of 1 to 50 credits, a smaller offset and a valid credit".into(),
             ));
         }
         let mut tx = self.store.pool.begin().await?;
@@ -470,21 +476,26 @@ impl ArtistCatalog {
         let filter = listing.filter();
         let rows: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
             "SELECT id,name,tracks,stored,chosen,matched,count(*) OVER () FROM ({base})
+             WHERE ?4 IS NULL OR id=?4
              ORDER BY (stored+chosen+matched)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3"
         ))
         .bind(actor.id())
         .bind(limit)
         .bind(offset)
+        .bind(query.artist.as_deref())
         .fetch_all(&mut *tx)
         .await?;
         let total = match rows.first() {
             Some(first) => first.6,
             None if offset == 0 => 0,
             None => {
-                sqlx::query_scalar(&format!("SELECT count(*) FROM ({base})"))
-                    .bind(actor.id())
-                    .fetch_one(&mut *tx)
-                    .await?
+                sqlx::query_scalar(&format!(
+                    "SELECT count(*) FROM ({base}) WHERE ?2 IS NULL OR id=?2"
+                ))
+                .bind(actor.id())
+                .bind(query.artist.as_deref())
+                .fetch_one(&mut *tx)
+                .await?
             }
         };
         let searching: Vec<&str> = rows

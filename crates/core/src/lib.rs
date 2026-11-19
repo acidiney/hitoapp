@@ -137,7 +137,8 @@ pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
     CandidatesEnd, ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS,
     OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
-    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, StreamPace, StreamQuality,
+    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, ReleaseClientLeases, StreamPace,
+    StreamQuality,
 };
 pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{

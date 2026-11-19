@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import type { Schema } from "../../../shared/schema";
 import type { PluginActions } from "../hooks/usePlugins";
@@ -28,7 +28,7 @@ export default function ConnectPlugin({
   const installError =
     accepted && actions.errorAction === "install" ? actions.error : "";
   const error = workflow.error || installError;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
       return;
