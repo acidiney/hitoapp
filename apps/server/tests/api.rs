@@ -384,6 +384,8 @@ mod credit_member_review_main_target;
 mod credit_member_identity_choice;
 #[path = "fixtures/credit_member_identity_choice.rs"]
 mod credit_member_identity_choice_fixture;
+#[path = "api/member_credit_identity.rs"]
+mod member_credit_identity;
 
 #[path = "api/artist_identity_read_fence.rs"]
 mod artist_identity_read_fence;

@@ -149,6 +149,19 @@ pub struct ApplyArtistIdentityToCredit {
     pub limit: Option<i64>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema, sqlx::FromRow)]
+pub struct MemberArtistIdentityChosen {
+    pub group_id: String,
+    pub tracks: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct MemberArtistIdentity {
+    pub artist_id: String,
+    pub chosen: Vec<MemberArtistIdentityChosen>,
+    pub undecided_tracks: i64,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub struct ArtistIdentityCreditReceipt {
     pub request_id: Uuid,

@@ -220,6 +220,10 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_identity::reset))
         .routes(routes!(api::artist_identity::member_reset))
         .routes(routes!(api::artist_identity::apply_to_credit))
+        .routes(routes!(
+            api::artist_identity::member_identity,
+            api::artist_identity::apply_to_member_credits
+        ))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))
         .routes(routes!(api::artist_matching::status))
