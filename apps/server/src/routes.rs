@@ -312,6 +312,8 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(api::audiobooks::page))
         .routes(routes!(api::audiobooks::detail))
         .routes(routes!(api::audiobooks::playback))
+        .routes(routes!(api::audiobooks::check_chapters))
+        .routes(routes!(api::audiobooks::admission))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
