@@ -19,7 +19,7 @@ pub(crate) fn decode(input: Source, interrupted: &mut dyn FnMut() -> bool) -> Re
     }
     match Decoder::open(input) {
         Ok(decoder) => Ok(decoder),
-        Err(Error::Unsupported) if grant.is_local() => {
+        Err(Error::Unsupported) => {
             tracing::debug!(
                 event = "native_fallback_selected",
                 source_id = grant.source_id(),
