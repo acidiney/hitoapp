@@ -16,6 +16,7 @@ export default function SignInForm({
 }: SignInFlow & { app: AppServer }) {
   const form = useRef<HTMLFormElement>(null);
   const [another, setAnother] = useState(false);
+  const choseAnother = useRef(false);
   const remembered = another ? null : (app.server?.remembered ?? null);
   useEffect(() => {
     if (!error) return;
@@ -23,9 +24,10 @@ export default function SignInForm({
     form.current?.querySelector<HTMLInputElement>("#sign-in-password")?.focus();
   }, [error, setPassword]);
   useEffect(() => {
-    if (remembered) setUsername(remembered);
+    if (remembered && !choseAnother.current) setUsername(remembered);
   }, [remembered, setUsername]);
   const startOver = () => {
+    choseAnother.current = true;
     setAnother(true);
     setUsername("");
     setPassword("");
