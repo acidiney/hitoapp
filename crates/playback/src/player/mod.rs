@@ -114,8 +114,26 @@ impl Player {
         Self::spawn(services, effects, Some(media))
     }
 
+    #[cfg(feature = "device")]
+    #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
+    pub fn native_with_seam(
+        seam: crate::seam::Seam,
+        media: Option<crate::MediaIntegration>,
+    ) -> (Self, PlayerOwner) {
+        let effects = effects::Effects::native(seam.clone());
+        Self::spawn_with_seam(seam, effects, media)
+    }
+
     fn spawn(
         services: hito_core::Services,
+        effects: effects::Effects,
+        media: Option<crate::MediaIntegration>,
+    ) -> (Self, PlayerOwner) {
+        Self::spawn_with_seam(crate::seam::Seam::in_process(&services), effects, media)
+    }
+
+    fn spawn_with_seam(
+        seam: crate::seam::Seam,
         effects: effects::Effects,
         media: Option<crate::MediaIntegration>,
     ) -> (Self, PlayerOwner) {
@@ -126,7 +144,7 @@ impl Player {
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(
             owner::run(
-                crate::seam::Seam::in_process(&services),
+                seam,
                 requests.downgrade(),
                 received,
                 stopped,

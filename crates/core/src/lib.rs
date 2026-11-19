@@ -70,18 +70,18 @@ pub use catalog::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
     AutomaticLyricsLookup, Browse, Catalog, CatalogSort, ChooseSource, CoverArtKind,
     CoverArtLookup, CreditMember, FeaturedEntry, FeaturedShelf, Genre, GenreDetail,
-    LookupSourceLink, LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate,
-    ProviderSearch, ProviderSourceReview, ReadAutomaticRecordingLyrics, ReadRecordingLyrics,
-    ReadSelectedRecordingLyrics, Recording, RecordingAvailability, RecordingCopies, RecordingCopy,
-    RecordingGroupProof, RecordingLyricIdentities, RecordingLyricIdentity, RecordingLyricReview,
-    RecordingLyricSelector, RecordingLyricService, RecordingLyricServices, RecordingLyricsProvider,
-    RecordingLyricsProviders, RecordingSplit, Release, ReleaseArtworkFetch, ReleaseDetail,
-    ReleaseTrack, ResetSourceChoice, ResolveSource, RetainRecordingLyricIdentity, Search,
-    SearchRecordingLyrics, SelectedLyricsLookup, Source, SourceChoice, SourceChoiceEntry,
-    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourceMatchKind,
-    SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceReadinessPreference, SourceResolution, SourceResolutionOutcome,
-    UpdateSourcePreferences,
+    GenreTracksPage, LookupSourceLink, LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource,
+    ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadAutomaticRecordingLyrics,
+    ReadRecordingLyrics, ReadSelectedRecordingLyrics, Recording, RecordingAvailability,
+    RecordingCopies, RecordingCopy, RecordingGroupProof, RecordingLyricIdentities,
+    RecordingLyricIdentity, RecordingLyricReview, RecordingLyricSelector, RecordingLyricService,
+    RecordingLyricServices, RecordingLyricsProvider, RecordingLyricsProviders, RecordingSplit,
+    Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource,
+    RetainRecordingLyricIdentity, Search, SearchRecordingLyrics, SelectedLyricsLookup, Source,
+    SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
+    SourceChoiceResetReceipt, SourceMatchKind, SourcePreferenceEntry, SourcePreferences,
+    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
+    SourceReadinessPreference, SourceResolution, SourceResolutionOutcome, UpdateSourcePreferences,
 };
 pub use catalog_replication::{
     BeginCatalogSnapshot, CatalogReplication, CatalogSnapshot, CatalogSnapshotMode,
@@ -138,9 +138,9 @@ pub use metadata::{
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
     CandidatesEnd, ConversionStream, ConvertedAudio, ConvertedBody, MAX_CONVERSION_START,
-    MAX_FALLBACK_ATTEMPTS, OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess,
-    PlaybackCandidates, PlaybackLease, PlaybackSource, QualityAudio, QualityRequest,
-    ReleaseClientLeases, StreamPace, StreamQuality,
+    MAX_FALLBACK_ATTEMPTS, OpenedAudio, PcmBlock, PcmFormat, PcmInput, PcmOpening, PcmStream,
+    PlaybackAccess, PlaybackCandidates, PlaybackLease, PlaybackSource, QualityAudio,
+    QualityRequest, ReleaseClientLeases, StreamDecoder, StreamPace, StreamQuality,
 };
 pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{

@@ -46,19 +46,40 @@ pub(crate) fn genre_identity(name: &str) -> Option<(String, String)> {
     ))
 }
 
-enum Key<'a> {
+pub(super) enum Key<'a> {
     Bound(&'a str),
     Column(&'static str),
 }
 
-fn genre_recordings(
+#[derive(Clone, Copy)]
+pub(super) struct GenrePosition<'a> {
+    pub(super) title: &'a str,
+    pub(super) id: &'a str,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum GenreWindow<'a> {
+    Preview {
+        limit: i64,
+    },
+    Page {
+        limit: i64,
+        after: Option<GenrePosition<'a>>,
+    },
+}
+
+pub(super) fn genre_recordings(
     query: &mut QueryBuilder<'_, sqlx::Sqlite>,
     host: &crate::HostDeviceId,
     actor: &Actor,
     key: &Key<'_>,
     columns: &str,
-    limit: i64,
+    window: GenreWindow<'_>,
 ) {
+    let (limit, paged, after) = match window {
+        GenreWindow::Preview { limit } => (limit, false, None),
+        GenreWindow::Page { limit, after } => (limit, true, after),
+    };
     for (index, source) in [
         GenreSource::File,
         GenreSource::Artist,
@@ -121,7 +142,19 @@ fn genre_recordings(
             " AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id) AND ",
         );
         push_available(query, host, actor.id());
-        if matches!(source, GenreSource::File) && limit > 1 {
+        if let Some(GenrePosition { title, id }) = after {
+            query
+                .push(" AND (r.title COLLATE NOCASE > ")
+                .push_bind(title.to_owned())
+                .push(" COLLATE NOCASE OR (r.title COLLATE NOCASE = ")
+                .push_bind(title.to_owned())
+                .push(" COLLATE NOCASE AND r.id > ")
+                .push_bind(id.to_owned())
+                .push("))");
+        }
+        if paged {
+            query.push(" GROUP BY r.id ORDER BY r.title COLLATE NOCASE, r.id");
+        } else if matches!(source, GenreSource::File) && limit > 1 {
             query.push(" GROUP BY r.id");
         }
         query.push(" LIMIT ").push_bind(limit).push(")");
@@ -204,7 +237,7 @@ impl Catalog {
             actor,
             &Key::Column("keys.k"),
             "g.label AS label",
-            1,
+            GenreWindow::Preview { limit: 1 },
         );
         query.push(") LIMIT 1) AS label, (SELECT count(*) FROM (SELECT id FROM (");
         genre_recordings(
@@ -213,7 +246,7 @@ impl Catalog {
             actor,
             &Key::Column("keys.k"),
             "r.id AS id",
-            cap,
+            GenreWindow::Preview { limit: cap },
         );
         query
             .push(") GROUP BY id LIMIT ")
@@ -224,6 +257,7 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         let genres: Vec<Genre> = query.build_query_as().fetch_all(&mut *tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(tiles = genres.len(), "Genre tiles read");
         Ok(genres)
     }
@@ -240,7 +274,7 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "g.label AS label",
-            1,
+            GenreWindow::Preview { limit: 1 },
         );
         label.push(") LIMIT 1");
         let label: Option<String> = label.build_query_scalar().fetch_optional(&mut *tx).await?;
@@ -254,7 +288,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id",
-            GENRE_COUNT_CAP,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         count
             .push(") GROUP BY id LIMIT ")
@@ -273,7 +309,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id, r.title AS title",
-            GENRE_COUNT_CAP,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         ids.push(") GROUP BY id LIMIT ")
             .push_bind(GENRE_COUNT_CAP)
@@ -295,7 +333,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id, r.release_id AS release_id",
-            GENRE_COUNT_CAP,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         albums
             .push(") GROUP BY id LIMIT ")
@@ -305,8 +345,8 @@ impl Catalog {
         let order: Vec<String> = albums.build_query_scalar().fetch_all(&mut *tx).await?;
         let mut found = releases_among_ids_on(&mut tx, actor, &order).await?;
         found.sort_by_key(|release| order.iter().position(|id| *id == release.id));
-        actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(
             tracks = tracks.len(),
             albums = found.len(),

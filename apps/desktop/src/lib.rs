@@ -14,6 +14,8 @@ mod os_controls;
 mod place;
 mod preparation_conditions;
 mod remote;
+#[cfg(feature = "device")]
+mod remote_player;
 mod server_address;
 mod server_probe;
 mod servers;

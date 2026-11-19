@@ -59,12 +59,11 @@ Your sign-in for each server is kept in the computer's own password store: Keych
 
 - **Its own private library.** On this computer, the desktop app keeps its own Hito library. It does not need a separate Hito server, Docker or an internet connection for your own music.
 - **Your Music folder.** It can read the system Music folder after you confirm it in Settings. Nothing is scanned before you confirm.
-- **Native playback.** For the library on this computer, audio plays through Hito's own player, not through a browser. The screens are the same as the web app.
+- **Native playback.** Audio plays through Hito's own player, not through a browser, both for the library on this computer and for a Hito server. Audio the player can't read directly, such as Opus, is converted on this computer with FFmpeg as it plays, from either library. The screens are the same as the web app.
 
 ### What is not available yet
 
 - There are no installers or packages. Building it today needs the developer setup.
-- With a server, playback uses the web player inside the app. The native player for servers is planned.
 - Shuffle, repeat, previous track and playback speed are not available in the desktop player yet.
 - Operating-system media controls and the lock screen do not show the desktop app's track yet.
 - Offline downloads on all platforms are planned.

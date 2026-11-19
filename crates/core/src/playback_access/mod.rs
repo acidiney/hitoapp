@@ -15,7 +15,7 @@ pub use conversion::{
     ConversionStream, ConvertedAudio, ConvertedBody, MAX_CONVERSION_START, QualityAudio,
     QualityRequest, StreamQuality,
 };
-pub use decoding::{PcmBlock, PcmFormat, PcmOpening, PcmStream};
+pub use decoding::{PcmBlock, PcmFormat, PcmInput, PcmOpening, PcmStream, StreamDecoder};
 pub use grant::PlaybackSource;
 pub use leases::{BeginPlaybackLease, PlaybackLease, ReleaseClientLeases};
 pub use relay::{

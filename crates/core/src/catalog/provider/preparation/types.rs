@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PrepareSource {
     pub request_id: Uuid,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, ToSchema, Deserialize)]
 pub struct SourcePreparationReceipt {
     pub request_id: Uuid,
     pub preparation_id: Uuid,
@@ -18,7 +18,7 @@ pub struct SourcePreparationReceipt {
     pub source_id: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, ToSchema, Deserialize)]
 pub struct SourcePreparationStatus {
     pub preparation_id: Uuid,
     pub recording_id: String,

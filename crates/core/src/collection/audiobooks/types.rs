@@ -26,7 +26,7 @@ pub struct AudiobookContinuation {
     pub progress: Option<RecordingProgress>,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, ToSchema, Deserialize)]
 pub struct AudiobookPlayback {
     pub audiobook_id: Uuid,
     pub chapter: AudiobookChapterAnchor,
