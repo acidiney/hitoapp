@@ -17,7 +17,7 @@ mod web_assets;
 
 pub use api::host_browser::{HostBrowser, HostOpen, HostReturn};
 pub use api::host_folders::{HostChoice, HostFolders};
-pub use api::host_place::{HostPlace, HostPlaceCurrent};
+pub use api::host_place::{HostPlace, HostPlaceCurrent, HostPlaceOffer};
 pub use config::{Config, RuntimeConfig};
 pub use routes::{
     Hosts, loopback_return_router, openapi, router, router_with_config, router_with_host,

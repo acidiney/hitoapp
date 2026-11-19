@@ -13,6 +13,7 @@ use utoipa::ToSchema;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HostPlaceCurrent {
     ThisComputer,
+    Server { origin: String },
 }
 
 pub trait HostPlace: Send + Sync + 'static {

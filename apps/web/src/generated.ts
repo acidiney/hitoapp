@@ -4631,6 +4631,10 @@ export interface components {
         HostPlaceCurrent: {
             /** @enum {string} */
             kind: "this_computer";
+        } | {
+            /** @enum {string} */
+            kind: "server";
+            origin: string;
         };
         HostPlaceOffer: {
             changeable: boolean;

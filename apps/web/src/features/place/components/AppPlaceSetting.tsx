@@ -2,7 +2,22 @@ import { useState } from "react";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import SettingRow from "../../../shared/ui/SettingRow";
+import type { Schema } from "../../../shared/schema";
 import { useAppPlace } from "../hooks/useAppPlace";
+
+type Current = Schema<"HostPlaceCurrent">;
+
+function shown(current: Current | null | undefined) {
+  return current?.kind === "server" ? current.origin : "This computer";
+}
+
+function consequence(current: Current | null | undefined) {
+  if (current?.kind !== "server") {
+    return "The music stops and the first screen opens. Your library on this computer is kept.";
+  }
+  const host = new URL(current.origin).host;
+  return `The music stops and the first screen opens. You stay signed in to ${host}, and your library on this computer is kept.`;
+}
 
 export default function AppPlaceSetting({ account }: { account: string }) {
   const { offer, busy, change } = useAppPlace(account);
@@ -12,7 +27,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
     <>
       <SettingRow
         title="This app uses"
-        hint="This computer"
+        hint={shown(offer.current)}
         action={<Button onClick={() => setAsking(true)}>Change…</Button>}
       />
       {asking && (
@@ -21,10 +36,7 @@ export default function AppPlaceSetting({ account }: { account: string }) {
           busy={busy}
           onClose={() => setAsking(false)}
         >
-          <p>
-            The music stops and the first screen opens. Your library on this
-            computer is kept.
-          </p>
+          <p>{consequence(offer.current)}</p>
           <div className="dialog-actions">
             <Button onClick={() => setAsking(false)} disabled={busy}>
               Cancel

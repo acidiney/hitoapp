@@ -1,6 +1,8 @@
 mod access;
+mod app_host;
 mod backend;
 mod browser;
+mod connect;
 mod folders;
 mod host;
 mod loopback;
@@ -10,11 +12,17 @@ mod native_picker;
 #[cfg(feature = "native-media")]
 mod os_controls;
 mod place;
+mod remote;
+mod server_address;
+mod server_probe;
+mod servers;
 mod storage;
 mod system_media;
 mod user_agent;
 
+pub use app_host::AppHost;
 pub use browser::SystemBrowser;
+pub use connect::{Next, Outcome, check, shown};
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
 pub use loopback::{DEFAULT_RETURN_PORT, InvalidReturnPort, RETURN_PORT_SETTING, ReturnPort};
@@ -24,6 +32,10 @@ pub use native_picker::NativePicker;
 #[cfg(feature = "native-media")]
 pub use os_controls::{OsControls, WindowHandle};
 pub use place::Place;
+pub use remote::{RemoteHost, current_server};
+pub use server_address::{AddressProblem, ServerAddress};
+pub use server_probe::{Probe, Prober};
+pub use servers::{RecentServer, RecentServers};
 use std::path::PathBuf;
 pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};
 pub use user_agent::user_agent;

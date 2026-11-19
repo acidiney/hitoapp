@@ -65,3 +65,86 @@
 .place-note {
   margin: 0;
 }
+.connect-column {
+  width: 440px;
+  max-width: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+}
+.connect-form {
+  width: 100%;
+}
+.connect-notice {
+  width: 440px;
+  max-width: calc(100% - 32px);
+}
+.auth-form .connect-back {
+  width: auto;
+  align-self: flex-start;
+  gap: 4px;
+  margin-left: -4px;
+  padding: 0 4px;
+  min-height: 32px;
+}
+.connect-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink-soft);
+}
+.connect-text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.connect-detail {
+  display: block;
+  margin-top: 4px;
+}
+.connect-recent {
+  margin-top: 32px;
+}
+.connect-recent h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.connect-recent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connect-recent li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+.connect-recent-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.connect-recent-open:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.connect-recent-address {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.connect-recent-meta {
+  font-size: 14px;
+  color: var(--muted);
+}
