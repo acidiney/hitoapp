@@ -8,6 +8,7 @@ mod genres;
 mod groups;
 pub(crate) mod local_files;
 mod provider;
+mod readiness;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
@@ -17,6 +18,7 @@ pub use provider::{
 };
 pub(crate) use provider::{AudioPermit, CatalogAudio, CatalogTrack};
 pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_metadata};
+pub use readiness::SourceReadinessPreference;
 pub(crate) mod release_availability;
 pub(crate) mod releases;
 pub(crate) mod search;

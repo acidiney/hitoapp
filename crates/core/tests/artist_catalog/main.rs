@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod album_additions;
 mod album_complete_matching;
 mod album_complete_track_list;
 mod album_edition_choice;

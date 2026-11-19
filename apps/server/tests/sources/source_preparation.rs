@@ -267,6 +267,7 @@ async fn prepare_with_runtime(
     assert_eq!(response.status, StatusCode::CREATED);
     let session = response.json();
     let token = session["token"].as_str().unwrap();
+    without_background_preparation(address, token).await;
     let response = http::call(
         address,
         "POST",
@@ -529,6 +530,18 @@ fn assert_private_status(status: &Value) {
     ] {
         assert!(!status.contains(private));
     }
+}
+
+async fn without_background_preparation(address: SocketAddr, token: &str) {
+    let response = http::call(
+        address,
+        "PUT",
+        "/api/v1/source-preferences/background",
+        Some(json!({ "enabled": false })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(response.status, StatusCode::OK);
 }
 
 struct RuntimeHost {

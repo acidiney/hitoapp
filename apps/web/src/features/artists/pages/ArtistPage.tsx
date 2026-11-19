@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { artistCounts } from "../model/artistCounts";
 import ArtistAppearances from "../components/ArtistAppearances";
+import MemberArtistIdentity from "../components/MemberArtistIdentity";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import ArtistPhoto from "../components/ArtistPhoto";
@@ -55,20 +56,15 @@ export default function ArtistPage({
           artist.featured_recording_count ?? 0,
           "credit",
         )}
-        more={
-          artist.member_only
-            ? undefined
-            : {
-                label: "More actions, including Choose the artist",
-                items: [
-                  {
-                    label: "Choose the artist",
-                    onSelect: () =>
-                      document.getElementById("choose-artist")?.focus(),
-                  },
-                ],
-              }
-        }
+        more={{
+          label: "More actions, including Choose the artist",
+          items: [
+            {
+              label: "Choose the artist",
+              onSelect: () => document.getElementById("choose-artist")?.focus(),
+            },
+          ],
+        }}
         actions={
           tracks.length > 0 ? (
             <ArtistActions tracks={tracks} listing={listing} />
@@ -76,7 +72,9 @@ export default function ArtistPage({
         }
       />
       <div className="detail-body">
-        {!artist.member_only && (
+        {artist.member_only ? (
+          <MemberArtistIdentity account={user.id} artist={artist} />
+        ) : (
           <ArtistCreditIdentity
             account={user.id}
             artist={artist}

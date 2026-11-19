@@ -54,6 +54,10 @@ impl Library {
         }
     }
 
+    pub(crate) fn origin(&self) -> &ProviderServer {
+        self.origin.as_ref().unwrap()
+    }
+
     pub(crate) async fn prepare(&mut self) -> Context {
         self.services = Some(hito_core::open(self.config.take().unwrap()).await.unwrap());
         self.origin = Some(ProviderServer::start().await);

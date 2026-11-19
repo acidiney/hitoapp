@@ -5,7 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use sqlx::{ConnectOptions, Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use tower::ServiceExt;
@@ -19,6 +19,7 @@ async fn maintainer_decisions_advance_revisions_while_replays_remain_historical_
     let config = || Config {
         state_directory: fixture.path().join("private-correction-review-state"),
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     };
     let service = bounded(Service::open(config())).await.unwrap();
     let app = router(service.clone());
@@ -171,6 +172,7 @@ async fn review_revision_boundary_is_exact_in_runtime_storage_and_generated_cont
     let config = || Config {
         state_directory: directory.clone(),
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     };
     let service = bounded(Service::open(config())).await.unwrap();
     let app = router(service.clone());

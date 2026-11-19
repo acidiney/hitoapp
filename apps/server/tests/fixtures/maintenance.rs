@@ -648,6 +648,17 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
                 )
             });
         }
+        if let Some(view) = schema_history::album_additions_schema::declarations()
+            .into_iter()
+            .find(|object| object.0 == declared.0 && object.1 == declared.1)
+            .filter(|_| {
+                schema_history::album_additions_schema::REPLACED
+                    .iter()
+                    .any(|(kind, name)| *kind == declared.0 && *name == declared.1)
+            })
+        {
+            declared = view;
+        }
         assert!(
             expected.contains(&declared),
             "later migrations must retain every exact historical 0052 schema object except the declared source resolution outcome set"
@@ -945,6 +956,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
     declared_additions.extend_from_slice(schema_history::artist_credit_target_schema::ADDED);
     declared_additions
         .extend_from_slice(schema_history::credit_member_identity_choice_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::community_corrections_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::source_readiness_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::album_additions_schema::ADDED);
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(

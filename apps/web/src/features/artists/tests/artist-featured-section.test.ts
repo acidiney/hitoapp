@@ -114,14 +114,19 @@ test("a longer list of appearances says how many are shown", () => {
   expect(screen.getByText("Showing 1 of 75 appearances")).toBeTruthy();
 });
 
-test("an artist only named inside credits has no credit of its own to identify", () => {
+test("an artist only named inside credits can still be identified across its appearances", () => {
   const { unmount } = render(
     createElement(
       ArtistPage,
       page([], [recording("r", "Guest verse")], 1, true),
     ),
   );
-  expect(screen.queryByText("Artist identity")).toBeNull();
+  expect(
+    screen.getByRole("region", { name: "Artist identity for this name" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("region", { name: "Artist identity for this credit" }),
+  ).toBeNull();
   unmount();
   render(createElement(ArtistPage, page([recording("main", "Own song")], [])));
   expect(screen.getByText("Artist identity")).toBeTruthy();
@@ -140,17 +145,22 @@ test("an artist only named inside credits says it appears in the library rather 
   expect(screen.getByText("1 track")).toBeTruthy();
 });
 
+const unidentified = () =>
+  Response.json({ artist_id: "cy", chosen: [], undecided_tracks: 0 });
+
 test("Load more appends the next appearances from the artist endpoint", async () => {
-  const fetch = vi.fn(async (_path: string) =>
-    Response.json({
-      ...page([], [recording("second", "Second verse")], 2).detail,
-      featured_recordings: {
-        total: 2,
-        offset: 1,
-        limit: 60,
-        items: [recording("second", "Second verse")],
-      },
-    }),
+  const fetch = vi.fn(async (path: string) =>
+    path.includes("/member-artist-identity")
+      ? unidentified()
+      : Response.json({
+          ...page([], [recording("second", "Second verse")], 2).detail,
+          featured_recordings: {
+            total: 2,
+            offset: 1,
+            limit: 60,
+            items: [recording("second", "Second verse")],
+          },
+        }),
   );
   vi.stubGlobal("fetch", fetch);
   render(
@@ -163,14 +173,16 @@ test("Load more appends the next appearances from the artist endpoint", async ()
   fireEvent.click(screen.getByRole("button", { name: "Load more" }));
   await waitFor(() => expect(screen.getByText("Second verse")).toBeTruthy());
   expect(screen.getByText("First verse")).toBeTruthy();
-  expect(fetch.mock.calls[0][0]).toBe(
-    "/api/v1/artists/cy?featured_offset=1&limit=60",
-  );
+  expect(
+    fetch.mock.calls
+      .map(([path]) => path)
+      .filter((path) => !path.includes("/member-artist-identity")),
+  ).toEqual(["/api/v1/artists/cy?featured_offset=1&limit=60"]);
   expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
 });
 
 test("a failed load of more appearances can be retried", async () => {
-  const fetch = vi
+  const appearances = vi
     .fn()
     .mockResolvedValueOnce(Response.json({ message: "Down" }, { status: 503 }))
     .mockResolvedValueOnce(
@@ -184,6 +196,9 @@ test("a failed load of more appearances can be retried", async () => {
         },
       }),
     );
+  const fetch = vi.fn(async (path: string) =>
+    path.includes("/member-artist-identity") ? unidentified() : appearances(),
+  );
   vi.stubGlobal("fetch", fetch);
   render(
     createElement(

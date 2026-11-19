@@ -44,7 +44,9 @@ pub(crate) const REFERENCING_TABLES: [&str; 28] = [
 ];
 
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 25] = [
+pub(crate) const REMOVED_TABLES: [&str; 27] = [
+    "catalog_appearances",
+    "source_readiness_checks",
     "account_recording_credits",
     "account_recording_credit_members",
     "account_source_credits",
@@ -117,6 +119,10 @@ fn unreferenced() -> String {
     );
     clauses.push(
         "NOT EXISTS (SELECT 1 FROM community_reports c JOIN sources s ON s.id = c.source_id WHERE s.recording_id = r.id)"
+            .into(),
+    );
+    clauses.push(
+        "NOT EXISTS (SELECT 1 FROM community_corrections c JOIN sources s ON s.id IN (c.left_source_id, c.right_source_id) WHERE s.recording_id = r.id)"
             .into(),
     );
     clauses.join(" AND ")
@@ -328,6 +334,28 @@ impl Selection {
     }
 }
 
+pub(crate) async fn recording_is_referenced(
+    connection: &mut SqliteConnection,
+    recording: &str,
+) -> Result<bool> {
+    let unused: bool = sqlx::query_scalar(&format!(
+        "SELECT EXISTS(SELECT 1 FROM recordings r WHERE r.id = ?1 AND {}
+            AND NOT EXISTS (SELECT 1 FROM sources s WHERE s.recording_id = r.id))",
+        unreferenced()
+    ))
+    .bind(recording)
+    .fetch_one(&mut *connection)
+    .await?;
+    Ok(!unused)
+}
+
+pub(crate) async fn remove_recordings(
+    connection: &mut SqliteConnection,
+    recordings: &[String],
+) -> Result<()> {
+    remove_all(connection, recordings).await
+}
+
 async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) -> Result<()> {
     for recording in recordings {
         let credits: Vec<(String, String)> = sqlx::query_as(
@@ -359,7 +387,9 @@ async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) ->
     Ok(())
 }
 
-const REMOVAL: [&str; 13] = [
+const REMOVAL: [&str; 15] = [
+    "DELETE FROM catalog_appearances WHERE recording_id = ?1",
+    "DELETE FROM source_readiness_checks WHERE recording_id = ?1",
     "UPDATE recordings SET metadata_source_id = NULL, metadata_observation_id = NULL WHERE id = ?1",
     "DELETE FROM recording_group_members WHERE recording_id = ?1 OR canonical_id = ?1",
     "DELETE FROM recording_group_splits WHERE recording_id = ?1 OR other_id = ?1",
@@ -670,6 +700,7 @@ mod tests {
                     && ![
                         "recordings",
                         "community_reports",
+                        "community_corrections",
                         "podcast_sources",
                         "provider_sources",
                     ]

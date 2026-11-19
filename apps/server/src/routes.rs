@@ -137,6 +137,7 @@ fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
+        .routes(routes!(api::community::suggest_same_recording))
 }
 
 fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
@@ -190,6 +191,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
             source_preference::update_source_preferences
         ))
         .routes(routes!(
+            source_preference::source_readiness_preference,
+            source_preference::update_source_readiness_preference
+        ))
+        .routes(routes!(
             source_preparation::create,
             source_preparation::status
         ))
@@ -224,6 +229,10 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_identity::reset))
         .routes(routes!(api::artist_identity::member_reset))
         .routes(routes!(api::artist_identity::apply_to_credit))
+        .routes(routes!(
+            api::artist_identity::member_identity,
+            api::artist_identity::apply_to_member_credits
+        ))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))
         .routes(routes!(api::artist_matching::status))
@@ -255,6 +264,8 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::album_editions::track_list))
         .routes(routes!(api::album_editions::tagged_edition))
         .routes(routes!(api::album_editions::track_audio))
+        .routes(routes!(api::album_editions::add))
+        .routes(routes!(api::album_editions::undo))
         .routes(routes!(api::album_editions::saved_track_list))
         .routes(routes!(api::album_editions::library_level))
         .routes(routes!(api::album_editions::choose))
@@ -262,6 +273,7 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_editions::list))
         .routes(routes!(api::artist_release_group::read))
         .routes(routes!(api::artist_editions::track_list))
+        .routes(routes!(api::artist_editions::add))
         .routes(routes!(api::artist_editions::track_audio))
         .routes(routes!(api::featured::shelf))
         .routes(routes!(api::featured::artwork))

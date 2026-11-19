@@ -92,6 +92,8 @@ If a source fails to open, Hito moves to the next ready source. On desktop, when
 
 To stop after the first failure instead, turn off **Try the next source if one fails** in the same settings.
 
+While you're not listening, Hito also prepares your library in the background. One track at a time, it finds audio for tracks that have none, and checks links that services let expire. It applies only a match it is sure of, and it never changes a source you chose. It waits at least two minutes between requests to a service, and it stops while the account is playing. To turn this off, open Settings, Playback, **Background preparation** and turn off **Prepare sources in the background**. A track it isn't sure of keeps waiting for you; there is no review list for those yet.
+
 ## Download a single track
 
 A track that plays from a music service can be saved as a copy on your Hito server.
