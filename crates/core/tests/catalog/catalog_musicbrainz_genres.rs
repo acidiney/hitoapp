@@ -1,194 +1,14 @@
-use hito_core::test_support::{
-    metadata_tag_logs::CapturedLogs,
-    musicbrainz::{FakeMusicBrainz, Reply},
-    support,
+use self::fixture::{
+    A, B, GROUP, Ids, RECORDING, VARIOUS_ARTISTS, World, paged_tracks_match_preview, pairs,
+    two_artists,
 };
-use hito_core::{Actor, Credentials, Genre, Services, UpdateAutomaticLookups};
-use lofty::{
-    prelude::{Accessor, ItemKey, TagExt},
-    tag::{Tag, TagType},
-};
-use sqlx::Connection;
-use std::{path::PathBuf, time::Duration};
+use hito_core::test_support::{metadata_tag_logs::CapturedLogs, musicbrainz::Reply};
+use hito_core::{Credentials, UpdateAutomaticLookups};
+use std::time::Duration;
 use tracing::instrument::WithSubscriber;
 
-const A: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const B: &str = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const GROUP: &str = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-const RECORDING: &str = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-const VARIOUS_ARTISTS: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
-
-#[derive(Default)]
-struct Ids<'a> {
-    artist: Option<&'a str>,
-    group: Option<&'a str>,
-    genre: Option<&'a str>,
-}
-
-struct World {
-    hito: Services,
-    actor: Actor,
-    music: PathBuf,
-    library: String,
-    fake: FakeMusicBrainz,
-    directory: tempfile::TempDir,
-}
-
-impl World {
-    async fn new(host: &str) -> Self {
-        let fake = FakeMusicBrainz::start().await;
-        let (directory, hito, actor, library, music) =
-            support::library_with_musicbrainz(host, Some(fake.endpoint.clone())).await;
-        Self {
-            hito,
-            actor,
-            music,
-            library,
-            fake,
-            directory,
-        }
-    }
-
-    fn track(&self, offset: i16, title: &str, ids: Ids) {
-        let path = self.music.join(format!("{title}.wav"));
-        support::write_wav(&path, offset);
-        let mut tag = Tag::new(TagType::Id3v2);
-        tag.set_title(title.into());
-        tag.set_artist("Performer".into());
-        tag.set_album(format!("Album {title}"));
-        if let Some(genre) = ids.genre {
-            tag.set_genre(genre.into());
-        }
-        for (key, value) in [
-            (ItemKey::MusicBrainzArtistId, ids.artist),
-            (ItemKey::MusicBrainzReleaseGroupId, ids.group),
-        ] {
-            if let Some(value) = value {
-                tag.insert_text(key, value.into());
-            }
-        }
-        tag.save_to_path(&path, Default::default()).unwrap();
-    }
-
-    fn flac_track(&self, offset: i16, title: &str, recording: &str) {
-        let source = self.directory.path().join(format!("{title}.wav"));
-        support::write_wav(&source, offset);
-        let path = self.music.join(format!("{title}.flac"));
-        let status = std::process::Command::new("ffmpeg")
-            .args(["-nostdin", "-v", "error", "-y", "-i"])
-            .arg(&source)
-            .args(["-c:a", "flac"])
-            .arg(&path)
-            .status()
-            .unwrap();
-        assert!(status.success());
-        let mut tag = Tag::new(TagType::VorbisComments);
-        tag.set_title(title.into());
-        tag.set_artist("Performer".into());
-        tag.insert_text(ItemKey::MusicBrainzRecordingId, recording.into());
-        tag.save_to_path(&path, Default::default()).unwrap();
-    }
-
-    fn artist_genres(&self, artist: &str, genres: &[(&str, u32)]) {
-        self.fake.genres_of(
-            "artist",
-            artist,
-            Reply::Genres(
-                genres
-                    .iter()
-                    .map(|(name, count)| ((*name).to_owned(), *count))
-                    .collect(),
-            ),
-        );
-    }
-
-    async fn scan(&self) {
-        support::scan(&self.hito, &self.actor, &self.library).await;
-    }
-
-    async fn walk(&self) -> usize {
-        let mut steps = 0;
-        while self
-            .hito
-            .artist_catalog
-            .run_next_automatic_matching_until(std::future::pending())
-            .await
-            .unwrap()
-        {
-            steps += 1;
-            assert!(steps < 60, "The automatic walk must end");
-        }
-        steps
-    }
-
-    fn genre_requests(&self) -> Vec<String> {
-        self.fake
-            .requests()
-            .into_iter()
-            .filter(|request| request.contains("inc=genres"))
-            .collect()
-    }
-
-    async fn tiles(&self) -> Vec<(String, i64)> {
-        tiles(self.hito.catalog.genres(&self.actor).await.unwrap())
-    }
-
-    async fn connect(&self) -> sqlx::SqliteConnection {
-        sqlx::SqliteConnection::connect(&format!(
-            "sqlite://{}",
-            self.directory.path().join("hito.db").display()
-        ))
-        .await
-        .unwrap()
-    }
-
-    async fn count(&self, sql: &str) -> i64 {
-        sqlx::query_scalar(sql)
-            .fetch_one(&mut self.connect().await)
-            .await
-            .unwrap()
-    }
-
-    async fn execute(&self, sql: &str) {
-        sqlx::query(sql)
-            .execute(&mut self.connect().await)
-            .await
-            .unwrap();
-    }
-}
-
-fn tiles(genres: Vec<Genre>) -> Vec<(String, i64)> {
-    genres
-        .into_iter()
-        .map(|genre| (genre.key, genre.track_count))
-        .collect()
-}
-
-fn pairs(expected: &[(&str, i64)]) -> Vec<(String, i64)> {
-    expected
-        .iter()
-        .map(|(key, count)| ((*key).to_owned(), *count))
-        .collect()
-}
-
-async fn two_artists() -> World {
-    let world = World::new("mb-genres").await;
-    for (offset, title, artist) in [(1, "a1", A), (2, "a2", A), (3, "b1", B)] {
-        world.track(
-            offset,
-            title,
-            Ids {
-                artist: Some(artist),
-                ..Ids::default()
-            },
-        );
-    }
-    world.track(4, "plain", Ids::default());
-    world.artist_genres(A, &[("fado", 5), ("folk", 1)]);
-    world.artist_genres(B, &[("jazz", 3)]);
-    world.scan().await;
-    world
-}
+mod fixture;
+mod paging;
 
 #[tokio::test]
 async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
@@ -226,6 +46,10 @@ async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
         "{:?}",
         world.genre_requests()
     );
+    let genre_requests = world.genre_requests();
+    let paged = paged_tracks_match_preview(&world, "fado").await;
+    assert_eq!(paged.len(), 2);
+    assert_eq!(world.genre_requests(), genre_requests);
 
     assert_eq!(world.walk().await, 0, "a finished walk leaves no work");
     assert_eq!(
@@ -276,6 +100,16 @@ async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
             .unwrap()
             .is_empty()
     );
+    let outsider_page = tokio::time::timeout(
+        Duration::from_secs(5),
+        world
+            .hito
+            .catalog
+            .genre_tracks(&outsider, "fado", Some(1), None),
+    )
+    .await
+    .expect("outsider genre lookup finishes within 5 seconds");
+    assert!(matches!(outsider_page, Err(hito_core::Error::NotFound)));
 }
 
 #[tokio::test]
@@ -311,6 +145,14 @@ async fn file_tag_genres_win_for_their_recording_and_other_tracks_still_use_musi
         .await
         .unwrap();
     assert_eq!(rock.tracks.len(), 1);
+    let genre_requests = world.genre_requests();
+    let fado_tracks = paged_tracks_match_preview(&world, "fado").await;
+    assert_eq!(fado_tracks.len(), 2);
+    assert!(fado_tracks.iter().all(|track| track.title != "tagged"));
+    let rock_tracks = paged_tracks_match_preview(&world, "rock").await;
+    assert_eq!(rock_tracks.len(), 1);
+    assert_eq!(rock_tracks[0].title, "tagged");
+    assert_eq!(world.genre_requests(), genre_requests);
 }
 
 #[tokio::test]
@@ -347,6 +189,14 @@ async fn release_group_and_recording_genres_cover_tracks_with_no_artist_identity
             .any(|r| r.starts_with("/ws/2/release-group/"))
     );
     assert!(requests.iter().any(|r| r.starts_with("/ws/2/recording/")));
+    let genre_requests = world.genre_requests();
+    let ambient = paged_tracks_match_preview(&world, "ambient").await;
+    assert_eq!(ambient.len(), 1);
+    assert_eq!(ambient[0].title, "grouped");
+    let drone = paged_tracks_match_preview(&world, "drone").await;
+    assert_eq!(drone.len(), 1);
+    assert_eq!(drone[0].title, "recorded");
+    assert_eq!(world.genre_requests(), genre_requests);
 }
 
 #[tokio::test]

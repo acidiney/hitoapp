@@ -4,6 +4,7 @@ mod availability;
 mod browse;
 pub(crate) mod credit_members;
 mod featured;
+mod genre_tracks;
 mod genres;
 mod groups;
 pub(crate) mod local_files;
@@ -36,6 +37,9 @@ mod album_anchor_work;
 #[cfg(test)]
 #[path = "tests/credit_member_work.rs"]
 mod credit_member_work;
+#[cfg(test)]
+#[path = "tests/genre_paging_work.rs"]
+mod genre_paging_work;
 #[cfg(test)]
 #[path = "tests/genre_work.rs"]
 mod genre_work;
@@ -74,6 +78,7 @@ pub(crate) use availability::{
 pub use browse::Browse;
 pub use credit_members::CreditMember;
 pub use featured::{FeaturedEntry, FeaturedShelf};
+pub use genre_tracks::GenreTracksPage;
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};
 pub(crate) use groups::group_step;
