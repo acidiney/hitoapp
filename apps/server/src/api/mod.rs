@@ -27,6 +27,7 @@ pub mod featured;
 pub mod home;
 pub mod host_browser;
 pub mod host_folders;
+pub mod host_place;
 pub mod identity;
 pub mod jobs;
 pub mod loopback_return;

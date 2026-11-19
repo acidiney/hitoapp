@@ -9,6 +9,7 @@ mod media_tools;
 mod native_picker;
 #[cfg(feature = "native-media")]
 mod os_controls;
+mod place;
 mod storage;
 mod system_media;
 mod user_agent;
@@ -22,6 +23,7 @@ pub use media_tools::MediaToolSearch;
 pub use native_picker::NativePicker;
 #[cfg(feature = "native-media")]
 pub use os_controls::{OsControls, WindowHandle};
+pub use place::Place;
 use std::path::PathBuf;
 pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};
 pub use user_agent::user_agent;

@@ -345,9 +345,15 @@ impl Flow {
         };
         let loopback = hito_server::loopback_return_router(services_handle.clone(), config.clone());
         let app = match browser {
-            Some(browser) => {
-                hito_server::router_with_hosts(services, config, None, None, Some(browser))
-            }
+            Some(browser) => hito_server::router_with_hosts(
+                services,
+                config,
+                None,
+                hito_server::Hosts {
+                    browser: Some(browser),
+                    ..hito_server::Hosts::default()
+                },
+            ),
             None => hito_server::router_with_config(services, config),
         };
         let owner = admin(&app).await;

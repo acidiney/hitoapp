@@ -1,18 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod exit;
+mod launch;
 
 use exit::{Decision, Lifecycle};
 use hito_desktop::{
-    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, RETURN_PORT_SETTING, ReturnPort,
-    SystemBrowser, SystemMedia, WindowHandle, music_folder, user_agent,
+    MusicLookup, Place, RETURN_PORT_SETTING, ReturnPort, WindowHandle, music_folder, user_agent,
 };
-use hito_playback::{MediaIntegration, media_commands};
+use launch::{Allowed, Desktop, Launch};
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWindowResponse};
 use tracing_subscriber::prelude::*;
-
-struct Desktop(Mutex<Lifecycle>);
 
 fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -34,6 +32,7 @@ fn main() {
     tracing::info!(event = "desktop_starting", "Starting Hito desktop");
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![launch::use_this_computer])
         .setup(|app| {
             let data = app.path().app_local_data_dir()?;
             let music = music_folder(MusicLookup {
@@ -50,48 +49,43 @@ fn main() {
             };
             #[cfg(not(debug_assertions))]
             let web = bundled?;
-            let (sender, commands) = media_commands();
-            let handle = WindowHandle::default();
-            let controls = {
-                let handle = handle.clone();
-                Lazy::new(move || OsControls::create(&sender, &handle))
-            };
-            let media = MediaIntegration::new(
-                SystemMedia::new(controls, data.join("media-artwork")),
-                commands,
-            );
             let return_port =
                 ReturnPort::from_setting(std::env::var(RETURN_PORT_SETTING).ok().as_deref())?;
-            let host = tauri::async_runtime::block_on(LocalHost::start_with_folders(
-                Paths {
-                    data: data.clone(),
-                    music,
-                    web,
-                },
-                Some(media),
-                Some(std::sync::Arc::new(NativePicker::new(app.handle().clone()))),
-                Some(std::sync::Arc::new(SystemBrowser::new(|url| {
-                    tauri_plugin_opener::open_url(url, None::<&str>).is_ok()
-                }))),
+            let window_handle = WindowHandle::default();
+            let allowed = Allowed::default();
+            app.manage(Launch {
+                data: data.clone(),
+                music,
+                web,
                 return_port,
-            ))?;
-            let entry = host.entry_url();
-            let origin = entry.origin();
-            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(entry))
+                window: window_handle.clone(),
+                allowed: allowed.clone(),
+            });
+            let host = match Place::load(&data) {
+                Some(Place::ThisComputer) => Some(tauri::async_runtime::block_on(
+                    app.state::<Launch>().start(app.handle()),
+                )?),
+                None => None,
+            };
+            let url = match &host {
+                Some(host) => WebviewUrl::External(host.entry_url()),
+                None => WebviewUrl::App("first-open.html".into()),
+            };
+            let window = WebviewWindowBuilder::new(app, "main", url)
                 .title("Hito")
                 .user_agent(&user_agent())
                 .inner_size(1440.0, 1000.0)
                 .min_inner_size(390.0, 600.0)
                 .data_directory(data.join("webview"))
                 .on_navigation(move |url| {
-                    let allowed = url.origin() == origin;
-                    if !allowed {
+                    let permitted = allowed.permits(url);
+                    if !permitted {
                         tracing::warn!(
                             event = "desktop_navigation_rejected",
                             "Navigation outside the local application rejected"
                         );
                     }
-                    allowed
+                    permitted
                 })
                 .on_new_window(|_, _| NewWindowResponse::Deny)
                 .build();
@@ -99,10 +93,12 @@ fn main() {
             if let Ok(window) = &window
                 && let Ok(hwnd) = window.hwnd()
             {
-                let _ = handle.set(hwnd.0 as usize);
+                let _ = window_handle.set(hwnd.0 as usize);
             }
             if let Err(error) = window {
-                if tauri::async_runtime::block_on(host.shutdown()).is_err() {
+                if let Some(host) = host
+                    && tauri::async_runtime::block_on(host.shutdown()).is_err()
+                {
                     tracing::error!(
                         event = "desktop_start_cleanup_failed",
                         "Local startup cleanup failed"
@@ -110,7 +106,11 @@ fn main() {
                 }
                 return Err(error.into());
             }
-            app.manage(Desktop(Mutex::new(Lifecycle::Running(host))));
+            let lifecycle = match host {
+                Some(host) => Lifecycle::Running(host),
+                None => Lifecycle::Choosing,
+            };
+            app.manage(Desktop(Mutex::new(lifecycle)));
             Ok(())
         })
         .build(tauri::generate_context!());

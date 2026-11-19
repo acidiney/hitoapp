@@ -138,6 +138,33 @@ async function close(origin) {
   );
   await endSession();
 }
+const firstScreenShown = async () => {
+  try {
+    return await execute(
+      'return document.querySelector("h1")?.textContent === "Where is your music?"',
+    );
+  } catch {
+    return false;
+  }
+};
+const buttonShown = (text) => async () => {
+  try {
+    return await execute(
+      `return [...document.querySelectorAll("button")].some((button) => button.textContent.trim() === ${JSON.stringify(text)})`,
+    );
+  } catch {
+    return false;
+  }
+};
+async function changePlace() {
+  await navigate("location.assign('/settings?section=about')");
+  await wait(buttonShown("Change…"), "the place row in Settings, About");
+  await clickText("Change…");
+  await wait(buttonShown("Change"), "the change-place dialog");
+  await clickText("Change");
+}
+const chooseThisComputer = () =>
+  click('form[aria-label="Choose where your music is"] button');
 const connectionNoticeShown = () =>
   execute('return document.querySelector(".connection-notice") !== null');
 async function verifyWithoutNetwork() {
@@ -454,11 +481,19 @@ try {
     }
   }, "the WebDriver service");
   await open();
+  await wait(firstScreenShown, "the first screen asking where the music is");
+  assert.notEqual(await execute("return location.hostname"), "127.0.0.1");
+  await chooseThisComputer();
   await wait(
-    () =>
-      execute(
-        'return document.querySelector("input[autocomplete=username]") !== null',
-      ),
+    async () => {
+      try {
+        return await execute(
+          'return document.querySelector("input[autocomplete=username]") !== null',
+        );
+      } catch {
+        return false;
+      }
+    },
     "the local setup form",
   );
   assert.equal(await execute("return location.hostname"), "127.0.0.1");
@@ -669,7 +704,11 @@ try {
     ],
     { timeout: 5000 },
   );
-  for (const command of ["plugin:app|version", "plugin:opener|open_url"])
+  for (const command of [
+    "plugin:app|version",
+    "plugin:opener|open_url",
+    "use_this_computer",
+  ])
     assert.equal(
       await execute(
         `return (async () => {const invoke=window.__TAURI_INTERNALS__?.invoke; if(!invoke) return true; try {await invoke(${JSON.stringify(command)}, {url: "https://evil.example/"});return false;} catch {return true;}})()`,
@@ -744,7 +783,19 @@ try {
   }, "History loads the current Rust cursor over stale rendered History and keeps current speed");
   await stopSavedStartObservation();
   await noBrowserAudio();
-  await close(restartedOrigin);
+  await changePlace();
+  await wait(firstScreenShown, "the first screen after changing the place");
+  await chooseThisComputer();
+  await wait(async () => {
+    try {
+      return await exists('button[aria-label="Play Fixture 440 Hz"]');
+    } catch {
+      return false;
+    }
+  }, "the kept local library after choosing this computer again");
+  const changedOrigin = await execute("return location.origin");
+  assert.notEqual(changedOrigin, restartedOrigin);
+  await close(changedOrigin);
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
     previousStops + 1,
@@ -754,7 +805,7 @@ try {
   assert.equal(logs().includes("desktop-smoke-code"), false);
   assert.equal(logs().includes("desktop-smoke-access"), false);
   console.log(
-    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence and joined shutdown passed.",
+    "Standalone Tauri first screen, setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence, changing the place and joined shutdown passed.",
   );
 } catch (error) {
   try {

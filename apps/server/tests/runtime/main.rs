@@ -4,6 +4,7 @@ mod embedded_runtime;
 mod first_matching_walk;
 mod folder_watching_runtime;
 mod host_folders;
+mod host_place;
 mod maintenance_cli;
 mod maintenance_rejections;
 mod runtime_config;
