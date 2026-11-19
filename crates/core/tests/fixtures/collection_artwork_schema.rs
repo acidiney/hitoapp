@@ -89,6 +89,8 @@ pub mod review_queue_schema;
 pub mod session_client_schema;
 #[path = "source_artist_trigger_schema.rs"]
 pub mod source_artist_trigger_schema;
+#[path = "source_readiness_schema.rs"]
+pub mod source_readiness_schema;
 #[path = "source_unavailability_schema.rs"]
 pub mod source_unavailability_schema;
 #[path = "musicbrainz_tag_identity_schema.rs"]
@@ -548,6 +550,10 @@ pub async fn reference_99() -> SqliteConnection {
     community_corrections_schema::reference(reference_98().await).await
 }
 
+pub async fn reference_100() -> SqliteConnection {
+    source_readiness_schema::reference(reference_99().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -602,6 +608,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         97 => reference_97().await,
         98 => reference_98().await,
         99 => reference_99().await,
+        100 => reference_100().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

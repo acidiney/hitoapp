@@ -20,7 +20,7 @@ pub enum SourceResolutionOutcome {
 }
 
 impl SourceResolutionOutcome {
-    pub(super) fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Ready => "ready",
             Self::NoSuitableSource => "no_suitable_source",
