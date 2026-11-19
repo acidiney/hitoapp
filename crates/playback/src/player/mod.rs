@@ -126,7 +126,7 @@ impl Player {
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(
             owner::run(
-                services,
+                crate::seam::Seam::in_process(&services),
                 requests.downgrade(),
                 received,
                 stopped,

@@ -1,11 +1,12 @@
 use crate::SourceStop;
+use crate::seam::{Chunks, Grant, Opened};
 use bytes::Bytes;
-use hito_core::{AudioRequest, AudioStream, Error, OpenedAudio, PlaybackSource, Result};
+use hito_core::{AudioRequest, Error, Result};
 use std::io::{self, Read};
 use tokio::runtime::Handle;
 
 pub struct Source {
-    pub(crate) grant: PlaybackSource,
+    pub(crate) grant: Grant,
     pub(crate) stop: SourceStop,
     pub(crate) runtime: Handle,
     pub(crate) position: u64,
@@ -19,34 +20,26 @@ pub struct Source {
 
 pub(crate) enum Body {
     Local(std::fs::File),
-    Remote(Box<AudioStream>),
+    Remote(Box<dyn Chunks>),
 }
 
 impl Source {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub async fn open(grant: PlaybackSource) -> Result<Self> {
-        Self::open_with_stop(grant, SourceStop::new()).await
+    pub async fn open(grant: impl Into<Grant>) -> Result<Self> {
+        Self::open_with_stop(grant.into(), SourceStop::new()).await
     }
 
-    pub(crate) async fn open_with_stop(grant: PlaybackSource, stop: SourceStop) -> Result<Self> {
+    pub(crate) async fn open_with_stop(grant: Grant, stop: SourceStop) -> Result<Self> {
         let (body, length, seekable) = if grant.is_local() {
             let file = grant.open_file().await?;
             (Body::Local(file.file), Some(file.length), true)
         } else {
-            let OpenedAudio::Content(mut audio) = grant.open(AudioRequest::default()).await? else {
+            let Opened::Content(audio) = grant.open(AudioRequest::default()).await? else {
                 return Err(Error::Upstream(
                     "Audio did not return a complete representation",
                 ));
             };
-            let body = audio
-                .body
-                .take()
-                .ok_or(Error::Upstream("Audio did not return content"))?;
-            (
-                Body::Remote(Box::new(body)),
-                audio.total_length,
-                audio.seekable,
-            )
+            (Body::Remote(audio.body), audio.total_length, audio.seekable)
         };
         tracing::debug!(seekable, "Authorized native input opened");
         Ok(Self {

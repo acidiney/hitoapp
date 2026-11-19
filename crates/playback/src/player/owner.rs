@@ -1,6 +1,6 @@
 use super::{Action, PlayerError, Request, Result, ownership::State};
 use crate::seam::Seam;
-use hito_core::{Recording, Services};
+use hito_core::Recording;
 use std::{future::Future, pin::Pin};
 use tokio::sync::{mpsc, oneshot};
 use tracing::Instrument;
@@ -9,14 +9,13 @@ use uuid::Uuid;
 type Admission = Pin<Box<dyn Future<Output = (Request, Result<Vec<Recording>>)> + Send>>;
 
 pub(super) async fn run(
-    services: Services,
+    seam: Seam,
     host: mpsc::WeakSender<Request>,
     mut requests: mpsc::Receiver<Request>,
     mut stopped: oneshot::Receiver<()>,
     mut effects: super::effects::Effects,
     media: Option<crate::MediaIntegration>,
 ) -> Result<()> {
-    let seam = Seam::in_process(&services);
     let mut media = media.map(|media| super::media::Driver::new(media, seam.catalog.clone()));
     let mut state = State {
         epoch: Uuid::new_v4(),
@@ -105,12 +104,11 @@ pub(super) async fn run(
             },
             request = requests.recv(), if pending.is_none() => {
                 let Some(request) = request else { break; };
-                let services = services.clone();
                 let seam = seam.clone();
                 let preflight = state.preflight(&request.actor, &request.action);
                 if preflight.as_ref().is_ok_and(|selection| selection.continuation.is_some()) {
                     if committing.is_some() { let _ = request.reply.send(Err(PlayerError::Busy)); }
-                    else { committing = Some(super::continuation_commit::Commit::new(request, preflight.unwrap(), services)); }
+                    else { committing = Some(super::continuation_commit::Commit::new(request, preflight.unwrap(), seam.authorization.clone())); }
                     continue;
                 }
                 let span = request.span.clone();

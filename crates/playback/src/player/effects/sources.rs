@@ -1,9 +1,9 @@
 use super::Key;
 use crate::PlayerError;
 mod discovery;
-use crate::seam::{self, Candidates};
+use crate::seam::{self, Candidates, Grant};
 use discovery::{Discovery, Outcome};
-use hito_core::{Actor, CandidatesEnd, PlaybackSource};
+use hito_core::{Actor, CandidatesEnd};
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::oneshot;
 use tokio::time::Instant;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type RefreshResult = (Key, Uuid, Result<bool, (PlayerError, bool)>);
-type Read = Result<(Box<dyn Candidates>, Option<PlaybackSource>), PlayerError>;
+type Read = Result<(Box<dyn Candidates>, Option<Grant>), PlayerError>;
 #[derive(Debug)]
 pub(super) struct PassFailure {
     pub error: PlayerError,
@@ -34,7 +34,7 @@ pub(super) struct Sources {
     key: Option<Key>,
     demand: Option<Demand>,
     candidates: Option<Box<dyn Candidates>>,
-    current: Option<PlaybackSource>,
+    current: Option<Grant>,
     reading: Option<Pending<Read>>,
     refreshing: Option<Refresh>,
     discovering: Option<Discovery>,
@@ -93,7 +93,7 @@ impl Sources {
         self.error = PlayerError::Playback;
         self.pass_retryable = true;
     }
-    pub fn current(&self) -> Option<&PlaybackSource> {
+    pub fn current(&self) -> Option<&Grant> {
         self.current.as_ref()
     }
     pub fn has_demand(&self) -> bool {
@@ -210,13 +210,13 @@ impl Sources {
         }));
         true
     }
-    pub async fn next(&mut self) -> Result<Option<PlaybackSource>, PassFailure> {
+    pub async fn next(&mut self) -> Result<Option<Grant>, PassFailure> {
         self.next_with_attempt(None).await
     }
     pub async fn next_with_attempt(
         &mut self,
         acquisition: Option<(u8, Instant)>,
-    ) -> Result<Option<PlaybackSource>, PassFailure> {
+    ) -> Result<Option<Grant>, PassFailure> {
         loop {
             tokio::select! {
                 biased;
