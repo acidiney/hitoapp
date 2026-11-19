@@ -143,6 +143,8 @@ mod credited_artists;
 #[path = "api/browsing.rs"]
 mod browsing;
 
+#[path = "api/audiobook_admission.rs"]
+mod audiobook_admission;
 #[path = "api/audiobook_continuation.rs"]
 mod audiobook_continuation;
 #[path = "api/audiobook_library.rs"]

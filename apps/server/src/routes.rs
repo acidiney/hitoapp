@@ -149,7 +149,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
-        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::begin,
+            api::playback_leases::release_client
+        ))
         .routes(routes!(
             api::playback_leases::status,
             api::playback_leases::release
@@ -312,6 +315,8 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(api::audiobooks::page))
         .routes(routes!(api::audiobooks::detail))
         .routes(routes!(api::audiobooks::playback))
+        .routes(routes!(api::audiobooks::check_chapters))
+        .routes(routes!(api::audiobooks::admission))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
