@@ -946,6 +946,7 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
     declared_additions
         .extend_from_slice(schema_history::credit_member_identity_choice_schema::ADDED);
     declared_additions.extend_from_slice(schema_history::community_corrections_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::source_readiness_schema::ADDED);
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(

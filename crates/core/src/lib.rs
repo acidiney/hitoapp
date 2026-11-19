@@ -80,7 +80,8 @@ pub use catalog::{
     SearchRecordingLyrics, SelectedLyricsLookup, Source, SourceChoice, SourceChoiceEntry,
     SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourceMatchKind,
     SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateSourcePreferences,
+    SourcePreparationStatus, SourceReadinessPreference, SourceResolution, SourceResolutionOutcome,
+    UpdateSourcePreferences,
 };
 pub use catalog_replication::{
     BeginCatalogSnapshot, CatalogReplication, CatalogSnapshot, CatalogSnapshotMode,

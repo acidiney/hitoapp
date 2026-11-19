@@ -7,6 +7,7 @@ mod matching;
 mod plugin_offers;
 mod podcasts;
 mod polling;
+mod readiness;
 mod retention;
 mod source_preparation;
 
@@ -126,6 +127,7 @@ async fn serve_owned(
     let covers = artwork::cover_art_worker(services.catalog.clone(), stopped.clone());
     let matching = matching::worker(services.artist_catalog.clone(), stopped.clone());
     let reports = community::worker(services.community, stopped.clone());
+    let readiness = readiness::worker(services.catalog.clone(), stopped.clone());
     let preparation_catalog = services.catalog;
     let preparation_stop = stopped.clone();
     let preparations = async move {
@@ -164,7 +166,7 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), (), (), (), (), capabilities_closed) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), (), (), (), (), capabilities_closed) = tokio::join!(
         http,
         indexing,
         watching,
@@ -177,6 +179,7 @@ async fn serve_owned(
         preparations,
         refreshes,
         reports,
+        readiness,
         capability_shutdown
     );
     let (downloads_finished, indexing_finished) = tokio::join!(
