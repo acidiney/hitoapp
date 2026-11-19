@@ -340,6 +340,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         files: managed.clone(),
         active: Default::default(),
         playlist_turn: Default::default(),
+        authority_interval: downloads::AUTHORITY_INTERVAL,
     };
     if let Err(error) = downloads.sweep_staging().await {
         tracing::warn!(
