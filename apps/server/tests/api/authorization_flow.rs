@@ -61,6 +61,7 @@ pub(super) struct TokenState {
     pub(super) lifetime: Mutex<u64>,
     pub(super) refreshes: std::sync::atomic::AtomicUsize,
     pub(super) refresh_gate: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
+    pub(super) refresh_meeting: Mutex<Option<Arc<tokio::sync::Barrier>>>,
     pub(super) refresh_arrived: tokio::sync::Notify,
 }
 
@@ -85,6 +86,7 @@ impl TokenServer {
             lifetime: Mutex::new(3600),
             refreshes: std::sync::atomic::AtomicUsize::new(0),
             refresh_gate: Mutex::default(),
+            refresh_meeting: Mutex::default(),
             refresh_arrived: tokio::sync::Notify::new(),
         });
         let router = Router::new()
@@ -142,6 +144,15 @@ impl TokenServer {
         release
     }
 
+    pub(super) fn meet_refreshes(&self, refreshes: usize) {
+        *self.state.refresh_meeting.lock().unwrap() =
+            Some(Arc::new(tokio::sync::Barrier::new(refreshes)));
+    }
+
+    pub(super) fn stop_meeting(&self) {
+        *self.state.refresh_meeting.lock().unwrap() = None;
+    }
+
     pub(super) async fn refresh_arrived(&self) {
         self.state.refresh_arrived.notified().await;
     }
@@ -168,6 +179,10 @@ async fn token(State(state): State<Arc<TokenState>>, body: String) -> Response {
         let gate = state.refresh_gate.lock().unwrap().take();
         if let Some(gate) = gate {
             let _ = gate.await;
+        }
+        let meeting = state.refresh_meeting.lock().unwrap().clone();
+        if let Some(meeting) = meeting {
+            meeting.wait().await;
         }
     }
     let delay = *state.delay.lock().unwrap();

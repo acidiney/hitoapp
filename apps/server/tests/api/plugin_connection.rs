@@ -3,10 +3,7 @@ use super::support::call;
 use axum::http::StatusCode;
 use hito_core::{Error, PluginConnectionState, ProviderAccess};
 use serde_json::{Value, json};
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 use tracing::instrument::WithSubscriber;
 
 fn token(access: &ProviderAccess) -> String {
@@ -873,16 +870,15 @@ async fn two_installations_of_one_account_refresh_concurrently_and_stay_isolated
     assert_eq!(token(&flow.access().await.unwrap()), ACCESS);
 
     force_expiry(&flow, -5).await;
-    flow.token.delay(Duration::from_millis(300));
-    let started = Instant::now();
-    let (first, other) = tokio::join!(flow.access(), flow.access_for(&second));
+    flow.token.meet_refreshes(2);
+    let (first, other) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(flow.access(), flow.access_for(&second))
+    })
+    .await
+    .expect("refreshes must overlap: each waits at the token endpoint until the other arrives");
     assert!(first.is_ok() && other.is_ok());
-    assert!(
-        started.elapsed() < Duration::from_millis(550),
-        "refreshes must overlap"
-    );
     assert_eq!(flow.token.refresh_requests().len(), 2);
-    flow.token.delay(Duration::ZERO);
+    flow.token.stop_meeting();
 
     assert_eq!(flow.disconnect(&flow.owner).await, StatusCode::NO_CONTENT);
     assert!(matches!(
