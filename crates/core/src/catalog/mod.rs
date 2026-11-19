@@ -100,4 +100,5 @@ pub struct Catalog {
     pub(crate) cover_art: hito_metadata_musicbrainz::CoverArtClient,
     pub(crate) artist_image: hito_metadata_musicbrainz::ArtistImageClient,
     pub(crate) featured_cache: featured::FeaturedCache,
+    pub(crate) preparation_held: Arc<std::sync::atomic::AtomicBool>,
 }
