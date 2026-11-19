@@ -191,6 +191,9 @@ class AudioLauncher:
         settings = [f"PULSE_SERVER=unix:{socket}", f"ALSA_CONFIG_PATH={config}"]
         if fault_control:
             settings.append(f"HITO_PRIVATE_PULSE_PID={pulse_pid}")
+        capture = environment.get("HITO_CAPTURE_DUMP")
+        if capture:
+            settings.append(f"HITO_CAPTURE_DUMP={capture}")
         test = self.launch(["runuser", "-u", "hito-desktop", "--", "env", *settings, *command], env=environment)
         while not self.interrupted:
             self.discover()

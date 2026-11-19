@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+export HITO_NATIVE_EVIDENCE="${HITO_NATIVE_EVIDENCE:-test-results/desktop/native}"
+mkdir -p "$HITO_NATIVE_EVIDENCE"
 docker compose --profile desktop build desktop
 sh ./scripts/check-audio.sh
 sh ./scripts/check-playback.sh

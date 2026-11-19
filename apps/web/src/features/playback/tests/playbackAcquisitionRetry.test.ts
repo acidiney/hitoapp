@@ -77,6 +77,7 @@ function resolution(
             ready: true,
             label: "Owned audio service",
             can_prepare: false,
+            community_public: false,
             match_kind: "verified",
           },
         ]
@@ -658,6 +659,7 @@ const waitingSource = (recording: string) => ({
   device_id: null,
   ready: false,
   can_prepare: true,
+  community_public: false,
   label: "Owned audio service",
   match_kind: "verified" as const,
 });

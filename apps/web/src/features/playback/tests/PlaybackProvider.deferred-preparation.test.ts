@@ -28,6 +28,7 @@ const waitingSource: Schema<"Source"> = {
   ...nextSource,
   ready: false,
   can_prepare: true,
+  community_public: false,
 };
 const preparationId = "0d6a3f6b-0f0e-47f5-a1a5-3f1d3d9f9b10";
 const preparationPath = `${sourcesPath(next)}/${nextSource.id}/preparation`;

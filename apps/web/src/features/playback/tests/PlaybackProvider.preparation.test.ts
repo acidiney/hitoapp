@@ -30,6 +30,7 @@ const source = (recording: Track, id: string): Schema<"Source"> => ({
   ready: true,
   label: "Owned audio service",
   can_prepare: false,
+  community_public: false,
   match_kind: "verified",
 });
 const firstSource = source(first, "34aa1ecf-d01b-4b1f-9dab-2f3e40aff28b");
