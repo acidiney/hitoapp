@@ -11,8 +11,7 @@ async fn held_finalizer_does_not_block_public_pause_or_replace_admission() {
     let (release, release_rx) = oneshot::channel();
     let (handled, handled_rx) = oneshot::channel();
     let effects = Effects::native_with_held_finalizer(
-        library.hito.catalog.clone(),
-        library.hito.playback.clone(),
+        crate::seam::Seam::in_process(&library.hito),
         entered,
         release_rx,
         handled,
