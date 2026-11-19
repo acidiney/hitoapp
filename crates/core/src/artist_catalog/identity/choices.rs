@@ -181,6 +181,7 @@ impl ArtistCatalog {
             order,
         )
         .await?;
+        super::super::automation::request_for_account(&mut tx, actor.id()).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         Ok(receipt)

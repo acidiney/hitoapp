@@ -9,7 +9,7 @@ use super::{
     suggestions::credit_name,
 };
 use crate::artist_catalog::{
-    LINKED, MetadataProvider, REQUEST_BUDGET,
+    LINKED, MetadataProvider, REQUEST_BUDGET, automation,
     identity::{
         groups::{current_choices, current_choices_joined},
         receipts,
@@ -803,6 +803,9 @@ impl ArtistCatalog {
         };
         let order = receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
         commit(&mut tx, actor, &pending, order).await?;
+        if !pending.is_empty() {
+            automation::request_for_account(&mut tx, actor.id()).await?;
+        }
         if remaining == 0 {
             if searched {
                 let left: i64 = sqlx::query_scalar(&format!(

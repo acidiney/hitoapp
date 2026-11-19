@@ -33,6 +33,7 @@ mod artist_identity_split;
 mod artist_identity_unified_index;
 mod artist_identity_unified_index_edges;
 mod artist_match_automatic;
+mod artist_match_completion;
 mod artist_match_coverage;
 mod artist_match_credit;
 mod artist_match_guards;
