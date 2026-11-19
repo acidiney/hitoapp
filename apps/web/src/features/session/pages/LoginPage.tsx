@@ -12,7 +12,7 @@ export default function LoginPage({
   const app = useAppServer();
   return (
     <AuthPage>
-      {setup ? (
+      {flow.setup ? (
         <SetupForm {...flow} app={app} />
       ) : (
         <SignInForm {...flow} app={app} />
