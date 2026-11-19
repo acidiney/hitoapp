@@ -144,15 +144,26 @@ export const artistEditionApi = {
       ),
     );
     if (outcome.status === "saved")
-      forgetRead(account, [
-        "tracks",
-        recording,
-        association,
-        {
-          release_group_id: body.release_group_id,
-          edition_id: body.edition_id,
-        },
-      ]);
+      artistEditionApi.forgetTracks(account, recording, association, {
+        release_group_id: body.release_group_id,
+        edition_id: body.edition_id,
+      });
     return outcome;
+  },
+  forgetTracks(
+    account: string,
+    recording: string,
+    association: string,
+    body: Schema<"ReadEditionTrackList">,
+  ) {
+    forgetRead(account, [
+      "tracks",
+      recording,
+      association,
+      {
+        release_group_id: body.release_group_id,
+        edition_id: body.edition_id,
+      },
+    ]);
   },
 };
