@@ -4,6 +4,7 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { setting } from "../model/settingsCatalog";
 import SourcePreferences from "../../sources/components/SourcePreferences";
+import BackgroundPreparation from "../../sources/components/BackgroundPreparation";
 import StreamingQualitySettings from "../../playback/components/StreamingQualitySettings";
 
 export function PlaybackSection({
@@ -23,6 +24,7 @@ export function PlaybackSection({
         {!native && <StreamingQualitySettings />}
       </SettingsCard>
       <SourcePreferences account={account} />
+      <BackgroundPreparation account={account} />
     </>
   );
 }
