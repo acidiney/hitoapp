@@ -187,6 +187,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
             source_preference::update_source_preferences
         ))
         .routes(routes!(
+            source_preference::source_readiness_preference,
+            source_preference::update_source_readiness_preference
+        ))
+        .routes(routes!(
             source_preparation::create,
             source_preparation::status
         ))
