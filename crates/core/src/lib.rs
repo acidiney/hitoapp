@@ -138,9 +138,9 @@ pub use metadata::{
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
     CandidatesEnd, ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS,
-    OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
-    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, ReleaseClientLeases, StreamPace,
-    StreamQuality,
+    OpenedAudio, PcmBlock, PcmFormat, PcmInput, PcmOpening, PcmStream, PlaybackAccess,
+    PlaybackCandidates, PlaybackLease, PlaybackSource, QualityAudio, QualityRequest,
+    ReleaseClientLeases, StreamDecoder, StreamPace, StreamQuality,
 };
 pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{
