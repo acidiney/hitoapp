@@ -52,6 +52,7 @@ test("confirming an unavailable choice invalidates old readiness without losing 
     ...choiceSourceB,
     ready: false,
     can_prepare: true,
+    community_public: false,
   };
   const initialSources: Schema<"Source">[] = [choiceSourceA, sourceB];
   const unavailableSources: Schema<"Source">[] = [

@@ -6458,6 +6458,7 @@ export interface components {
         };
         Source: {
             can_prepare: boolean;
+            community_public: boolean;
             device_id?: string | null;
             id: string;
             label: string;

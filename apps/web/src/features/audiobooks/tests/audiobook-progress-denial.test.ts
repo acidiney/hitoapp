@@ -33,6 +33,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
     ready: true,
     label: "Owned audio service",
     can_prepare: false,
+    community_public: false,
     match_kind: "verified",
   }));
   const privateError =

@@ -47,6 +47,7 @@ const legacySource = {
   label: "Owned source",
   ready: true,
   can_prepare: false,
+  community_public: false,
   device_id: null,
 };
 const currentSource = {

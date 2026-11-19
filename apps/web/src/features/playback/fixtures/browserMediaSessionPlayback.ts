@@ -30,6 +30,7 @@ const source: Schema<"Source"> = {
   ready: true,
   label: "Owned audio",
   can_prepare: false,
+  community_public: false,
   match_kind: "verified",
 };
 

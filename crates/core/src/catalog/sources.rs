@@ -33,8 +33,8 @@ fn source_query(
     controls: bool,
 ) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(
-            "WITH selected(id,label,preparation_approved,provider_label) AS (
-            SELECT id,CASE provider WHEN 'local' THEN 'Local audio' WHEN 'download' THEN 'Saved audio' WHEN 'podcast' THEN 'Podcast audio' ELSE 'Audio' END,0,NULL
+            "WITH selected(id,label,preparation_approved,provider_label,community_public) AS (
+            SELECT id,CASE provider WHEN 'local' THEN 'Local audio' WHEN 'download' THEN 'Saved audio' WHEN 'podcast' THEN 'Podcast audio' ELSE 'Audio' END,0,NULL,0
             FROM sources INDEXED BY nonplugin_sources_recording WHERE provider != 'plugin' AND recording_id = ",
         );
     query
@@ -48,7 +48,8 @@ fn source_query(
             SELECT ps.source_id,ps.label,(installation.active = 1 AND service.active = 1
                 AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'sources')
                 AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'source_preparation')),
-                service.name
+                service.name,
+                json_extract(installation.manifest,'$.id') IN ('org.hito.youtube','org.hito.jamendo')
             FROM provider_items item CROSS JOIN provider_source_state state ON state.binding_id = item.id
             CROSS JOIN provider_sources ps INDEXED BY provider_sources_generation
             ON ps.binding_id = state.binding_id AND ps.generation = state.generation
@@ -62,7 +63,7 @@ fn source_query(
             .push_bind(recording.to_owned())
             .push(
                 ")
-            SELECT s.id, s.recording_id, s.provider, ids.label, ids.provider_label, s.device_id,
+            SELECT s.id, s.recording_id, s.provider, ids.label, ids.provider_label, ids.community_public, s.device_id,
                 (ids.preparation_approved AND s.ready = 0) AS can_prepare, (",
             );
     push_source_access(&mut query, host, account, SourceAccess::Playable);

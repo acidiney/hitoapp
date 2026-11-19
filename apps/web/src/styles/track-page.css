@@ -1326,3 +1326,21 @@ a.track-id {
   font-size: 13px;
   color: var(--muted);
 }
+.same-recording-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 12px;
+  padding: 0;
+  border: 0;
+}
+.same-recording-choices legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.rd-choice-note {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
