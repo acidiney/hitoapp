@@ -11,6 +11,7 @@ const readySource = {
   ready: true,
   label: "YouTube",
   can_prepare: false,
+  community_public: false,
   match_kind: "verified",
 };
 

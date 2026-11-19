@@ -11,6 +11,8 @@ pub mod account_display_name_schema;
 pub mod account_schema;
 #[path = "account_source_preference_schema.rs"]
 pub mod account_source_preference_schema;
+#[path = "album_additions_schema.rs"]
+pub mod album_additions_schema;
 #[path = "album_edition_schema.rs"]
 pub mod album_schema;
 #[path = "artist_credit_target_schema.rs"]
@@ -23,6 +25,8 @@ pub mod automation_schema;
 pub mod catalog_track_link_schema;
 #[path = "artist_association_changes_schema.rs"]
 pub mod changes_schema;
+#[path = "community_corrections_schema.rs"]
+pub mod community_corrections_schema;
 #[path = "artist_identity_correction_schema.rs"]
 pub mod correction_schema;
 #[path = "coverage_matches_schema.rs"]
@@ -87,6 +91,8 @@ pub mod review_queue_schema;
 pub mod session_client_schema;
 #[path = "source_artist_trigger_schema.rs"]
 pub mod source_artist_trigger_schema;
+#[path = "source_readiness_schema.rs"]
+pub mod source_readiness_schema;
 #[path = "source_unavailability_schema.rs"]
 pub mod source_unavailability_schema;
 #[path = "musicbrainz_tag_identity_schema.rs"]
@@ -542,6 +548,18 @@ pub async fn reference_98() -> SqliteConnection {
     playback_failure_schema::reference(reference_97().await).await
 }
 
+pub async fn reference_99() -> SqliteConnection {
+    community_corrections_schema::reference(reference_98().await).await
+}
+
+pub async fn reference_100() -> SqliteConnection {
+    source_readiness_schema::reference(reference_99().await).await
+}
+
+pub async fn reference_101() -> SqliteConnection {
+    album_additions_schema::reference(reference_100().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -595,6 +613,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         96 => reference_96().await,
         97 => reference_97().await,
         98 => reference_98().await,
+        99 => reference_99().await,
+        100 => reference_100().await,
+        101 => reference_101().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

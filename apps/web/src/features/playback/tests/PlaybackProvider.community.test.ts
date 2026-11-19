@@ -494,6 +494,7 @@ test("Continue waits for its private progress prefix while held community delive
           device_id: null,
           ready: true,
           can_prepare: false,
+          community_public: false,
           label: "Owned source",
           match_kind: "verified",
         } satisfies components["schemas"]["Source"],

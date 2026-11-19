@@ -21,6 +21,37 @@ const ADMIN_TOKEN: &str = "17a0427d104d87ad8adce74f1fbbe334cb4969d697d0fe4d00bc5
 const INVALID_FILTER: &str = "trace,private-bootstrap-filter=not-a-level";
 
 #[test]
+fn a_zero_limit_fails_startup_before_state_creation() {
+    for flag in [
+        "--correction-recent-per-minute",
+        "--correction-pending-per-reporter",
+        "--correction-pending-total",
+        "--outcome-recent-per-minute",
+    ] {
+        let fixture = Fixture::new();
+        fixture.write_credential(ADMIN_TOKEN.as_bytes());
+        let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut process = Process::start_with(
+            fixture.directory.path(),
+            &fixture.state,
+            &fixture.credential,
+            occupied.local_addr().unwrap(),
+            "trace",
+            "zero-limit",
+            &[flag, "0"],
+        );
+        assert_eq!(process.wait_exit().code(), Some(1), "{flag}: started");
+        assert!(
+            !fixture.state.try_exists().unwrap(),
+            "{flag}: state was created"
+        );
+        let events = process.events(&[ADMIN_TOKEN]);
+        assert_no_readiness(&events);
+        assert!(event(&events, "community_service_failed")["fields"]["reason"] == "invalid_limit");
+    }
+}
+
+#[test]
 fn unsafe_credentials_fail_before_state_creation_without_modifying_inputs() {
     for denial in [
         Denial::SymbolicLink,

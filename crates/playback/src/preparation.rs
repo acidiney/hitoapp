@@ -1,7 +1,7 @@
+use crate::seam::Grant;
 use crate::session_worker::Message;
 use crate::{Error, Result, Source, SourceStop, grants::Grants};
 use hito_audio::{Decoder, Player};
-use hito_core::PlaybackSource;
 use std::{
     sync::{
         Arc,
@@ -24,7 +24,7 @@ struct Pending {
     attempt: u64,
     completed: Arc<AtomicBool>,
     stop: Option<SourceStop>,
-    grant: PlaybackSource,
+    grant: Grant,
     worker: Option<JoinHandle<hito_audio::Result<Decoder>>>,
     reply: Option<Reply>,
 }

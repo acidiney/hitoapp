@@ -2,18 +2,22 @@ use super::{
     Action, PlayerAction, PlayerError, Request, Result,
     ownership::{AdmissionSelection, State},
 };
-use hito_core::{AudiobookPlaybackAdmission, Services};
-use std::{future::Future, pin::Pin};
+use crate::seam::{Admission, Authorization};
+use std::{future::Future, pin::Pin, sync::Arc};
 use tracing::Instrument;
 
-type Admission = Pin<Box<dyn Future<Output = Result<AudiobookPlaybackAdmission>> + Send>>;
+type Admitting = Pin<Box<dyn Future<Output = Result<Box<dyn Admission>>> + Send>>;
 
 pub(super) struct Commit {
     request: Request,
-    admission: Admission,
+    admission: Admitting,
 }
 impl Commit {
-    pub fn new(request: Request, selection: AdmissionSelection, services: Services) -> Self {
+    pub fn new(
+        request: Request,
+        selection: AdmissionSelection,
+        authorization: Arc<dyn Authorization>,
+    ) -> Self {
         let actor = request.actor.clone();
         let target = selection.continuation.unwrap();
         let span = request.span.clone();
@@ -21,9 +25,8 @@ impl Commit {
             request,
             admission: Box::pin(
                 async move {
-                    services
-                        .collection
-                        .admit_audiobook_playback(&actor, target, &selection.chapters)
+                    authorization
+                        .admit_audiobook(&actor, target, &selection.chapters)
                         .await
                         .map_err(PlayerError::from)
                 }
@@ -49,7 +52,7 @@ impl Commit {
                             .is_some_and(|prepared| prepared.check(owned, token).is_ok())
                 })
     }
-    pub async fn next(&mut self) -> Result<AudiobookPlaybackAdmission> {
+    pub async fn next(&mut self) -> Result<Box<dyn Admission>> {
         tokio::select! {
             biased;
             _ = self.request.reply.closed() => Err(PlayerError::Conflict),
@@ -60,7 +63,7 @@ impl Commit {
         self,
         state: &mut State,
         progress_ready: bool,
-        result: Result<AudiobookPlaybackAdmission>,
+        result: Result<Box<dyn Admission>>,
     ) {
         let span = self.request.span.clone();
         let _entered = span.enter();
@@ -68,17 +71,18 @@ impl Commit {
             Err(PlayerError::Conflict)
         } else {
             result.and_then(|admission| {
+                let mut accepted = None;
                 admission
-                    .publish(|| {
-                        state.accept(
+                    .publish(Box::new(|| {
+                        accepted = Some(state.accept(
                             &self.request.actor,
                             self.request.action,
                             Vec::new(),
                             progress_ready,
-                        )
-                    })
-                    .map_err(PlayerError::from)
-                    .and_then(|result| result)
+                        ))
+                    }))
+                    .map_err(PlayerError::from)?;
+                accepted.unwrap_or(Err(PlayerError::Conflict))
             })
         };
         tracing::debug!(

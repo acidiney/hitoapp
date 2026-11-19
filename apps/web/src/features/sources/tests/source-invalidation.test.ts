@@ -31,6 +31,7 @@ test("the availability panel rereads when a source for its track changes elsewhe
       ready,
       label: "Owned audio",
       can_prepare: false,
+      community_public: false,
     },
   ];
   let ready = true;

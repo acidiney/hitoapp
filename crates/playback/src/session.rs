@@ -1,9 +1,9 @@
+use crate::seam::Grant;
 use crate::{
     Command, Error, Result, Snapshot, Source, SourceStop, Status,
     grants::Grants,
     session_worker::{Mailbox, Message, Order, OwnerStop, Request},
 };
-use hito_core::PlaybackSource;
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
@@ -29,7 +29,8 @@ pub struct Session {
 
 impl Session {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
-    pub async fn open(grant: PlaybackSource) -> Result<Self> {
+    pub async fn open(grant: impl Into<Grant>) -> Result<Self> {
+        let grant = grant.into();
         let session = Self::start(grant);
         session.ready().await?;
         tracing::info!(
@@ -40,7 +41,8 @@ impl Session {
     }
 
     #[tracing::instrument(level = "info", skip_all, fields(native_session))]
-    pub fn start(grant: PlaybackSource) -> Self {
+    pub fn start(grant: impl Into<Grant>) -> Self {
+        let grant = grant.into();
         let id = NEXT_SESSION.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("native_session", id);
         let cancel = Arc::new(OwnerStop::new(SourceStop::new()));
@@ -112,7 +114,8 @@ impl Session {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(native_session = self.id))]
-    pub async fn prepare_next(&self, grant: PlaybackSource) -> Result<()> {
+    pub async fn prepare_next(&self, grant: impl Into<Grant>) -> Result<()> {
+        let grant = grant.into();
         if grant.check().await.is_err() {
             return Err(Error::Access);
         }

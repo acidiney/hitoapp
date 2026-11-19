@@ -4,7 +4,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::Value;
 use tower::ServiceExt;
 
@@ -30,6 +30,7 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
     let service = bounded(Service::open(Config {
         state_directory: directory.clone(),
         admin_token: ADMIN_TOKEN.to_owned(),
+        limits: Limits::default(),
     }))
     .await
     .unwrap();

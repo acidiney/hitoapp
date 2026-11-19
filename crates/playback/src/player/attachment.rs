@@ -2,13 +2,13 @@ use super::{
     PlayerCommand, PlayerError, PlayerPhase, PlayerPosition, PlayerReceipt, PlayerSnapshot, Result,
     queue::Queue,
 };
-use hito_core::Actor;
+use crate::seam::Listener;
 use std::collections::VecDeque;
 use tokio::sync::watch;
 use uuid::Uuid;
 
 pub(super) struct Owned {
-    pub(super) actor: Actor,
+    pub(super) actor: Listener,
     pub(super) authority_available: bool,
     pub(super) lease: Uuid,
     pub(super) queue: Queue,
@@ -37,7 +37,7 @@ pub(super) struct Owned {
     pub(super) position: watch::Sender<PlayerPosition>,
 }
 impl Owned {
-    pub(super) fn new(actor: Actor) -> Self {
+    pub(super) fn new(actor: Listener) -> Self {
         Self {
             actor,
             authority_available: true,

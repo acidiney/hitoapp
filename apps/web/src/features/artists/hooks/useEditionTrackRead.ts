@@ -129,7 +129,11 @@ export function useEditionTrackRead<T extends Available>(
       stop(error);
     }, REQUEST_DEADLINE_MS);
     if (request.signal.aborted) cancel();
-    setSnapshot({ ...empty<T>(owner), pending: true });
+    setSnapshot((previous) => ({
+      ...empty<T>(owner),
+      result: previous.owner === owner ? previous.result : null,
+      pending: true,
+    }));
     log.debug("artist_edition_track_list.started", { request_id: requestId });
     try {
       const result = await Promise.race([read(controller.signal), stopped]);

@@ -27,22 +27,22 @@ mod store;
 pub mod test_support;
 
 pub use artist_catalog::{
-    AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState,
-    AlbumEditionTrackListAvailability, AlbumLibraryLevel, AlbumTrackAudio,
-    ApplyArtistIdentityToCredit, ArtistAssociation, ArtistAssociationChangeReceipt,
-    ArtistAssociationChanges, ArtistAssociationEvidence, ArtistAssociationRetirement,
-    ArtistAssociationUndo, ArtistCandidatePreviewAvailability, ArtistCandidateReleasesAvailability,
-    ArtistCandidateSearchAvailability, ArtistCatalog, ArtistCorrectionRetirement, ArtistCreditRole,
-    ArtistDiscographyAvailability, ArtistIdentityChangeKind, ArtistIdentityChangeReceipt,
-    ArtistIdentityChangeSummary, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
-    ArtistIdentityGroup, ArtistIdentityGroupBrowse, ArtistIdentityGroupChanges,
-    ArtistIdentityGroupDetail, ArtistIdentityGroupLibrary, ArtistIdentityGroupMember,
-    ArtistIdentityGroupName, ArtistIdentityGroupQuery, ArtistIdentitySelection,
-    ArtistMatchEvidence, ArtistMatchReceipt, ArtistMatchSuggestion, ArtistMatchSuggestions,
-    ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability,
-    ArtistProviderMatchReceipt, ArtistRadio, ArtistReviewCandidate, ArtistReviewConfirmation,
-    ArtistReviewConnection, ArtistReviewContext, ArtistReviewDismissal, ArtistReviewItem,
-    ArtistReviewMetadataBinding, ArtistReviewOrigin, ArtistReviewQueueQuery,
+    AddAlbum, AddArtistAlbum, AlbumAddition, AlbumAdditionUndone, AlbumEditionChoice,
+    AlbumEditionChoiceReceipt, AlbumEditionChoiceState, AlbumEditionTrackListAvailability,
+    AlbumLibraryLevel, AlbumTrackAudio, ApplyArtistIdentityToCredit, ArtistAssociation,
+    ArtistAssociationChangeReceipt, ArtistAssociationChanges, ArtistAssociationEvidence,
+    ArtistAssociationRetirement, ArtistAssociationUndo, ArtistCandidatePreviewAvailability,
+    ArtistCandidateReleasesAvailability, ArtistCandidateSearchAvailability, ArtistCatalog,
+    ArtistCorrectionRetirement, ArtistCreditRole, ArtistDiscographyAvailability,
+    ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
+    ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt, ArtistIdentityGroup,
+    ArtistIdentityGroupBrowse, ArtistIdentityGroupChanges, ArtistIdentityGroupDetail,
+    ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
+    ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistMatchEvidence, ArtistMatchReceipt,
+    ArtistMatchSuggestion, ArtistMatchSuggestions, ArtistMatchingState, ArtistMatchingStatus,
+    ArtistProfileAvailability, ArtistProviderMatchReceipt, ArtistRadio, ArtistReviewCandidate,
+    ArtistReviewConfirmation, ArtistReviewConnection, ArtistReviewContext, ArtistReviewDismissal,
+    ArtistReviewItem, ArtistReviewMetadataBinding, ArtistReviewOrigin, ArtistReviewQueueQuery,
     ArtistReviewRestoration, AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch,
     ChooseAlbumEdition, ChooseCreditMemberIdentity, ChooseRecordingArtistIdentity,
     ClearAlbumEdition, ConfirmArtistReviewCandidate, CoverageEvidence, CreditEvidence,
@@ -51,11 +51,12 @@ pub use artist_catalog::{
     CreditMemberReviewContext, DiscographyLibrary, DismissArtistMatchSuggestion,
     DismissArtistReviewCandidates, EditionTrackListAvailability, EditionTrackStats,
     FindAlbumTrackAudio, FindArtistTrackAudio, LibraryAlbum, LibraryLevel, LibraryReleaseGroup,
-    MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
-    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel,
-    ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroup,
-    ReadReleaseGroupEditions, ReadSimilarArtists, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, RecordingCreditMemberIdentityChoice, ReleaseGroupAvailability,
+    MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MemberArtistIdentity,
+    MemberArtistIdentityChosen, MetadataProvider, MetadataSettings, PromoteArtistCorrection,
+    PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, ReadArtistDiscography,
+    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroup, ReadReleaseGroupEditions,
+    ReadSimilarArtists, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
+    RecordingCreditMemberIdentityChoice, ReleaseGroupAvailability,
     ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, RestoreArtistMatchSuggestion,
     RestoreArtistReviewCandidates, SavedAlbumEdition, SharedArtistCorrection,
     SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt, SharedArtistCorrections,
@@ -79,7 +80,8 @@ pub use catalog::{
     SearchRecordingLyrics, SelectedLyricsLookup, Source, SourceChoice, SourceChoiceEntry,
     SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourceMatchKind,
     SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateSourcePreferences,
+    SourcePreparationStatus, SourceReadinessPreference, SourceResolution, SourceResolutionOutcome,
+    UpdateSourcePreferences,
 };
 pub use catalog_replication::{
     BeginCatalogSnapshot, CatalogReplication, CatalogSnapshot, CatalogSnapshotMode,
@@ -102,7 +104,7 @@ pub use collection::{
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,
-    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission,
+    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission, SameRecording,
     SuccessfulPlayback, UpdateCommunityPreferences, UpdateCommunityRankingPreferences,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
@@ -341,6 +343,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         files: managed.clone(),
         active: Default::default(),
         playlist_turn: Default::default(),
+        authority_interval: downloads::AUTHORITY_INTERVAL,
     };
     if let Err(error) = downloads.sweep_staging().await {
         tracing::warn!(

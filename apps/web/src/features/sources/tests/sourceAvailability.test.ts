@@ -26,6 +26,7 @@ test("checking a saved track refreshes only its own sources and leaves playback 
           ready: true,
           label: "Owned ready audio",
           can_prepare: false,
+          community_public: false,
         },
       ]),
     ),

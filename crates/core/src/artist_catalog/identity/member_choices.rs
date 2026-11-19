@@ -354,7 +354,7 @@ fn member_role(role: &str) -> Result<CreditRole> {
     }
 }
 
-fn role_name(role: CreditRole) -> &'static str {
+pub(super) fn role_name(role: CreditRole) -> &'static str {
     match role {
         CreditRole::Main => "main",
         CreditRole::Featured => "featured",

@@ -80,6 +80,7 @@ pub struct Source {
     pub provider: String,
     pub label: String,
     pub provider_label: Option<String>,
+    pub community_public: bool,
     pub device_id: Option<String>,
     pub ready: bool,
     pub can_prepare: bool,

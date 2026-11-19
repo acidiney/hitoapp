@@ -71,6 +71,7 @@ const unsupportedGroup: GroupReply = async () =>
 let groupReply = unsupportedGroup;
 let groupAborted = false;
 let trackStats: unknown = undefined;
+let trackGate: Promise<void> = Promise.resolve();
 const groupBodies: Array<{ release_group_id: string }> = [];
 const audioBodies: Array<{ occurrence_id: string; edition_id: string }> = [];
 const trackBodies: Array<{ edition_id: string }> = [];
@@ -103,12 +104,28 @@ function serve() {
     }
     if (path === `${base}/${artistAssociation.id}/edition-track-list`) {
       trackBodies.push(body);
+      await trackGate;
       return Response.json({
         ...catalogAlbumTrackList,
         edition: { ...catalogAlbumEdition, id: body.edition_id },
         linked,
         ...(trackStats === undefined ? {} : { stats: trackStats }),
       });
+    }
+    if (path === `${base}/${artistAssociation.id}/additions`) {
+      linked = catalogAlbumTitles.map((_, index) => ({
+        occurrence_id: `opaque:occurrence/play/${index + 1}`,
+        recording: foundRecording(index),
+      }));
+      return Response.json({
+        id: "addition-1",
+        release_id: "release-added",
+        added: catalogAlbumTitles.length,
+      });
+    }
+    if (path === "/api/v1/albums/additions/addition-1") {
+      linked = [];
+      return Response.json({ removed: catalogAlbumTitles.length, kept: 0 });
     }
     if (path === `${base}/${artistAssociation.id}/edition-track-audio`) {
       audioBodies.push(body);
@@ -140,6 +157,7 @@ afterEach(() => {
   groupBodies.length = 0;
   groupAborted = false;
   trackStats = undefined;
+  trackGate = Promise.resolve();
   audioBodies.length = 0;
   trackBodies.length = 0;
   mutate.mockClear();
@@ -496,4 +514,35 @@ test("the album header shows the total length the server reports", async () => {
   await waitFor(() =>
     expect(headerStats()).toBe(`${editionCredit} · 4 tracks · 1 hr 1 min`),
   );
+});
+
+test("adding the whole album marks every row as in your library and keeps the result in view", async () => {
+  const list = await openPage();
+  let release!: () => void;
+  trackGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Add album" }));
+  await waitFor(() => expect(trackBodies.length).toBe(2));
+  await screen.findByText(/^Added \d+ tracks? to your library\./);
+  expect(within(list).getAllByRole("listitem")).toHaveLength(
+    catalogAlbumTitles.length,
+  );
+  release();
+  for (const title of catalogAlbumTitles)
+    await within(rowOf(list, title)).findByRole("img", {
+      name: "In your library",
+    });
+  expect(screen.getByText(/^Added \d+ tracks? to your library\./)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await screen.findByText(/^Removed \d+ tracks?\./);
+  await waitFor(() => expect(trackBodies.length).toBe(3));
+  for (const title of catalogAlbumTitles)
+    await waitFor(() =>
+      expect(
+        within(rowOf(list, title)).queryByRole("img", {
+          name: "In your library",
+        }),
+      ).toBeNull(),
+    );
 });

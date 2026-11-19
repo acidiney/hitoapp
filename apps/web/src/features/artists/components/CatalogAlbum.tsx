@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
 import AlbumActions from "../../catalog/components/AlbumActions";
+import {
+  useAlbumAddition,
+  type AlbumAdditionSource,
+} from "../../catalog/hooks/useAlbumAddition";
+import { albumAdditionApi } from "../../catalog/api/albumAdditionApi";
 import AlbumProgressLine from "../../catalog/components/AlbumProgressLine";
 import { albumEyebrow } from "../../catalog/model/albumEyebrow";
+import { artistEditionApi } from "../api/artistEditionApi";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
@@ -50,6 +56,44 @@ export default function CatalogAlbum({
   }, [playOnReady, ready]);
   const title = group?.title || editions.chosen?.title || "Release";
   const owned = rows.filter((row) => row.recording).length;
+  const chosenEdition = editions.chosen?.id ?? null;
+  const retryTracks = tracks.retry;
+  const additionSource = useMemo<AlbumAdditionSource | null>(
+    () =>
+      chosenEdition && rows.length > 0
+        ? {
+            key: `${context.releaseGroupId}/${chosenEdition}`,
+            missing: rows.length - owned,
+            total: rows.length,
+            add: (requestId, signal) =>
+              albumAdditionApi.addFromArtist(
+                context.account,
+                context.recording,
+                context.association.id,
+                {
+                  request_id: requestId,
+                  release_group_id: context.releaseGroupId,
+                  edition_id: chosenEdition,
+                },
+                signal,
+              ),
+            refresh: () => {
+              artistEditionApi.forgetTracks(
+                context.account,
+                context.recording,
+                context.association.id,
+                {
+                  release_group_id: context.releaseGroupId,
+                  edition_id: chosenEdition,
+                },
+              );
+              return retryTracks();
+            },
+          }
+        : null,
+    [chosenEdition, rows.length, owned, context, retryTracks],
+  );
+  const addition = useAlbumAddition(context.account, additionSource);
   const filter = owned > 0 ? chosenFilter : "all";
   const year = group?.first_release_date?.slice(0, 4);
   const catalogName =
@@ -96,6 +140,7 @@ export default function CatalogAlbum({
         }
         actions={
           <AlbumActions
+            addition={addition}
             play={{
               disabled: !ready,
               play: () => void playback.start(0),
