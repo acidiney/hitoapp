@@ -608,7 +608,7 @@ async fn tracks_left_undecided_beside_matched_tracks_are_offered_the_matched_art
 
 #[tokio::test]
 async fn confirming_an_artist_for_some_tracks_gives_it_to_the_rest_of_the_credit() {
-    let ((dir, app, session, _musicbrainz, _origin, recordings), hito) = prepared(
+    let ((dir, app, session, _musicbrainz, _origin, recordings), _hito) = prepared(
         vec![
             (NOVA.into(), "Nova Quartet".into()),
             (NAMESAKE.into(), "Nova Quartet".into()),
@@ -645,12 +645,6 @@ async fn confirming_an_artist_for_some_tracks_gives_it_to_the_rest_of_the_credit
         (&receipt["applied"], &receipt["remaining"]),
         (&json!(1), &json!(0))
     );
-    while hito
-        .artist_catalog
-        .run_next_automatic_matching_until(std::future::pending())
-        .await
-        .unwrap()
-    {}
     for recording in &recordings[1..] {
         let (status, linked) = call(
             &app,

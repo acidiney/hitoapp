@@ -153,12 +153,6 @@ async fn undecided(library: &NameLibrary, indexes: &[usize]) {
 #[tokio::test]
 async fn confirming_an_artist_for_some_tracks_completes_the_credits_other_tracks() {
     let (library, _) = confirmed_on_first_two().await;
-    assert_eq!(
-        library.rows("artist_matching_jobs").await,
-        1,
-        "The confirmation asks the account to walk again"
-    );
-    library.automatic().await;
     let group = library.group_of(&library.recordings[0]).await.unwrap();
     for index in [2, 3] {
         assert_eq!(
@@ -192,10 +186,9 @@ async fn a_hand_choice_for_one_track_completes_the_credits_other_tracks() {
     let group = choose(&library, &library.recordings[0], NOVA).await;
     assert_eq!(
         library.rows("artist_matching_jobs").await,
-        1,
-        "The choice asks the account to walk again"
+        0,
+        "The choice completes its credit at once instead of starting a walk"
     );
-    library.automatic().await;
     assert_eq!(
         completed(&library, 0).await,
         Some(ArtistAssociationEvidence::UserConfirmed)

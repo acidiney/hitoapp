@@ -68,15 +68,45 @@ impl ArtistCatalog {
         &self,
         actor: &Actor,
     ) -> Result<i64> {
+        self.complete_credits(actor, None).await
+    }
+
+    pub(in crate::artist_catalog) async fn complete_after_decision(
+        &self,
+        actor: &Actor,
+        credit: &str,
+    ) {
+        if let Err(error) = self.complete_credits(actor, Some(credit)).await {
+            tracing::warn!(
+                event = "credit_completion_failed",
+                error_kind = error.code(),
+                "The rest of the credit could not be completed"
+            );
+        }
+    }
+
+    async fn complete_credits(&self, actor: &Actor, only: Option<&str>) -> Result<i64> {
         let started = Instant::now();
         let candidates: Vec<Decided> = {
             let mut reading = self.store.pool.begin().await?;
             actor.check_session_on(&mut reading).await?;
-            let found = sqlx::query_as(&decided(""))
-                .bind(actor.id())
-                .bind(MAX_CREDITS)
-                .fetch_all(&mut *reading)
-                .await?;
+            let found = match only {
+                None => {
+                    sqlx::query_as(&decided(""))
+                        .bind(actor.id())
+                        .bind(MAX_CREDITS)
+                        .fetch_all(&mut *reading)
+                        .await?
+                }
+                Some(credit) => {
+                    sqlx::query_as(&decided(ONE_CREDIT))
+                        .bind(actor.id())
+                        .bind(1_i64)
+                        .bind(credit)
+                        .fetch_all(&mut *reading)
+                        .await?
+                }
+            };
             reading.commit().await?;
             found
         };
