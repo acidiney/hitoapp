@@ -12,6 +12,8 @@ async fn lease_streams_the_exact_authorized_file_and_independent_ranges() {
             BeginPlaybackLease {
                 recording_id: f.recording.clone(),
                 source_id: f.source.clone(),
+                client: None,
+                request_id: None,
             },
         )
         .await
@@ -94,6 +96,8 @@ async fn a_lease_handle_never_authorizes_another_session_even_after_release() {
             BeginPlaybackLease {
                 recording_id: f.recording.clone(),
                 source_id: f.source.clone(),
+                client: None,
+                request_id: None,
             },
         )
         .await

@@ -130,6 +130,7 @@ async fn an_undecided_credit_without_candidates_is_listed_after_the_credits_that
             ArtistReviewQueueQuery {
                 offset: Some(1),
                 limit: Some(1),
+                artist: None,
             },
         )
         .await
