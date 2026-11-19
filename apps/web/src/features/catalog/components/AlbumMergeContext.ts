@@ -10,16 +10,21 @@ import type { Mutate } from "../../../shared/hooks/useMutation";
 
 export type AlbumProgress = { owned: number; total: number; elsewhere: number };
 
+export type AlbumAdditionRequest = Omit<Schema<"AddAlbum">, "request_id">;
+
 export type EditionPlayState = {
   tracks: number;
   durationMs: number | null;
   consentOff: boolean;
   halted: string;
+  missing: number;
+  addition: AlbumAdditionRequest | null;
 };
 
 export type EditionPlay = EditionPlayState & {
   play: () => Promise<boolean>;
   shuffle: () => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 export type AlbumMerge = {
@@ -72,7 +77,7 @@ export function useAlbumProgress(progress: AlbumProgress | null) {
 
 export function useEditionPlayPublish(
   state: EditionPlayState | null,
-  actions: Pick<EditionPlay, "play" | "shuffle">,
+  actions: Pick<EditionPlay, "play" | "shuffle" | "refresh">,
 ) {
   const { setEditionPlay } = useContext(AlbumMergeContext);
   const latest = useRef(actions);
@@ -81,6 +86,9 @@ export function useEditionPlayPublish(
   const durationMs = state?.durationMs;
   const consentOff = state?.consentOff;
   const halted = state?.halted;
+  const missing = state?.missing;
+  const addition = state?.addition;
+  const additionKey = addition ? JSON.stringify(addition) : null;
   useEffect(() => {
     setEditionPlay(
       tracks === undefined ||
@@ -93,12 +101,23 @@ export function useEditionPlayPublish(
             durationMs,
             consentOff,
             halted,
+            missing: missing ?? 0,
+            addition: additionKey ? JSON.parse(additionKey) : null,
             play: () => latest.current.play(),
             shuffle: () => latest.current.shuffle(),
+            refresh: () => latest.current.refresh(),
           },
     );
     return () => setEditionPlay(null);
-  }, [tracks, durationMs, consentOff, halted, setEditionPlay]);
+  }, [
+    tracks,
+    durationMs,
+    consentOff,
+    halted,
+    missing,
+    additionKey,
+    setEditionPlay,
+  ]);
 }
 
 export function useEditionLoading(loading: boolean) {

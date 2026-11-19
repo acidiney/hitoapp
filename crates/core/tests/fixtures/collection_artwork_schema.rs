@@ -11,6 +11,8 @@ pub mod account_display_name_schema;
 pub mod account_schema;
 #[path = "account_source_preference_schema.rs"]
 pub mod account_source_preference_schema;
+#[path = "album_additions_schema.rs"]
+pub mod album_additions_schema;
 #[path = "album_edition_schema.rs"]
 pub mod album_schema;
 #[path = "artist_credit_target_schema.rs"]
@@ -554,6 +556,10 @@ pub async fn reference_100() -> SqliteConnection {
     source_readiness_schema::reference(reference_99().await).await
 }
 
+pub async fn reference_101() -> SqliteConnection {
+    album_additions_schema::reference(reference_100().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -609,6 +615,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         98 => reference_98().await,
         99 => reference_99().await,
         100 => reference_100().await,
+        101 => reference_101().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

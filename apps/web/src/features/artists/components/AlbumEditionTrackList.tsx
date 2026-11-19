@@ -159,8 +159,19 @@ export default function AlbumEditionTrackList({
           durationMs: comparison.stats.total_duration_ms,
           consentOff: playback.consentOff,
           halted: playback.halted,
+          missing: audio.filter(
+            (track) =>
+              !owners.has(track.id) &&
+              !comparison.attached_occurrences.includes(track.id),
+          ).length,
+          addition: {
+            recording_id: source.recording,
+            association_id: comparison.association_id,
+            release_group_id: comparison.edition.release_group_id,
+            edition_id: comparison.edition.id,
+          },
         },
-    { play: () => startFrom(0), shuffle: playback.shuffle },
+    { play: () => startFrom(0), shuffle: playback.shuffle, refresh: retry },
   );
 
   function startFrom(at: number) {

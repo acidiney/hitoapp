@@ -48,6 +48,14 @@ Albums and artists come from the tags in your files and from tracks you saved th
 
 To browse by genre, open **Discover**. **Genres you own** lists the busiest genres in your library. Genres come from your file tags. Tracks without a genre tag can get one from MusicBrainz when automatic artist lookups are on.
 
+## Add a whole album
+
+An album page shows the full edition: tracks you own, and tracks you don't. If you own none of them, select **Add album**. If you own some, select **Add the other N**. On a phone, both are in the **More** menu.
+
+Every missing track joins your library at once, filed under that album, even before Hito has found audio for it. Hito looks for audio when you play a track, or in the background if **Prepare sources in the background** is on.
+
+Right after adding, **Undo** takes the tracks out again. A track you have already liked, put in a playlist, played, or that has audio, stays in your library, and Hito tells you how many it kept.
+
 ## Search
 
 Open **Search** in the sidebar and start typing. Results update as you type and are grouped into tracks, albums and artists. Search ignores case and accents, so "bjork" finds "Björk".

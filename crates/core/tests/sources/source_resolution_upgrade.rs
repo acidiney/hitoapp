@@ -108,10 +108,10 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             }
             "current_download_authority" => declared_download_definition("VIEW", &name, ";"),
             "download_intent_identity" => declared_download_definition("TRIGGER", &name, "END;"),
-            "release_artist_insert"
-            | "release_artist_update"
-            | "artist_releases"
-            | "account_artist_releases" => declared_release.get(&name).unwrap().clone(),
+            "release_artist_insert" | "release_artist_update" => {
+                declared_release.get(&name).unwrap().clone()
+            }
+            "artist_releases" | "account_artist_releases" => album_view(&name),
             "artwork_fetch_identity"
             | "recording_artwork_owner"
             | "recording_artwork_update"
@@ -147,10 +147,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
         after_schema.get("provider_release_appearances")
             == Some(&(
                 "view".to_owned(),
-                declared_release
-                    .get("provider_release_appearances")
-                    .unwrap()
-                    .clone(),
+                album_view("provider_release_appearances"),
             )),
         "view provider_release_appearances must match its exact declaration"
     );
@@ -430,4 +427,12 @@ fn declared_download_definition(kind: &str, name: &str, terminator: &str) -> Str
     let mut definition = format!("{declaration}{body}{terminator}");
     definition.pop();
     definition.trim().to_owned()
+}
+
+fn album_view(name: &str) -> String {
+    collection_artwork_schema::album_additions_schema::declarations()
+        .into_iter()
+        .find(|object| object.0 == "view" && object.1 == name)
+        .and_then(|object| object.3)
+        .unwrap()
 }

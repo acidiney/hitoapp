@@ -38,6 +38,7 @@ pub(crate) use managed::{
     MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles, PendingManagedFile,
 };
 pub use missing::MissingRecordingsRemoval;
+pub(crate) use missing::{recording_is_referenced, remove_recordings};
 pub(crate) use root::Root;
 pub use types::{Job, JobFailure};
 #[cfg(feature = "test-support")]
