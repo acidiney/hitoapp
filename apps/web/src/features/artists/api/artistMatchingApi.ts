@@ -97,6 +97,12 @@ export const artistMatchingApi = {
       { action: "artist_matching.review_queue", account, signal },
     );
   },
+  reviewItem(account: string, credit: string, signal: AbortSignal) {
+    return json<Schema<"ArtistReviewQueuePage">>(
+      `/artist-matching/review-queue?limit=1&artist=${encodeURIComponent(credit)}`,
+      { action: "artist_matching.review_item", account, signal },
+    );
+  },
   confirmCandidate(
     account: string,
     credit: string,
