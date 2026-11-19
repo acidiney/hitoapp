@@ -5,7 +5,9 @@ mod profile;
 use crate::{Actor, AudioRequest, Error, MediaTools, OpenedAudio, PlaybackSource, Result};
 pub(crate) use limits::{ConversionLimits, ConversionSlot};
 pub use process::ConversionStream;
+pub(crate) use process::cancelled;
 use std::time::{Duration, Instant};
+use tokio::sync::watch;
 
 const CONTENT_TYPE: &str = "audio/aac";
 pub const MAX_CONVERSION_START: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -68,7 +70,21 @@ pub struct ConvertedAudio {
     pub content_type: &'static str,
     pub bitrate: u32,
     pub start: Duration,
-    pub body: Option<ConversionStream>,
+    pub body: Option<ConvertedBody>,
+}
+
+pub enum ConvertedBody {
+    Direct(Box<ConversionStream>),
+    Lease(crate::AudioStream),
+}
+
+impl ConvertedBody {
+    pub async fn chunk(&mut self) -> Result<Option<bytes::Bytes>> {
+        match self {
+            Self::Direct(stream) => stream.chunk().await,
+            Self::Lease(stream) => stream.chunk().await,
+        }
+    }
 }
 
 pub enum QualityAudio {
@@ -88,6 +104,89 @@ impl QualityRequest {
     }
 }
 
+pub(crate) enum Negotiated {
+    Converted(Option<Box<ConversionStream>>),
+    Unchanged(&'static str),
+}
+
+pub(super) async fn negotiate(
+    limits: &ConversionLimits,
+    tools: &MediaTools,
+    actor: &Actor,
+    grant: &PlaybackSource,
+    file: &crate::AudioFile,
+    request: QualityRequest,
+    cancel: &mut watch::Receiver<bool>,
+) -> Result<Negotiated> {
+    let target = request
+        .quality
+        .target_bitrate()
+        .ok_or_else(|| Error::Invalid("Choose a converted quality".into()))?;
+    if *cancel.borrow() {
+        return Err(process::unfinished());
+    }
+    let slot = limits.acquire(actor.id())?;
+    let started = Instant::now();
+    let unchanged = |reason: &'static str| {
+        tracing::debug!(
+            event = "audio_conversion_skipped",
+            quality = request.quality.label(),
+            reason,
+            "Audio is streamed unchanged"
+        );
+        Ok(Negotiated::Unchanged(reason))
+    };
+    let (profile, slot) = match profile::probe(tools, file, grant.clone(), slot, cancel).await {
+        Ok(profile) => profile,
+        Err(error) => {
+            tracing::warn!(
+                event = "audio_conversion_failed",
+                stage = "probe",
+                error_kind = error.code(),
+                "Audio could not be inspected for conversion"
+            );
+            return unchanged("conversion-failed");
+        }
+    };
+    grant.check().await?;
+    if let Some(reason) = profile.passthrough_reason(target) {
+        drop(slot);
+        return unchanged(reason);
+    }
+    if request.original.head {
+        return Ok(Negotiated::Converted(None));
+    }
+    match process::start(tools, file, request, grant.clone(), slot, cancel).await {
+        Ok(stream) => {
+            tracing::debug!(
+                event = "audio_conversion_started",
+                quality = request.quality.label(),
+                bitrate = target,
+                startup_ms = started.elapsed().as_millis() as u64,
+                "Audio conversion started"
+            );
+            Ok(Negotiated::Converted(Some(Box::new(stream))))
+        }
+        Err(error) => {
+            tracing::warn!(
+                event = "audio_conversion_failed",
+                stage = "start",
+                error_kind = error.code(),
+                "Audio conversion did not start"
+            );
+            unchanged("conversion-failed")
+        }
+    }
+}
+
+struct CancelOnDrop(watch::Sender<bool>);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        let _ = self.0.send(true);
+    }
+}
+
 pub(super) async fn convert(
     limits: &ConversionLimits,
     tools: &MediaTools,
@@ -97,77 +196,47 @@ pub(super) async fn convert(
     request: QualityRequest,
     target: u32,
 ) -> Result<QualityAudio> {
-    let slot = limits.acquire(actor.id())?;
-    let started = Instant::now();
-    let fallback = |reason: &'static str| {
-        tracing::debug!(
-            event = "audio_conversion_skipped",
-            quality = request.quality.label(),
-            reason,
-            "Audio is streamed unchanged"
-        );
-    };
-    let (profile, slot) = match profile::probe(tools, &file, grant.clone(), slot).await {
-        Ok(profile) => profile,
-        Err(error) => {
-            tracing::warn!(
-                event = "audio_conversion_failed",
-                stage = "probe",
-                error_kind = error.code(),
-                "Audio could not be inspected for conversion"
-            );
-            fallback("conversion-failed");
-            return original(&grant, request, "conversion-failed").await;
+    let (cancel, mut cancelled) = watch::channel(false);
+    let _cancel = CancelOnDrop(cancel);
+    let (done, negotiated) = tokio::sync::oneshot::channel();
+    let owned = (limits.clone(), tools.clone(), actor.clone(), grant.clone());
+    tokio::spawn(async move {
+        let (limits, tools, actor, grant) = owned;
+        let result = negotiate(
+            &limits,
+            &tools,
+            &actor,
+            &grant,
+            &file,
+            request,
+            &mut cancelled,
+        )
+        .await;
+        if let Err(Ok(Negotiated::Converted(Some(stream)))) = done.send(result) {
+            (*stream).close().await;
         }
-    };
-    grant.check().await?;
-    if let Some(reason) = profile.passthrough_reason(target) {
-        fallback(reason);
-        drop(slot);
-        return original(&grant, request, reason).await;
+    });
+    match negotiated.await.map_err(|_| process::unfinished())?? {
+        Negotiated::Converted(stream) => Ok(converted(
+            request,
+            target,
+            stream.map(ConvertedBody::Direct),
+        )),
+        Negotiated::Unchanged(reason) => original(&grant, request, reason).await,
     }
-    let converted = |body| {
-        QualityAudio::Converted(Box::new(ConvertedAudio {
-            content_type: CONTENT_TYPE,
-            bitrate: target,
-            start: request.start,
-            body,
-        }))
-    };
-    if request.original.head {
-        return Ok(converted(None));
-    }
-    match process::start(
-        tools,
-        &file,
-        request.quality,
-        target,
-        request.start,
-        grant.clone(),
-        slot,
-    )
-    .await
-    {
-        Ok(stream) => {
-            tracing::debug!(
-                event = "audio_conversion_started",
-                quality = request.quality.label(),
-                bitrate = target,
-                startup_ms = started.elapsed().as_millis() as u64,
-                "Audio conversion started"
-            );
-            Ok(converted(Some(stream)))
-        }
-        Err(error) => {
-            tracing::warn!(
-                event = "audio_conversion_failed",
-                stage = "start",
-                error_kind = error.code(),
-                "Audio conversion did not start"
-            );
-            original(&grant, request, "conversion-failed").await
-        }
-    }
+}
+
+pub(super) fn converted(
+    request: QualityRequest,
+    target: u32,
+    body: Option<ConvertedBody>,
+) -> QualityAudio {
+    QualityAudio::Converted(Box::new(ConvertedAudio {
+        content_type: CONTENT_TYPE,
+        bitrate: target,
+        start: request.start,
+        body,
+    }))
 }
 
 pub(super) async fn original(

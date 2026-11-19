@@ -1,4 +1,4 @@
-use super::{ConversionSlot, StreamQuality};
+use super::{ConversionSlot, QualityRequest};
 use crate::{AudioFile, Error, MediaTools, PlaybackSource, Result, media_command};
 use bytes::Bytes;
 use std::{
@@ -10,7 +10,8 @@ use std::{
 use tokio::{
     io::AsyncReadExt,
     process::{Child, ChildStdout},
-    sync::mpsc,
+    sync::{mpsc, watch},
+    task::JoinHandle,
 };
 use tracing::Instrument;
 
@@ -20,10 +21,20 @@ const READ_TIMEOUT: Duration = Duration::from_secs(15);
 const EXIT_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub(super) fn stdin_of(file: &AudioFile) -> Result<Stdio> {
+    use std::io::{Seek, SeekFrom};
+    (&file.file)
+        .seek(SeekFrom::Start(0))
+        .map_err(|_| unfinished())?;
     file.file
         .try_clone()
         .map(Stdio::from)
         .map_err(|_| unfinished())
+}
+
+pub(crate) async fn cancelled(cancel: &mut watch::Receiver<bool>) {
+    if cancel.wait_for(|stop| *stop).await.is_err() {
+        std::future::pending::<()>().await;
+    }
 }
 
 pub(super) fn unfinished() -> Error {
@@ -50,14 +61,18 @@ pub(super) async fn retire(child: &mut Child) {
 pub(super) async fn start(
     tools: &MediaTools,
     file: &AudioFile,
-    quality: StreamQuality,
-    target: u32,
-    start: Duration,
+    request: QualityRequest,
     authority: PlaybackSource,
     slot: ConversionSlot,
+    cancel: &mut watch::Receiver<bool>,
 ) -> Result<ConversionStream> {
+    let quality = request.quality;
+    let target = quality.target_bitrate().ok_or_else(unfinished)?;
     authority.check().await?;
-    let mut arguments = media_command::audio_input_at(Path::new("/dev/stdin"), start);
+    if *cancel.borrow() {
+        return Err(unfinished());
+    }
+    let mut arguments = media_command::audio_input_at(Path::new("/dev/stdin"), request.start);
     arguments.extend(
         [
             "-map",
@@ -88,7 +103,7 @@ pub(super) async fn start(
         playback_grant = authority.correlation_id(),
         quality = quality.label()
     );
-    tokio::spawn(
+    let task = tokio::spawn(
         async move {
             let started = Instant::now();
             let mut bytes = 0;
@@ -121,12 +136,26 @@ pub(super) async fn start(
         authority,
         first: None,
         finished: false,
+        task: Some(task),
     };
-    let first = tokio::time::timeout(START_TIMEOUT, stream.chunk())
-        .await
-        .map_err(|_| unfinished())??;
-    stream.first = Some(first.ok_or_else(unfinished)?);
-    Ok(stream)
+    let first = tokio::select! {
+        biased;
+        _ = cancelled(cancel) => Err(unfinished()),
+        first = tokio::time::timeout(START_TIMEOUT, stream.chunk()) => first
+            .map_err(|_| unfinished())
+            .and_then(|first| first)
+            .and_then(|first| first.ok_or_else(unfinished)),
+    };
+    match first {
+        Ok(first) => {
+            stream.first = Some(first);
+            Ok(stream)
+        }
+        Err(error) => {
+            stream.close().await;
+            Err(error)
+        }
+    }
 }
 
 async fn pump(
@@ -167,9 +196,20 @@ pub struct ConversionStream {
     authority: PlaybackSource,
     first: Option<Bytes>,
     finished: bool,
+    task: Option<JoinHandle<()>>,
 }
 
 impl ConversionStream {
+    pub(crate) async fn close(mut self) {
+        self.finished = true;
+        self.first = None;
+        self.receiver.close();
+        while self.receiver.recv().await.is_some() {}
+        if let Some(task) = self.task.take() {
+            let _ = task.await;
+        }
+    }
+
     #[tracing::instrument(level = "trace", skip_all)]
     pub async fn chunk(&mut self) -> Result<Option<Bytes>> {
         if self.finished {

@@ -16,6 +16,7 @@ pub(crate) struct ProviderDownloadOrigin {
     pub service_revision: i64,
     pub credential_digest: String,
     pub audio_generation: i64,
+    pub source_generation: i64,
 }
 
 impl Plugins {
@@ -28,7 +29,7 @@ impl Plugins {
         let started = std::time::Instant::now();
         let row = sqlx::query("SELECT s.id AS provider_source_id,item.id AS binding_id,item.revision AS binding_revision,
             ps.provider_source_id AS remote_source_id,p.id AS installation_id,p.revision AS installation_revision,
-            p.service_id,service.revision AS service_revision,p.credential,p.audio_generation,p.manifest
+            p.service_id,service.revision AS service_revision,p.credential,p.audio_generation,p.manifest,ps.generation AS source_generation
             FROM sources s JOIN provider_sources ps ON ps.source_id=s.id AND ps.recording_id=s.recording_id
             JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
             JOIN provider_source_state state ON state.binding_id=item.id AND state.generation=ps.generation
@@ -69,6 +70,7 @@ impl Plugins {
             service_revision: row.try_get("service_revision")?,
             credential_digest: credential_digest(credential.as_deref()),
             audio_generation: row.try_get("audio_generation")?,
+            source_generation: row.try_get("source_generation")?,
         }))
     }
 
@@ -101,13 +103,16 @@ impl Plugins {
             store: self.store.clone(),
             account: account.into(),
             installation: origin.installation_id.clone(),
+            installation_revision: origin.installation_revision,
             service: origin.service_id.clone(),
+            service_revision: origin.service_revision,
             credential,
             source: origin.provider_source_id.clone(),
             remote_source: origin.remote_source_id.clone(),
             generation: origin.audio_generation,
             binding: origin.binding_id.clone(),
             binding_revision: origin.binding_revision,
+            source_generation: origin.source_generation,
         };
         authority.check().await?;
         self.media
