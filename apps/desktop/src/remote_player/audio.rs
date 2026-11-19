@@ -61,6 +61,8 @@ impl Candidates for RemoteCandidates {
                     .json(&BeginPlaybackLease {
                         recording_id: self.recording.clone(),
                         source_id: source.id.clone(),
+                        client: Some(self.server.lease_tag().to_owned()),
+                        request_id: Some(uuid::Uuid::new_v4()),
                     });
                 match self.server.json::<PlaybackLease>(request).await {
                     Ok(lease) => {

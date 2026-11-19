@@ -9,6 +9,7 @@ pub struct Server {
     client: reqwest::Client,
     origin: Url,
     session: Arc<dyn ServerSession>,
+    lease_tag: String,
 }
 
 #[derive(Deserialize)]
@@ -22,7 +23,12 @@ impl Server {
             client,
             origin,
             session,
+            lease_tag: format!("desktop-{}", uuid::Uuid::new_v4()),
         }
+    }
+
+    pub fn lease_tag(&self) -> &str {
+        &self.lease_tag
     }
 
     pub fn token(&self) -> Option<String> {
