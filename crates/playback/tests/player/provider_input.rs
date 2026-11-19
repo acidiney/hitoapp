@@ -40,11 +40,14 @@ async fn an_owner_can_interrupt_a_pending_provider_read_without_waiting_for_data
         .unwrap();
     let mut source = hito_playback::Source::open(grant).await.unwrap();
     let stop = source.stop_handle();
+    let (prefix_read, prefix_was_read) = tokio::sync::oneshot::channel();
     let mut reading = tokio::task::spawn_blocking(move || {
         source.read_exact(&mut [0; 64]).unwrap();
+        prefix_read.send(()).unwrap();
         source.read_exact(&mut [0; 8]).unwrap_err().kind()
     });
     gate.entered().await;
+    prefix_was_read.await.unwrap();
     assert!(
         tokio::time::timeout(Duration::from_millis(50), &mut reading)
             .await

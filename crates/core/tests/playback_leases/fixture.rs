@@ -74,6 +74,8 @@ impl Case {
         BeginPlaybackLease {
             recording_id: self.recording.clone(),
             source_id: self.source.clone(),
+            client: None,
+            request_id: None,
         }
     }
     pub async fn close(self) {

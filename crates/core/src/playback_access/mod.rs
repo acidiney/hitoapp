@@ -16,7 +16,7 @@ pub use conversion::{
 };
 pub use decoding::{PcmBlock, PcmFormat, PcmOpening, PcmStream};
 pub use grant::PlaybackSource;
-pub use leases::{BeginPlaybackLease, PlaybackLease};
+pub use leases::{BeginPlaybackLease, PlaybackLease, ReleaseClientLeases};
 pub use relay::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, OpenedAudio, StreamPace,
 };
