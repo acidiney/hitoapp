@@ -26,6 +26,8 @@ async fn provider_leases_reuse_ranged_relay_and_retire_with_actual_credential_au
             BeginPlaybackLease {
                 recording_id: f.source.recording_id.clone(),
                 source_id: f.source.id.clone(),
+                client: None,
+                request_id: None,
             },
         )
         .await
@@ -95,6 +97,8 @@ async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal
             BeginPlaybackLease {
                 recording_id: f.source.recording_id.clone(),
                 source_id: f.source.id.clone(),
+                client: None,
+                request_id: None,
             },
         )
         .await

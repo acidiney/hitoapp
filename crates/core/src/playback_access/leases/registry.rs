@@ -41,6 +41,33 @@ pub(super) struct State {
 }
 
 impl State {
+    pub fn replay(&self, actor: &Actor, entry: &Entry) -> Result<Option<super::PlaybackLease>> {
+        let Some(request) = entry.request else {
+            return Ok(None);
+        };
+        let Some(existing) = self.entries.values().find(|existing| {
+            existing.request == Some(request)
+                && actor.same_session(&existing.actor)
+                && existing.alive().is_ok()
+        }) else {
+            return Ok(None);
+        };
+        if existing.recording != entry.recording
+            || existing.source != entry.source
+            || existing.client != entry.client
+        {
+            return Err(Error::Invalid(
+                "This request identity already began a different playback lease".into(),
+            ));
+        }
+        if !existing.ready.load(Ordering::Acquire) {
+            return Err(Error::Conflict(
+                "This playback lease is still being created. Try again.".into(),
+            ));
+        }
+        Ok(Some(existing.metadata.clone()))
+    }
+
     pub fn reserve(&mut self, actor: &Actor, entry: Arc<Entry>) -> Result<()> {
         if self.closed {
             return Err(stopped());
