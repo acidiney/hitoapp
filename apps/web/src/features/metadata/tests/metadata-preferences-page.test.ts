@@ -8,6 +8,7 @@ import SettingsPage from "../../settings/pages/SettingsPage";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { connections, settings } from "../fixtures/metadataPreferences";
+import { placeApi } from "../../place/api/placeApi";
 
 const location = vi.hoisted(() => ({ url: "/settings?section=metadata" }));
 vi.mock("@inertiajs/react", async (importOriginal) => {
@@ -19,6 +20,9 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
 }));
 vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
+}));
+vi.mock("../../place/api/placeApi", () => ({
+  placeApi: { offer: vi.fn(), change: vi.fn() },
 }));
 vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
   const actual =
@@ -41,6 +45,10 @@ beforeEach(() => {
     new Error("Settings navigation must not request provider operations"),
   );
   vi.stubGlobal("fetch", unexpectedRequest);
+  vi.mocked(placeApi.offer).mockResolvedValue({
+    changeable: false,
+    current: null,
+  });
 });
 test("the legacy Metadata deep link opens the real account preferences inside Music", async () => {
   const read = Promise.resolve(settings());
