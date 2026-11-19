@@ -61,10 +61,19 @@ async fn opening_schema_95_preserves_the_existing_artist_choice_and_all_prior_ro
     let outcome = AssertUnwindSafe(Box::pin(timeout(Duration::from_secs(30), async {
         services = Some(hito_core::open(config).await.unwrap());
         let mut inspector = connect(&database).await;
-        let migrated =
-            AssertUnwindSafe(Box::pin(snapshot::assert_preserved(&mut inspector, &rows)))
-                .catch_unwind()
-                .await;
+        let migrated = AssertUnwindSafe(Box::pin(async {
+            snapshot::assert_preserved(&mut inspector, &rows).await;
+            let requeued: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM artist_matching_jobs j
+                 JOIN recording_artist_identity_choices c ON c.user_id=j.user_id",
+            )
+            .fetch_one(&mut inspector)
+            .await
+            .unwrap();
+            assert!(requeued > 0, "An account with choices walks again");
+        }))
+        .catch_unwind()
+        .await;
         inspector.close().await.unwrap();
         if let Err(panic) = migrated {
             std::panic::resume_unwind(panic);
