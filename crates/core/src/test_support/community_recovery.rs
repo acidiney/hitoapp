@@ -1,8 +1,8 @@
 use super::{community_service as community, content_service as provider, support};
 use crate::{
-    Action, Actor, AdoptProviderRecording, CommunityConfig, CoreConfig, Credentials, HostDeviceId,
-    InstallPlugin, OfferPluginService, PluginInstallation, PreviewPluginInstallation, Services,
-    Source,
+    Action, Actor, AdoptProviderRecording, AttachReviewedProviderSource, CommunityConfig,
+    CoreConfig, Credentials, HostDeviceId, InstallPlugin, OfferPluginService, PluginInstallation,
+    PreviewPluginInstallation, ProviderCandidate, Services, Source,
 };
 use serde_json::{Value, json};
 use std::{io::Write, os::unix::fs::OpenOptionsExt, path::PathBuf};
@@ -15,7 +15,93 @@ pub struct Account {
     playlist: Uuid,
 }
 
+pub struct SameRecording {
+    pub source: Source,
+    _youtube: provider::ProviderServer,
+}
+
 impl Account {
+    pub async fn attach_youtube(&self, hito: &Services, admin: &Actor) -> SameRecording {
+        let youtube = provider::ProviderServer::start().await;
+        youtube.reply("v1/manifest", json!({
+            "id": "org.hito.youtube", "name": "Owned public video provider", "protocol_version": 1,
+            "capabilities": ["search", "sources"], "content_policy": {"source_persistence": "playback_only"}
+        })).await;
+        youtube.reply("v1/recordings/detail", json!({
+            "id": "PrivTone001", "title": "private-recovery-title", "artist": "private-recovery-artist", "duration_ms": 90_000
+        })).await;
+        youtube.reply("v1/sources", json!({"items": [{"id": "youtube:audio:PrivTone001", "label": "Owned audio", "ready": true}]})).await;
+        let service = hito
+            .plugins
+            .offer_service(
+                admin,
+                OfferPluginService {
+                    name: "Owned public video provider".into(),
+                    base_url: youtube.url.clone(),
+                },
+            )
+            .await
+            .unwrap();
+        let preview = hito
+            .plugins
+            .preview_installation(
+                &self.actor,
+                PreviewPluginInstallation {
+                    service_id: service.id.clone(),
+                    service_revision: service.revision,
+                    bearer_token: None,
+                },
+            )
+            .await
+            .unwrap();
+        let installation = hito
+            .plugins
+            .install(
+                &self.actor,
+                InstallPlugin {
+                    service_id: service.id,
+                    service_revision: service.revision,
+                    accept_manifest_digest: Some(preview.digest),
+                    bearer_token: None,
+                },
+            )
+            .await
+            .unwrap();
+        let candidate = ProviderCandidate {
+            installation_id: installation.id.clone(),
+            installation_revision: installation.revision,
+            provider_recording_id: "PrivTone001".into(),
+        };
+        let review = hito
+            .catalog
+            .review_provider_source(&self.actor, &self.source.recording_id, candidate.clone())
+            .await
+            .unwrap();
+        hito.catalog
+            .attach_provider_source(
+                &self.actor,
+                &self.source.recording_id,
+                AttachReviewedProviderSource {
+                    candidate,
+                    review_stamp: review.review_stamp,
+                },
+            )
+            .await
+            .unwrap();
+        let source = hito
+            .catalog
+            .sources(&self.actor, &self.source.recording_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|source| source.id != self.source.id)
+            .expect("the attached public video source");
+        SameRecording {
+            source,
+            _youtube: youtube,
+        }
+    }
+
     pub async fn private_state(&self, hito: &Services) -> Value {
         json!({
             "preferences": hito.community.preferences(&self.actor).await.unwrap(),

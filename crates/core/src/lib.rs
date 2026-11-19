@@ -102,7 +102,7 @@ pub use collection::{
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,
-    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission,
+    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission, SameRecording,
     SuccessfulPlayback, UpdateCommunityPreferences, UpdateCommunityRankingPreferences,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};

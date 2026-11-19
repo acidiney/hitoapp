@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod community_corrections;
 mod community_credential_recovery;
 mod community_preferences;
 mod community_ranking_preferences;

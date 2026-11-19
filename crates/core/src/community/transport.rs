@@ -105,6 +105,43 @@ impl Transport {
         Ok(())
     }
 
+    pub(super) async fn suggest(
+        &self,
+        token: &str,
+        submission_id: Uuid,
+        left: &PublicSource,
+        right: &PublicSource,
+    ) -> Result<()> {
+        #[derive(Serialize)]
+        struct Suggestion<'a> {
+            submission_id: Uuid,
+            left: &'a PublicSource,
+            right: &'a PublicSource,
+            relation: &'static str,
+        }
+        #[derive(Deserialize)]
+        struct Accepted {
+            submission_id: Uuid,
+        }
+        let accepted: Accepted = self
+            .exchange(
+                "v1/corrections",
+                token,
+                &Suggestion {
+                    submission_id,
+                    left,
+                    right,
+                    relation: "same_recording",
+                },
+                &[200, 201],
+            )
+            .await?;
+        if accepted.submission_id != submission_id {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+
     async fn exchange<T: DeserializeOwned>(
         &self,
         path: &'static str,
