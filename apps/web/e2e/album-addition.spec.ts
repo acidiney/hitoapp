@@ -25,7 +25,16 @@ test("adding a whole album brings every track into the library and undo takes th
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const artist = await connectCatalogArtist(page, baseURL!);
-  await page.goto(artist.path);
+  try {
+    await addAndUndo(page, artist.path);
+  } finally {
+    await artist.close();
+  }
+  expect(errors).toEqual([]);
+});
+
+async function addAndUndo(page: Page, path: string) {
+  await page.goto(path);
   await page
     .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
     .click();
@@ -61,5 +70,4 @@ test("adding a whole album brings every track into the library and undo takes th
   ).toBeVisible();
   await expect(add).toBeVisible();
   await shot(page, "album-after-undo");
-  expect(errors).toEqual([]);
-});
+}
