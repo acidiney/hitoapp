@@ -8878,6 +8878,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                artist?: string;
             };
             header?: never;
             path?: never;
