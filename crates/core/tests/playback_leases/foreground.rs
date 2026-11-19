@@ -6,6 +6,8 @@ async fn playback_leases_require_foreground_sessions_without_changing_background
     let request = || BeginPlaybackLease {
         recording_id: f.recording.clone(),
         source_id: f.source.clone(),
+        client: None,
+        request_id: None,
     };
     let lease = f
         .services

@@ -178,6 +178,7 @@ async fn the_queue_is_paged_and_counts_every_credit() {
             ArtistReviewQueueQuery {
                 offset: Some(0),
                 limit: Some(1),
+                artist: None,
             },
         )
         .await
@@ -195,11 +196,48 @@ async fn the_queue_is_paged_and_counts_every_credit() {
             ArtistReviewQueueQuery {
                 offset: Some(1),
                 limit: Some(1),
+                artist: None,
             },
         )
         .await
         .unwrap();
     assert_eq!(second.items[0].name, "Alpha Band");
+    let only = |artist: Option<String>| ArtistReviewQueueQuery {
+        offset: None,
+        limit: None,
+        artist,
+    };
+    let scoped = library
+        .hito
+        .artist_catalog
+        .artist_review_queue(
+            &library.actor,
+            only(Some(second.items[0].artist_id.clone())),
+        )
+        .await
+        .unwrap();
+    assert_eq!(scoped.total, 1);
+    assert_eq!(scoped.items.len(), 1);
+    assert_eq!(scoped.items[0].artist_id, second.items[0].artist_id);
+    assert_eq!(
+        scoped.items[0].undecided_tracks, second.items[0].undecided_tracks,
+        "One credit reads the same counts the queue shows for it"
+    );
+    let missing = library
+        .hito
+        .artist_catalog
+        .artist_review_queue(&library.actor, only(Some("not-a-credit".into())))
+        .await
+        .unwrap();
+    assert_eq!((missing.total, missing.items.len()), (0, 0));
+    assert!(matches!(
+        library
+            .hito
+            .artist_catalog
+            .artist_review_queue(&library.actor, only(Some(String::new())))
+            .await,
+        Err(hito_core::Error::Invalid(_))
+    ));
     library.origin.shutdown().await;
 }
 
