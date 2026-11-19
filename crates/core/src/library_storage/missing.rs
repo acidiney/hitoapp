@@ -119,6 +119,10 @@ fn unreferenced() -> String {
         "NOT EXISTS (SELECT 1 FROM community_reports c JOIN sources s ON s.id = c.source_id WHERE s.recording_id = r.id)"
             .into(),
     );
+    clauses.push(
+        "NOT EXISTS (SELECT 1 FROM community_corrections c JOIN sources s ON s.id IN (c.left_source_id, c.right_source_id) WHERE s.recording_id = r.id)"
+            .into(),
+    );
     clauses.join(" AND ")
 }
 
@@ -670,6 +674,7 @@ mod tests {
                     && ![
                         "recordings",
                         "community_reports",
+                        "community_corrections",
                         "podcast_sources",
                         "provider_sources",
                     ]

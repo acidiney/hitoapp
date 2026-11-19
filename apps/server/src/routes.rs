@@ -136,6 +136,7 @@ fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
+        .routes(routes!(api::community::suggest_same_recording))
 }
 
 fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {

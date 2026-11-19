@@ -205,6 +205,7 @@ fn artwork_and_sources() -> Vec<String> {
             "source_preparation_receipts",
             "source_preparations",
             "community_reports",
+            "community_corrections",
             "community_reporters",
         ],
         "user_id",
