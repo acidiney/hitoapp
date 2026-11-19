@@ -136,6 +136,7 @@ fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
+        .routes(routes!(api::community::suggest_same_recording))
 }
 
 fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
@@ -149,7 +150,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
-        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::begin,
+            api::playback_leases::release_client
+        ))
         .routes(routes!(
             api::playback_leases::status,
             api::playback_leases::release
@@ -220,6 +224,10 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_identity::reset))
         .routes(routes!(api::artist_identity::member_reset))
         .routes(routes!(api::artist_identity::apply_to_credit))
+        .routes(routes!(
+            api::artist_identity::member_identity,
+            api::artist_identity::apply_to_member_credits
+        ))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))
         .routes(routes!(api::artist_matching::status))
@@ -308,6 +316,8 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(api::audiobooks::page))
         .routes(routes!(api::audiobooks::detail))
         .routes(routes!(api::audiobooks::playback))
+        .routes(routes!(api::audiobooks::check_chapters))
+        .routes(routes!(api::audiobooks::admission))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))

@@ -51,11 +51,12 @@ pub use artist_catalog::{
     CreditMemberReviewContext, DiscographyLibrary, DismissArtistMatchSuggestion,
     DismissArtistReviewCandidates, EditionTrackListAvailability, EditionTrackStats,
     FindAlbumTrackAudio, FindArtistTrackAudio, LibraryAlbum, LibraryLevel, LibraryReleaseGroup,
-    MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
-    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel,
-    ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroup,
-    ReadReleaseGroupEditions, ReadSimilarArtists, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, RecordingCreditMemberIdentityChoice, ReleaseGroupAvailability,
+    MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MemberArtistIdentity,
+    MemberArtistIdentityChosen, MetadataProvider, MetadataSettings, PromoteArtistCorrection,
+    PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, ReadArtistDiscography,
+    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroup, ReadReleaseGroupEditions,
+    ReadSimilarArtists, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
+    RecordingCreditMemberIdentityChoice, ReleaseGroupAvailability,
     ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, RestoreArtistMatchSuggestion,
     RestoreArtistReviewCandidates, SavedAlbumEdition, SharedArtistCorrection,
     SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt, SharedArtistCorrections,
@@ -102,7 +103,7 @@ pub use collection::{
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,
-    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission,
+    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission, SameRecording,
     SuccessfulPlayback, UpdateCommunityPreferences, UpdateCommunityRankingPreferences,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
@@ -137,7 +138,8 @@ pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
     CandidatesEnd, ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS,
     OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
-    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, StreamPace, StreamQuality,
+    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, ReleaseClientLeases, StreamPace,
+    StreamQuality,
 };
 pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{
@@ -340,6 +342,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         files: managed.clone(),
         active: Default::default(),
         playlist_turn: Default::default(),
+        authority_interval: downloads::AUTHORITY_INTERVAL,
     };
     if let Err(error) = downloads.sweep_staging().await {
         tracing::warn!(

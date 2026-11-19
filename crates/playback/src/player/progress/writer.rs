@@ -1,7 +1,8 @@
 use super::{CHECKPOINT_CAPACITY, Checkpoint, Report};
+use crate::seam;
 use crate::{PlayerError, player::Result};
-use hito_core::{Action, Collection, Operation, SyncBatch};
-use std::{collections::VecDeque, future::Future, pin::Pin, time::Duration};
+use hito_core::{Action, Operation, SyncBatch};
+use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -11,7 +12,7 @@ struct Queued {
 }
 type Pending = Pin<Box<dyn Future<Output = (Queued, hito_core::Result<()>)> + Send>>;
 pub(super) struct Writer {
-    collection: Collection,
+    progress: Arc<dyn seam::Progress>,
     client: String,
     queued: VecDeque<Queued>,
     issued: u64,
@@ -21,9 +22,9 @@ pub(super) struct Writer {
     closing: bool,
 }
 impl Writer {
-    pub fn new(collection: Collection) -> Self {
+    pub fn new(progress: Arc<dyn seam::Progress>) -> Self {
         Self {
-            collection,
+            progress,
             client: format!("native-{}", Uuid::new_v4()),
             queued: VecDeque::new(),
             issued: 0,
@@ -69,7 +70,7 @@ impl Writer {
             let Some(queued) = self.queued.pop_front() else {
                 return std::future::pending().await;
             };
-            let collection = self.collection.clone();
+            let progress = self.progress.clone();
             let client = self.client.clone();
             self.pending = Some(Box::pin(async move {
                 let checkpoint = &queued.checkpoint;
@@ -91,7 +92,7 @@ impl Writer {
                     });
                 }
                 tracing::debug!(event = "player_progress_write_started", operation_id = %checkpoint.id, account_id = checkpoint.actor.user().id, operation_count = operations.len(), "Saving listening progress");
-                let result = collection
+                let result = progress
                     .apply(
                         &checkpoint.actor,
                         SyncBatch {

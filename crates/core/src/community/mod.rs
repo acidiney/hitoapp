@@ -1,4 +1,5 @@
 mod config;
+mod corrections;
 mod ranking_preferences;
 pub(crate) mod rankings;
 mod reports;
@@ -15,7 +16,7 @@ use std::{
 };
 pub use types::{
     CommunityCredentialReset, CommunityPreferences, CommunityRankingPreferences,
-    CommunityReportAdmission, SuccessfulPlayback, UpdateCommunityPreferences,
+    CommunityReportAdmission, SameRecording, SuccessfulPlayback, UpdateCommunityPreferences,
     UpdateCommunityRankingPreferences,
 };
 use uuid::Uuid;
@@ -46,6 +47,13 @@ impl Community {
             .execute(&mut *tx)
             .await?
             .rows_affected();
+            sqlx::query(
+                "UPDATE community_corrections SET status='cancelled',lease_token=NULL,lease_until=NULL,updated_at=unixepoch()
+                 WHERE user_id=? AND status IN ('queued','running')",
+            )
+            .bind(actor.id())
+            .execute(&mut *tx)
+            .await?;
             let reporters_removed = sqlx::query("DELETE FROM community_reporters WHERE user_id=?")
                 .bind(actor.id())
                 .execute(&mut *tx)

@@ -122,7 +122,25 @@ test("every member of a collaboration lists it and a featured artist lists it as
       await expect(
         guest.getByRole("link", { name: credits.cy }).first(),
       ).toHaveAttribute("href", `/artists/${named(credits.cy).id}`);
+      const identity = page.getByRole("region", {
+        name: "Artist identity for this name",
+      });
+      await expect(identity.getByText("Not identified yet")).toBeVisible();
       await page.screenshot({ path: `${SHOTS}/after-cy-${size}.png` });
+      await identity.getByRole("button", { name: "Choose the artist" }).click();
+      const choose = page.getByRole("dialog", {
+        name: `Which artist is ${credits.cy}?`,
+      });
+      await expect(
+        choose.getByText(
+          "No artist you reviewed matches this name yet. Review it on one of the tracks it appears on first.",
+        ),
+      ).toBeVisible();
+      await page.screenshot({
+        path: `${SHOTS}/after-cy-choose-${size}.png`,
+        animations: "disabled",
+      });
+      await page.keyboard.press("Escape");
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/artists/${named(credits.cy).id}`);

@@ -1,9 +1,10 @@
+use crate::seam::Opened;
 use crate::{
     Source,
     source::{Body, denied, interrupted},
 };
 use bytes::Bytes;
-use hito_core::{AudioRequest, ByteRange, OpenedAudio};
+use hito_core::{AudioRequest, ByteRange};
 use std::io::{self, Seek, SeekFrom};
 
 impl Seek for Source {
@@ -67,9 +68,9 @@ impl Source {
                 result = self.grant.open(AudioRequest { head: false, range: Some(ByteRange::From { first: target, last: None }) }) => result.map_err(|_| io::Error::other("Audio seek failed")),
             }
         })?;
-        let mut audio = match opened {
-            OpenedAudio::Content(audio) => audio,
-            OpenedAudio::Unsatisfiable {
+        let audio = match opened {
+            Opened::Content(audio) => audio,
+            Opened::Unsatisfiable {
                 length: Some(length),
             } if length == target && self.length.is_none() => {
                 self.length = Some(length);
@@ -87,13 +88,10 @@ impl Source {
             return Err(io::Error::other("Audio input changed during a seek"));
         }
         self.check()?;
-        self.body =
-            Some(Body::Remote(Box::new(audio.body.take().ok_or_else(
-                || io::Error::other("Audio seek returned no input"),
-            )?)));
         self.position = target;
         self.length = self.length.or(audio.total_length);
         self.range_end = audio.range.as_ref().map(|range| *range.end());
+        self.body = Some(Body::Remote(audio.body));
         tracing::debug!(position_bytes = target, "Authorized native input seeked");
         Ok(target)
     }

@@ -1,5 +1,6 @@
-use hito_community::Config;
+use hito_community::{Config, Limits};
 use std::{
+    ffi::OsString,
     net::SocketAddr,
     path::{Path, PathBuf},
 };
@@ -15,6 +16,10 @@ impl Settings {
         let mut listen_seen = false;
         let mut state_directory: Option<PathBuf> = None;
         let mut credential: Option<PathBuf> = None;
+        let mut correction_recent: Option<u32> = None;
+        let mut correction_pending: Option<u32> = None;
+        let mut correction_total: Option<u32> = None;
+        let mut outcome_recent: Option<u32> = None;
         let mut arguments = std::env::args_os().skip(1);
         while let Some(argument) = arguments.next() {
             match argument.to_str() {
@@ -43,6 +48,18 @@ impl Settings {
                             .ok_or("missing_admin_token_file")?,
                     );
                 }
+                Some("--correction-recent-per-minute") if correction_recent.is_none() => {
+                    correction_recent = Some(limit(arguments.next())?);
+                }
+                Some("--correction-pending-per-reporter") if correction_pending.is_none() => {
+                    correction_pending = Some(limit(arguments.next())?);
+                }
+                Some("--correction-pending-total") if correction_total.is_none() => {
+                    correction_total = Some(limit(arguments.next())?);
+                }
+                Some("--outcome-recent-per-minute") if outcome_recent.is_none() => {
+                    outcome_recent = Some(limit(arguments.next())?);
+                }
                 _ => return Err("invalid_arguments"),
             }
         }
@@ -55,14 +72,33 @@ impl Settings {
             return Err("invalid_admin_token_file_path");
         }
         let admin_token = read_admin_token(&credential)?;
+        let defaults = Limits::default();
         Ok(Self {
             listen,
             community: Config {
                 state_directory,
                 admin_token,
+                limits: Limits {
+                    correction_recent_per_minute: correction_recent
+                        .unwrap_or(defaults.correction_recent_per_minute),
+                    correction_pending_per_reporter: correction_pending
+                        .unwrap_or(defaults.correction_pending_per_reporter),
+                    correction_pending_total: correction_total
+                        .unwrap_or(defaults.correction_pending_total),
+                    outcome_recent_per_minute: outcome_recent
+                        .unwrap_or(defaults.outcome_recent_per_minute),
+                },
             },
         })
     }
+}
+
+fn limit(value: Option<OsString>) -> Result<u32, &'static str> {
+    value
+        .and_then(|value| value.into_string().ok())
+        .and_then(|value| value.parse::<u32>().ok())
+        .filter(|limit| *limit > 0)
+        .ok_or("invalid_limit")
 }
 
 #[cfg(unix)]
