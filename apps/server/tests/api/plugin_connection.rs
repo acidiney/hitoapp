@@ -843,15 +843,15 @@ async fn a_stale_refresh_never_overwrites_or_invalidates_a_newer_consent() {
         flow.connect().await;
         force_expiry(&flow, -5).await;
         flow.token.refresh_reply(reply);
-        flow.token.delay(Duration::from_millis(400));
+        let release = flow.token.hold_refresh();
         let refreshing = {
             let flow = flow.clone();
             tokio::spawn(async move { flow.access().await })
         };
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        flow.token.delay(Duration::ZERO);
+        flow.token.refresh_arrived().await;
         flow.token.reply(Reply::GrantAs("second"));
         flow.connect().await;
+        release.send(()).unwrap();
         let served = refreshing.await.unwrap().unwrap();
         assert_eq!(token(&served), "second-access");
         assert_eq!(flow.connection(&flow.owner).await.1["status"], "connected");

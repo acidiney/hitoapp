@@ -60,6 +60,8 @@ pub(super) struct TokenState {
     pub(super) refresh: Mutex<RefreshReply>,
     pub(super) lifetime: Mutex<u64>,
     pub(super) refreshes: std::sync::atomic::AtomicUsize,
+    pub(super) refresh_gate: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
+    pub(super) refresh_arrived: tokio::sync::Notify,
 }
 
 pub(super) struct TokenServer {
@@ -82,6 +84,8 @@ impl TokenServer {
             refresh: Mutex::new(RefreshReply::Rotate),
             lifetime: Mutex::new(3600),
             refreshes: std::sync::atomic::AtomicUsize::new(0),
+            refresh_gate: Mutex::default(),
+            refresh_arrived: tokio::sync::Notify::new(),
         });
         let router = Router::new()
             .route("/token", axum::routing::post(token))
@@ -132,6 +136,16 @@ impl TokenServer {
             .collect()
     }
 
+    pub(super) fn hold_refresh(&self) -> tokio::sync::oneshot::Sender<()> {
+        let (release, gate) = tokio::sync::oneshot::channel();
+        *self.state.refresh_gate.lock().unwrap() = Some(gate);
+        release
+    }
+
+    pub(super) async fn refresh_arrived(&self) {
+        self.state.refresh_arrived.notified().await;
+    }
+
     pub(super) fn delay(&self, delay: Duration) {
         *self.state.delay.lock().unwrap() = delay;
     }
@@ -149,6 +163,13 @@ async fn token(State(state): State<Arc<TokenState>>, body: String) -> Response {
         .get("grant_type")
         .is_some_and(|grant| grant == "refresh_token");
     state.requests.lock().unwrap().push(form);
+    if refreshing {
+        state.refresh_arrived.notify_one();
+        let gate = state.refresh_gate.lock().unwrap().take();
+        if let Some(gate) = gate {
+            let _ = gate.await;
+        }
+    }
     let delay = *state.delay.lock().unwrap();
     tokio::time::sleep(delay).await;
     let json_type = [("content-type", "application/json")];
