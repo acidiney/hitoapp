@@ -44,6 +44,11 @@ pub(super) fn statements() -> Vec<String> {
         format!("INSERT INTO correction_erasure_scopes(kind,subject) SELECT 'recording',id FROM {RECORDINGS}"),
     ];
     plan.extend(owned(&["recording_lyric_identities"], "user_id"));
+    plan.push(delete_where(
+        "catalog_appearances",
+        "addition_id IN (SELECT id FROM album_additions WHERE user_id=?1)",
+    ));
+    plan.extend(owned(&["album_additions"], "user_id"));
     plan.extend(account_statements());
     plan.extend(recording_statements(RECORDINGS));
     plan.push(delete_where(
