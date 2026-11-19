@@ -1,10 +1,12 @@
+use crate::seam;
+use crate::seam::Listener;
 use hito_core::{
-    Actor, Catalog, PrepareSource, ResolveSource, Source, SourcePreparationPhase,
-    SourcePreparationStatus,
+    PrepareSource, ResolveSource, Source, SourcePreparationPhase, SourcePreparationStatus,
 };
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::{sync::watch, time::Instant};
@@ -30,10 +32,10 @@ pub(super) struct Deferral {
 }
 
 impl Deferral {
-    pub fn start(catalog: Catalog, actor: Actor, recording: Uuid) -> Self {
+    pub fn start(access: Arc<dyn seam::Sources>, actor: Listener, recording: Uuid) -> Self {
         let (stop, stopped) = watch::channel(false);
         let work = Work {
-            catalog,
+            access,
             actor,
             recording: recording.to_string(),
             stopped,
@@ -59,8 +61,8 @@ impl Deferral {
 }
 
 struct Work {
-    catalog: Catalog,
-    actor: Actor,
+    access: Arc<dyn seam::Sources>,
+    actor: Listener,
     recording: String,
     stopped: watch::Receiver<bool>,
     started: Instant,
@@ -83,10 +85,7 @@ impl Work {
     }
 
     async fn sources(&self) -> Option<Vec<Source>> {
-        self.catalog
-            .sources(&self.actor, &self.recording)
-            .await
-            .ok()
+        self.access.sources(&self.actor, &self.recording).await.ok()
     }
 
     async fn run(self) -> Outcome {
@@ -109,8 +108,8 @@ impl Work {
             return Outcome::Ready;
         }
         if let Err(hito_core::Error::Unauthorized) = self
-            .catalog
-            .refresh_playback_sources_until(&self.actor, &self.recording, self.cancelled())
+            .access
+            .refresh_until(&self.actor, &self.recording, self.cancelled())
             .await
         {
             return Outcome::Unavailable;
@@ -127,8 +126,8 @@ impl Work {
             request_id: Uuid::new_v4(),
         };
         let resolved = self
-            .catalog
-            .resolve_source_until(&self.actor, &self.recording, request, self.cancelled())
+            .access
+            .resolve_until(&self.actor, &self.recording, request, self.cancelled())
             .await;
         if self.stopping() {
             return Outcome::Unavailable;
@@ -163,8 +162,8 @@ impl Work {
             "Next entry source preparation requested"
         );
         if self
-            .catalog
-            .prepare_source(&self.actor, &self.recording, source, request)
+            .access
+            .prepare(&self.actor, &self.recording, source, request)
             .await
             .is_err()
         {
@@ -184,8 +183,8 @@ impl Work {
         let mut failures = 0;
         loop {
             let delay = match self
-                .catalog
-                .source_preparation(&self.actor, &self.recording, source)
+                .access
+                .preparation(&self.actor, &self.recording, source)
                 .await
             {
                 Ok(status) => {

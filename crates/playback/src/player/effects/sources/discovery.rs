@@ -1,6 +1,8 @@
 use super::{Demand, Key, Pending};
+use crate::seam;
 use crate::{PlayerError, SourceStop};
-use hito_core::{Catalog, Error, PlaybackFailureReason, ResolveSource, SourceResolutionOutcome};
+use hito_core::{Error, PlaybackFailureReason, ResolveSource, SourceResolutionOutcome};
+use std::sync::Arc;
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -26,7 +28,7 @@ pub(super) struct Discovery {
 
 impl Discovery {
     pub fn start(
-        catalog: Catalog,
+        access: Arc<dyn seam::Sources>,
         demand: Demand,
         attempt: u8,
         total_started: Option<Instant>,
@@ -35,7 +37,7 @@ impl Discovery {
         let cancellation = stop.clone();
         let started = total_started.unwrap_or_else(Instant::now);
         let done = Box::pin(async move {
-            let outcome = run(catalog, &demand, cancellation, attempt, started).await;
+            let outcome = run(access, &demand, cancellation, attempt, started).await;
             tracing::debug!(
                 event = "player_source_discovery_finished",
                 operation_id = %demand.id,
@@ -76,7 +78,7 @@ impl Outcome {
 }
 
 async fn run(
-    catalog: Catalog,
+    access: Arc<dyn seam::Sources>,
     demand: &Demand,
     stop: SourceStop,
     attempt: u8,
@@ -95,14 +97,14 @@ async fn run(
         selection = demand.key.selection,
         "Discovering current entry audio"
     );
-    let resolved = catalog
-        .resolve_source_until(
+    let resolved = access
+        .resolve_until(
             &demand.actor,
             &demand.recording,
             ResolveSource { request_id },
-            async {
+            Box::pin(async {
                 stop.cancelled().await;
-            },
+            }),
         )
         .await;
     let attempt_elapsed = attempt_started.elapsed().as_millis() as u64;

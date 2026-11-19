@@ -1,18 +1,18 @@
-use hito_core::PlaybackSource;
+use crate::seam::Grant;
 use std::{collections::VecDeque, sync::Mutex};
 
 pub(crate) struct Grants {
-    chain: Mutex<VecDeque<(u64, PlaybackSource)>>,
+    chain: Mutex<VecDeque<(u64, Grant)>>,
 }
 
 impl Grants {
-    pub fn new(first: PlaybackSource) -> Self {
+    pub fn new(first: Grant) -> Self {
         Self {
             chain: Mutex::new(VecDeque::from([(0, first)])),
         }
     }
 
-    pub fn active(&self, track: u64) -> PlaybackSource {
+    pub fn active(&self, track: u64) -> Grant {
         let mut chain = self.chain.lock().unwrap();
         while chain.len() > 1 && chain[1].0 <= track {
             chain.pop_front();
@@ -20,7 +20,7 @@ impl Grants {
         chain[0].1.clone()
     }
 
-    pub fn push(&self, grant: PlaybackSource, replaced: bool) {
+    pub fn push(&self, grant: Grant, replaced: bool) {
         let mut chain = self.chain.lock().unwrap();
         let last = match (replaced, chain.len()) {
             (true, length) if length > 1 => chain.pop_back().map_or(0, |(track, _)| track - 1),

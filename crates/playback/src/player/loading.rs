@@ -5,8 +5,9 @@ use super::{
     ownership::State,
     progress::Progress,
 };
-use hito_core::{Collection, SavedPosition};
-use std::{future::Future, pin::Pin, time::Duration};
+use crate::seam;
+use hito_core::SavedPosition;
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use uuid::Uuid;
 
 #[derive(Clone, Copy)]
@@ -112,13 +113,13 @@ struct Load {
     pending: Option<Pending>,
 }
 pub(super) struct Loader {
-    collection: Collection,
+    positions: Arc<dyn seam::Progress>,
     current: Option<Load>,
 }
 impl Loader {
-    pub fn new(collection: Collection) -> Self {
+    pub fn new(positions: Arc<dyn seam::Progress>) -> Self {
         Self {
-            collection,
+            positions,
             current: None,
         }
     }
@@ -148,13 +149,13 @@ impl Loader {
             let owned = demand.unwrap();
             let actor = owned.actor.clone();
             let recording = owned.queue.snapshot().current.unwrap().recording_id;
-            let collection = self.collection.clone();
+            let positions = self.positions.clone();
             let key = load.key;
             let command_id = load.command_id;
             load.pending = Some(Box::pin(async move {
                 let started = std::time::Instant::now();
                 tracing::debug!(event = "player_saved_load_started", command_id = %command_id, account_id = actor.user().id, "Loading saved playback position");
-                let result = collection.saved_position(&actor, recording).await;
+                let result = positions.saved_position(&actor, recording).await;
                 tracing::debug!(event = "player_saved_load_finished", command_id = %command_id, success = result.is_ok(), elapsed_ms = started.elapsed().as_millis() as u64, "Saved playback position load finished");
                 Report { key, result }
             }));
