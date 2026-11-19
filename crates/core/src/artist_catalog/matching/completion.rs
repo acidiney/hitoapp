@@ -153,7 +153,7 @@ impl ArtistCatalog {
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
-        tracing::debug!(
+        tracing::info!(
             event = "credit_completion",
             credits = candidates.len(),
             completed,
