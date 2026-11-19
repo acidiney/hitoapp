@@ -53,15 +53,65 @@ async fn pool(fixture: &Fixture) -> sqlx::SqlitePool {
     .unwrap()
 }
 
+async fn time_passes(fixture: &Fixture) {
+    sqlx::query("UPDATE source_readiness_jobs SET next_run_at = unixepoch()")
+        .execute(&pool(fixture).await)
+        .await
+        .unwrap();
+}
+
+async fn waiting_seconds(fixture: &Fixture) -> i64 {
+    sqlx::query_scalar("SELECT next_run_at - unixepoch() FROM source_readiness_jobs")
+        .fetch_one(&pool(fixture).await)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn an_account_on_a_running_server_is_walked_once_it_has_settled() {
+    let fixture = Fixture::start(json!({"items": []})).await;
+    offer_a_candidate(&fixture, "Accepted title").await;
+    assert!(
+        !fixture
+            .hito
+            .catalog
+            .run_next_source_readiness_until(pending())
+            .await
+            .unwrap(),
+        "a newly seen account does not start searching at once"
+    );
+    assert!(
+        waiting_seconds(&fixture).await >= 100,
+        "the first walk waits for the account to settle"
+    );
+    assert!(!ready(&fixture).await);
+    time_passes(&fixture).await;
+    assert!(
+        fixture
+            .hito
+            .catalog
+            .run_next_source_readiness_until(pending())
+            .await
+            .unwrap()
+    );
+    assert!(
+        ready(&fixture).await,
+        "an account that joined after the server started is still walked"
+    );
+}
+
 #[tokio::test]
 async fn the_background_walk_prepares_a_confident_source_and_then_paces_itself() {
     let fixture = Fixture::start(json!({"items": []})).await;
     assert!(!ready(&fixture).await);
     offer_a_candidate(&fixture, "Accepted title").await;
-    assert_eq!(
-        fixture.hito.catalog.queue_source_readiness().await.unwrap(),
-        1
-    );
+    fixture
+        .hito
+        .catalog
+        .run_next_source_readiness_until(pending())
+        .await
+        .unwrap();
+    time_passes(&fixture).await;
     assert!(
         fixture
             .hito
@@ -74,13 +124,8 @@ async fn the_background_walk_prepares_a_confident_source_and_then_paces_itself()
         ready(&fixture).await,
         "a confident match is applied in the background"
     );
-    let wait: i64 =
-        sqlx::query_scalar("SELECT next_run_at - unixepoch() FROM source_readiness_jobs")
-            .fetch_one(&pool(&fixture).await)
-            .await
-            .unwrap();
     assert!(
-        wait >= 100,
+        waiting_seconds(&fixture).await >= 100,
         "the next provider call waits at least two minutes"
     );
     assert!(
@@ -98,7 +143,13 @@ async fn the_background_walk_prepares_a_confident_source_and_then_paces_itself()
 async fn a_guess_by_provider_rank_is_never_applied_in_the_background() {
     let fixture = Fixture::start(json!({"items": []})).await;
     offer_a_candidate(&fixture, "A different song entirely").await;
-    fixture.hito.catalog.queue_source_readiness().await.unwrap();
+    fixture
+        .hito
+        .catalog
+        .run_next_source_readiness_until(pending())
+        .await
+        .unwrap();
+    time_passes(&fixture).await;
     fixture
         .hito
         .catalog
@@ -150,7 +201,13 @@ async fn a_listener_who_turned_it_off_or_is_listening_is_left_alone() {
         )
         .await
         .unwrap();
-    fixture.hito.catalog.queue_source_readiness().await.unwrap();
+    fixture
+        .hito
+        .catalog
+        .run_next_source_readiness_until(pending())
+        .await
+        .unwrap();
+    time_passes(&fixture).await;
     fixture
         .hito
         .catalog

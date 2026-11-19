@@ -108,23 +108,6 @@ impl Catalog {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub async fn queue_source_readiness(&self) -> Result<u64> {
-        let queued = sqlx::query(
-            "INSERT OR IGNORE INTO source_readiness_jobs(user_id,next_run_at)
-             SELECT DISTINCT user_id,unixepoch() FROM library_members",
-        )
-        .execute(&self.store.pool)
-        .await?
-        .rows_affected();
-        tracing::info!(
-            event = "source_readiness_queued",
-            queued,
-            "Background source preparation walks queued"
-        );
-        Ok(queued)
-    }
-
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn run_next_source_readiness_until(
         &self,
         shutdown: impl Future<Output = ()> + Send,
@@ -148,6 +131,21 @@ impl Catalog {
 
     async fn claim_readiness_job(&self) -> Result<Option<Job>> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let queued = sqlx::query(
+            "INSERT OR IGNORE INTO source_readiness_jobs(user_id,next_run_at)
+             SELECT DISTINCT user_id,unixepoch() + ?1 FROM library_members",
+        )
+        .bind(PACE_SECONDS)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        if queued > 0 {
+            tracing::debug!(
+                event = "source_readiness_queued",
+                queued,
+                "Background source preparation walks queued"
+            );
+        }
         let job: Option<Job> = sqlx::query_as(
             "UPDATE source_readiness_jobs SET lease_token = ?1,lease_until = unixepoch() + ?2
              WHERE user_id = (SELECT user_id FROM source_readiness_jobs INDEXED BY source_readiness_jobs_due
