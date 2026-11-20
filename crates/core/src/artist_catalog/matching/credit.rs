@@ -2,6 +2,7 @@ use super::apply::{EvidenceKind, Origin, Pending, Planned, REPLACEABLE, plan};
 use super::name_probe::normalize;
 use crate::artist_catalog::identity::groups::current_choices;
 use crate::{Actor, Result};
+use hito_plugin_sdk::{CreditRole, credit_feature_names};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
 use std::collections::BTreeMap;
 
@@ -80,6 +81,7 @@ pub(super) fn names_several(name: &str) -> bool {
 pub(super) struct CreditPart {
     pub(super) name: String,
     pub(super) join: Option<String>,
+    pub(super) role: CreditRole,
 }
 
 fn separators(name: &str) -> Vec<(usize, usize)> {
@@ -171,7 +173,15 @@ pub(super) fn split_names(name: &str) -> Option<Vec<CreditPart>> {
         parts.push(CreditPart {
             name: part.to_owned(),
             join,
+            role: CreditRole::Main,
         });
+    }
+    let featured = credit_feature_names(name);
+    let named = |part: &CreditPart| featured.contains(&part.name.to_lowercase());
+    if !parts.iter().all(named) {
+        for part in parts.iter_mut().filter(|part| named(part)) {
+            part.role = CreditRole::Featured;
+        }
     }
     Some(parts)
 }
@@ -431,6 +441,7 @@ pub(super) async fn extend(
 #[cfg(test)]
 mod tests {
     use super::{names_several, split_names};
+    use hito_plugin_sdk::CreditRole;
 
     fn parts(name: &str) -> Option<Vec<(String, Option<String>)>> {
         split_names(name).map(|parts| {
@@ -507,6 +518,33 @@ mod tests {
         );
         let seventeen: Vec<String> = (0..17).map(|index| format!("Member {index}")).collect();
         assert_eq!(split_names(&seventeen.join(", ")), None);
+    }
+
+    #[test]
+    fn the_parts_after_a_feature_marker_are_featured() {
+        let roles = |name: &str| {
+            split_names(name).map(|parts| {
+                parts
+                    .into_iter()
+                    .map(|part| (part.name, part.role))
+                    .collect::<Vec<_>>()
+            })
+        };
+        assert_eq!(
+            roles("Ada feat. Bo & Cy"),
+            Some(vec![
+                ("Ada".to_owned(), CreditRole::Main),
+                ("Bo".to_owned(), CreditRole::Featured),
+                ("Cy".to_owned(), CreditRole::Featured)
+            ])
+        );
+        assert_eq!(
+            roles("Ada & Bo"),
+            Some(vec![
+                ("Ada".to_owned(), CreditRole::Main),
+                ("Bo".to_owned(), CreditRole::Main)
+            ])
+        );
     }
 
     #[test]

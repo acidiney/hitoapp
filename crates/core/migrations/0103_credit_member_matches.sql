@@ -26,6 +26,7 @@ CREATE TABLE account_credit_splits (
     position INTEGER NOT NULL CHECK(typeof(position)='integer' AND position BETWEEN 0 AND 15),
     name TEXT NOT NULL COLLATE BINARY CHECK(length(name) BETWEEN 1 AND 256),
     join_phrase TEXT CHECK(join_phrase IS NULL OR length(join_phrase) BETWEEN 1 AND 64),
+    role TEXT NOT NULL CHECK(role IN ('main','featured')),
     PRIMARY KEY(user_id,artist_id,position),
     FOREIGN KEY(user_id,artist_id) REFERENCES account_artists(user_id,id)
 );

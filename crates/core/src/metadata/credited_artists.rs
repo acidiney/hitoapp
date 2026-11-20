@@ -123,7 +123,7 @@ pub(crate) async fn read(
          LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=?1
          WHERE r.id=?2 AND p.override_artist IS NULL
          UNION ALL
-         SELECT split.name,'main',split.join_phrase,member.artist_id,split.position
+         SELECT split.name,split.role,split.join_phrase,member.artist_id,split.position
          FROM recordings r
          JOIN account_recording_credits whole ON whole.user_id=?1 AND whole.recording_id=r.id
          JOIN account_credit_splits split ON split.user_id=whole.user_id AND split.artist_id=whole.artist_id

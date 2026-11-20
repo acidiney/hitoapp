@@ -693,3 +693,37 @@ async fn the_one_identifier_tag_left_after_the_other_members_names_the_last_memb
         None
     );
 }
+
+#[tokio::test]
+async fn a_member_whose_listed_id_disagrees_with_its_own_credit_takes_no_left_over_tag_id() {
+    const OTHER: &str = "55555555-5555-4555-8555-555555555555";
+    let world = World::prepare(&[
+        Song {
+            name: "ada",
+            extension: "flac",
+            artist: "Ada",
+            artists: &[],
+            ids: &[ADA],
+        },
+        Song {
+            name: "duo",
+            extension: "flac",
+            artist: "Ada & Bo",
+            artists: &["Ada", "Bo"],
+            ids: &[OTHER, BO],
+        },
+    ])
+    .await;
+    world.walk(&world.actor).await;
+    assert_eq!(
+        world.member_identity(&world.actor, "duo", "Ada").await,
+        None
+    );
+    assert_eq!(
+        world.member_identity(&world.actor, "duo", "Bo").await,
+        Some((
+            BO.to_owned(),
+            ArtistAssociationEvidence::MatchedMemberListedArtistId
+        ))
+    );
+}

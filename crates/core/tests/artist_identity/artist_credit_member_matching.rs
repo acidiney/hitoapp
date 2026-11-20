@@ -4,7 +4,7 @@ mod library;
 
 use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{
-    Action, ArtistAssociationEvidence, ArtistReviewQueueQuery, MetadataHistoryQuery,
+    Action, ArtistAssociationEvidence, ArtistReviewQueueQuery, CreditRole, MetadataHistoryQuery,
     RecordingArtistIdentityState, ResetRecordingArtistIdentity,
 };
 use library::{Evidence, NameLibrary, nova_discography};
@@ -431,5 +431,175 @@ async fn erasing_an_account_removes_its_automatic_member_matches_and_splits() {
     ] {
         assert_eq!(library.rows(table).await, 0, "{table}");
     }
+    library.origin.shutdown().await;
+}
+
+async fn roles(library: &NameLibrary, recording: &str) -> Vec<(String, CreditRole)> {
+    library
+        .hito
+        .catalog
+        .recording_metadata(&library.actor, recording, MetadataHistoryQuery::default())
+        .await
+        .unwrap()
+        .credited_artists
+        .into_iter()
+        .map(|member| (member.name, member.role))
+        .collect()
+}
+
+#[tokio::test]
+async fn a_featured_part_of_a_split_credit_stays_featured() {
+    let library = prepare(
+        "Ada feat. Bo",
+        Evidence::default(),
+        &[("Ada", &ADA_SONGS), ("Bo", &BO_SONGS)],
+    )
+    .await;
+    known(&library, "Ada", ADA, &ADA_SONGS);
+    known(&library, "Bo", BO, &BO_SONGS);
+    unknown(&library, "Ada feat. Bo");
+    library.run().await;
+    for duet in duets(&library) {
+        assert_eq!(
+            roles(&library, &duet).await,
+            [
+                ("Ada".to_owned(), CreditRole::Main),
+                ("Bo".to_owned(), CreditRole::Featured)
+            ]
+        );
+        assert!(member_group(&library, &duet, "Bo").await.is_some());
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_credit_whose_whole_identity_the_listener_cleared_is_never_split() {
+    let library = prepare(
+        "Ada & Bo",
+        Evidence::default(),
+        &[("Ada", &ADA_SONGS), ("Bo", &BO_SONGS)],
+    )
+    .await;
+    known(&library, "Ada", ADA, &ADA_SONGS);
+    known(&library, "Bo", BO, &BO_SONGS);
+    unknown(&library, "Ada & Bo");
+    library
+        .hito
+        .artist_catalog
+        .reset_recording_artist_identity(
+            &library.actor,
+            &duets(&library)[0],
+            ResetRecordingArtistIdentity {
+                request_id: Uuid::new_v4(),
+                expected_revision: 0,
+            },
+        )
+        .await
+        .unwrap();
+    library.run().await;
+    assert_eq!(library.rows("artist_name_misses").await, 1);
+    assert_eq!(library.rows("account_credit_splits").await, 0);
+    for duet in duets(&library) {
+        assert_eq!(member_rows(&library, &duet).await, 0);
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_member_name_with_accents_finds_its_own_credit() {
+    let library = prepare(
+        "Ólafur & Bo",
+        Evidence::default(),
+        &[("Ólafur", &ADA_SONGS), ("Bo", &BO_SONGS)],
+    )
+    .await;
+    known(&library, "Ólafur", ADA, &ADA_SONGS);
+    known(&library, "Bo", BO, &BO_SONGS);
+    unknown(&library, "Ólafur & Bo");
+    library.run().await;
+    for duet in duets(&library) {
+        assert_eq!(member_names(&library, &duet).await, ["Ólafur", "Bo"]);
+        assert!(member_group(&library, &duet, "Ólafur").await.is_some());
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_short_member_name_is_found_among_many_longer_names_that_contain_it() {
+    let library = prepare("Ada & Bo", listed(&["Ada", "Bo"]), &[("Bo", &BO_SONGS)]).await;
+    known(&library, "Bo", BO, &BO_SONGS);
+    unknown(&library, "Ada & Bo");
+    let library_id = library
+        .scalar("SELECT library_id FROM account_artists WHERE name='Bo'")
+        .await;
+    library
+        .execute_batch(&format!(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<250)
+             INSERT INTO account_artists(user_id,id,library_id,name)
+             SELECT (SELECT id FROM users WHERE username='admin'),'bobo-'||i,'{library_id}','Bobo '||i FROM n"
+        ))
+        .await;
+    library.run().await;
+    let bo = library.group_of(&recording_of(&library, 0)).await.unwrap();
+    for duet in duets(&library) {
+        assert_eq!(
+            member_group(&library, &duet, "Bo").await.as_ref(),
+            Some(&bo)
+        );
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn the_review_of_a_partly_identified_credit_counts_and_searches_only_its_unidentified_tracks()
+{
+    let library = prepare(
+        "Ada & Bo",
+        listed(&["Ada", "Bo"]),
+        &[("Ada", &ADA_SONGS), ("Bo", &BO_SONGS)],
+    )
+    .await;
+    known(&library, "Ada", ADA, &ADA_SONGS);
+    known(&library, "Bo", BO, &BO_SONGS);
+    unknown(&library, "Ada & Bo");
+    library.run().await;
+    assert!(!queued(&library).await.contains(&"Ada & Bo".to_owned()));
+    let mut duets = duets(&library);
+    duets.sort();
+    let open = duets.last().unwrap().clone();
+    let bo = artist(&library, "Bo").await;
+    let choice = library
+        .hito
+        .artist_catalog
+        .recording_credit_member_identity_choice(&library.actor, &open, &bo)
+        .await
+        .unwrap();
+    library
+        .hito
+        .artist_catalog
+        .reset_credit_member_identity(
+            &library.actor,
+            &open,
+            &bo,
+            ResetRecordingArtistIdentity {
+                request_id: Uuid::new_v4(),
+                expected_revision: choice.revision,
+            },
+        )
+        .await
+        .unwrap();
+    let item = library
+        .hito
+        .artist_catalog
+        .artist_review_queue(&library.actor, ArtistReviewQueueQuery::default())
+        .await
+        .unwrap()
+        .items
+        .into_iter()
+        .find(|item| item.name == "Ada & Bo")
+        .unwrap();
+    assert_eq!(item.undecided_tracks, 1);
+    assert!(item.needs_search);
+    assert_eq!(item.search_recording_id.as_ref(), Some(&open));
     library.origin.shutdown().await;
 }

@@ -109,7 +109,7 @@ const MEMBERS: &str = "(SELECT t.user_id, t.library_id, t.recording_id, member.n
         JOIN recording_credited_artist_observations member ON member.observation_id = t.credit_observation
         WHERE t.credit_key IS NOT NULL
         UNION ALL
-        SELECT t.user_id, t.library_id, t.recording_id, split.name, 'main' FROM targets t
+        SELECT t.user_id, t.library_id, t.recording_id, split.name, split.role FROM targets t
         JOIN account_artists whole ON whole.user_id = t.user_id AND whole.library_id = t.library_id
             AND whole.name = t.name COLLATE BINARY
         JOIN account_credit_splits split ON split.user_id = whole.user_id AND split.artist_id = whole.id

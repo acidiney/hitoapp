@@ -1,5 +1,6 @@
 use super::{
     ArtistProviderMatchReceipt,
+    apply::AUTOMATIC_CHOICE,
     credit::{CreditPart, split_names},
     name_probe::normalize,
     settle::empty_receipt,
@@ -28,7 +29,6 @@ const SPLIT_STAGE: &str = "1:";
 const MEMBER_STAGE: &str = "2:";
 const MAX_CREDITS: i64 = 50;
 const MAX_RECORDINGS: i64 = 100;
-const MAX_NAMESAKE_CREDITS: i64 = 200;
 
 pub(super) const MEMBER_REPLACEABLE: &str =
     "(EXISTS (SELECT 1 FROM artist_association_member_matches mt
@@ -92,53 +92,49 @@ impl Solos {
         if let Some(known) = self.known.get(&key) {
             return Ok(known.clone());
         }
-        let found = solo_identity(connection, actor, &key).await?;
+        let found = solo_identity(connection, actor, name).await?;
         self.known.insert(key, found.clone());
         Ok(found)
     }
 }
 
-fn pattern(key: &str) -> String {
-    let words: Vec<String> = key
-        .split_whitespace()
-        .map(|word| {
-            word.chars()
-                .flat_map(|character| match character {
-                    '%' | '_' | '\\' => vec!['\\', character],
-                    other => vec![other],
-                })
-                .collect()
-        })
-        .collect();
-    format!("%{}%", words.join("%"))
+fn probes(name: &str) -> Vec<String> {
+    let mut probes = vec![
+        name.trim().to_owned(),
+        name.split_whitespace().collect::<Vec<_>>().join(" "),
+        normalize(name),
+    ];
+    probes.sort();
+    probes.dedup();
+    probes.retain(|probe| !probe.is_empty());
+    probes
 }
 
 async fn solo_identity(
     connection: &mut SqliteConnection,
     actor: &Actor,
-    key: &str,
+    name: &str,
 ) -> Result<Option<String>> {
-    if key.is_empty() {
-        return Ok(None);
+    let key = normalize(name);
+    let mut credits = Vec::new();
+    for probe in probes(name) {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT a.id,a.name FROM account_artists a
+             JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
+             WHERE a.user_id=? AND a.name=? COLLATE NOCASE",
+        )
+        .bind(actor.id())
+        .bind(&probe)
+        .fetch_all(&mut *connection)
+        .await?;
+        credits.extend(
+            rows.into_iter()
+                .filter(|(_, found)| normalize(found) == key)
+                .map(|(id, _)| id),
+        );
     }
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT a.id,a.name FROM account_artists a
-         JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
-         WHERE a.user_id=? AND a.name LIKE ? ESCAPE '\\' LIMIT ?",
-    )
-    .bind(actor.id())
-    .bind(pattern(key))
-    .bind(MAX_NAMESAKE_CREDITS)
-    .fetch_all(&mut *connection)
-    .await?;
-    if rows.len() as i64 >= MAX_NAMESAKE_CREDITS {
-        return Ok(None);
-    }
-    let credits: Vec<String> = rows
-        .into_iter()
-        .filter(|(_, name)| normalize(name) == key)
-        .map(|(id, _)| id)
-        .collect();
+    credits.sort();
+    credits.dedup();
     if credits.is_empty() {
         return Ok(None);
     }
@@ -195,6 +191,14 @@ impl ArtistCatalog {
         digest: &str,
         after: &str,
     ) -> Result<ArtistProviderMatchReceipt> {
+        let mut solos = Solos::default();
+        {
+            let mut connection = self.store.pool.acquire().await?;
+            actor.check_session_on(&mut connection).await?;
+            for name in names_to_vouch_for(&mut connection, actor, after).await? {
+                solos.identity(&mut connection, actor, &name).await?;
+            }
+        }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         if let Some(receipt) = receipts::replay(&mut tx, actor, request_id, digest).await? {
@@ -204,7 +208,6 @@ impl ArtistCatalog {
         if !policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz) {
             return Ok(empty_receipt(request_id, None));
         }
-        let mut solos = Solos::default();
         let (pending, next_after) = match after.strip_prefix(MEMBER_STAGE) {
             Some(after) => {
                 let (recordings, next) = unresolved(&mut tx, actor, after).await?;
@@ -249,17 +252,44 @@ impl ArtistCatalog {
     }
 }
 
+async fn names_to_vouch_for(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    after: &str,
+) -> Result<Vec<String>> {
+    if let Some(after) = after.strip_prefix(MEMBER_STAGE) {
+        let (recordings, _) = unresolved(connection, actor, after).await?;
+        return Ok(sqlx::query_scalar(
+            "SELECT DISTINCT artist.name FROM account_recording_credit_members member
+             JOIN account_artists artist ON artist.user_id=member.user_id AND artist.id=member.artist_id
+             WHERE member.user_id=? AND member.recording_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(actor.id())
+        .bind(serde_json::to_string(&recordings).map_err(|_| Error::Internal("Member recordings".into()))?)
+        .fetch_all(connection)
+        .await?);
+    }
+    let after = after.strip_prefix(SPLIT_STAGE).unwrap_or_default();
+    let (credits, _) = split_candidates(connection, actor, after).await?;
+    Ok(credits
+        .iter()
+        .filter_map(|(_, name)| split_names(name))
+        .flatten()
+        .map(|part| part.name)
+        .collect())
+}
+
 async fn split_candidates(
     connection: &mut SqliteConnection,
     actor: &Actor,
     after: &str,
 ) -> Result<(Vec<(String, String)>, bool)> {
     let mut rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT a.id,a.name FROM account_artists a
+        "SELECT a.id,a.name FROM (
+            SELECT artist_id FROM artist_name_misses WHERE user_id=?1 AND artist_id>?2
+            UNION SELECT artist_id FROM account_credit_splits WHERE user_id=?1 AND artist_id>?2) candidate
+         JOIN account_artists a ON a.user_id=?1 AND a.id=candidate.artist_id
          JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
-         WHERE a.user_id=?1 AND a.id>?2
-            AND (EXISTS (SELECT 1 FROM artist_name_misses miss WHERE miss.user_id=a.user_id AND miss.artist_id=a.id)
-                OR EXISTS (SELECT 1 FROM account_credit_splits split WHERE split.user_id=a.user_id AND split.artist_id=a.id))
          ORDER BY a.id LIMIT ?3",
     )
     .bind(actor.id())
@@ -279,16 +309,20 @@ async fn wanted_split(
     name: &str,
     solos: &mut Solos,
 ) -> Result<Option<Vec<CreditPart>>> {
-    let (missed, whole): (bool, bool) = sqlx::query_as(&format!(
+    let (missed, whole, cleared): (bool, bool, bool) = sqlx::query_as(&format!(
         "SELECT EXISTS (SELECT 1 FROM artist_name_misses WHERE user_id=?1 AND artist_id=?2),
-            EXISTS (SELECT 1 {} ?1 AND choice.artist_id=?2)",
+            EXISTS (SELECT 1 {} ?1 AND choice.artist_id=?2),
+            EXISTS (SELECT 1 FROM recording_artist_identity_choices choice
+                JOIN account_recording_credits whole ON whole.user_id=choice.user_id
+                    AND whole.recording_id=choice.recording_id
+                WHERE choice.user_id=?1 AND whole.artist_id=?2 AND NOT {AUTOMATIC_CHOICE})",
         current_choices()
     ))
     .bind(actor.id())
     .bind(credit)
     .fetch_one(&mut *connection)
     .await?;
-    if !missed || whole {
+    if !missed || whole || cleared {
         return Ok(None);
     }
     let Some(parts) = split_names(name) else {
@@ -314,8 +348,8 @@ async fn reconsider_split(
     solos: &mut Solos,
 ) -> Result<()> {
     let wanted = wanted_split(tx, actor, credit, name, solos).await?;
-    let current: Vec<(String, Option<String>)> = sqlx::query_as(
-        "SELECT name,join_phrase FROM account_credit_splits WHERE user_id=? AND artist_id=? ORDER BY position",
+    let current: Vec<(String, Option<String>, String)> = sqlx::query_as(
+        "SELECT name,join_phrase,role FROM account_credit_splits WHERE user_id=? AND artist_id=? ORDER BY position",
     )
     .bind(actor.id())
     .bind(credit)
@@ -327,7 +361,9 @@ async fn reconsider_split(
                 && parts
                     .iter()
                     .zip(&current)
-                    .all(|(part, (name, join))| &part.name == name && &part.join == join) =>
+                    .all(|(part, (name, join, role))| {
+                        &part.name == name && &part.join == join && role_name(part.role) == role
+                    }) =>
         {
             return Ok(());
         }
@@ -349,13 +385,14 @@ async fn reconsider_split(
         .await?;
     for (position, part) in wanted.iter().flatten().enumerate() {
         sqlx::query(
-            "INSERT INTO account_credit_splits(user_id,artist_id,position,name,join_phrase) VALUES(?,?,?,?,?)",
+            "INSERT INTO account_credit_splits(user_id,artist_id,position,name,join_phrase,role) VALUES(?,?,?,?,?,?)",
         )
         .bind(actor.id())
         .bind(credit)
         .bind(position as i64)
         .bind(&part.name)
         .bind(&part.join)
+        .bind(role_name(part.role))
         .execute(&mut **tx)
         .await?;
     }
@@ -376,7 +413,7 @@ async fn chosen_by_hand(
     Ok(sqlx::query_scalar(&format!(
         "SELECT EXISTS (SELECT 1 FROM recording_artist_member_identity_choices c
             JOIN account_recording_credits whole ON whole.user_id=c.user_id AND whole.recording_id=c.recording_id
-            WHERE c.user_id=? AND whole.artist_id=? AND NOT {AUTOMATIC_MEMBER_CHOICE})"
+            WHERE c.user_id=? AND whole.artist_id=? AND c.retired=0 AND NOT {AUTOMATIC_MEMBER_CHOICE})"
     ))
     .bind(actor.id())
     .bind(credit)
@@ -495,6 +532,7 @@ async fn plan(
     };
     let members = members(tx, actor, recording, &credit).await?;
     let mut evidence: Vec<Option<(String, MemberEvidence)>> = Vec::with_capacity(members.len());
+    let mut conflicted = false;
     for member in &members {
         if member.open.is_none() {
             evidence.push(None);
@@ -502,13 +540,16 @@ async fn plan(
         }
         let solo = solos.identity(tx, actor, &member.name).await?;
         evidence.push(match (&member.listed, solo) {
-            (Some(listed), Some(solo)) if *listed != solo => None,
+            (Some(listed), Some(solo)) if *listed != solo => {
+                conflicted = true;
+                None
+            }
             (Some(listed), _) => Some((listed.clone(), MemberEvidence::ListedArtistId)),
             (None, Some(solo)) => Some((solo, MemberEvidence::SoloCredit)),
             (None, None) => None,
         });
     }
-    if credit.source_id.is_some() {
+    if credit.source_id.is_some() && !conflicted {
         let tags: Option<String> =
             sqlx::query_scalar("SELECT tags FROM metadata_observations WHERE id=?")
                 .bind(&credit.observation_id)
@@ -717,15 +758,16 @@ async fn commit(
 
 #[cfg(test)]
 mod tests {
-    use super::{pattern, tagged_ids};
+    use super::{probes, tagged_ids};
 
     const A: &str = "11111111-1111-4111-8111-111111111111";
     const B: &str = "22222222-2222-4222-8222-222222222222";
 
     #[test]
-    fn a_name_pattern_escapes_wildcards_and_spans_any_spacing() {
-        assert_eq!(pattern("ada bo"), "%ada%bo%");
-        assert_eq!(pattern("100% a_b"), "%100\\%%a\\_b%");
+    fn a_name_is_looked_up_as_written_spaced_once_and_normalized() {
+        assert_eq!(probes("  Ada   Bo "), ["Ada   Bo", "Ada Bo", "ada bo"]);
+        assert_eq!(probes("Ólafur"), ["Ólafur", "ólafur"]);
+        assert!(probes("   ").is_empty());
     }
 
     #[test]
