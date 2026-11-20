@@ -1,16 +1,14 @@
 #![cfg(all(feature = "device", target_os = "linux"))]
 
-#[path = "output_recovery/client_starvation.rs"]
-mod client_starvation;
+#[path = "output_recovery/output_fault.rs"]
+mod output_fault;
 #[path = "output_recovery/presentation.rs"]
 mod presentation;
 
-use client_starvation::ClientStarvation;
 use hito_audio::{Player, test_support};
+use output_fault::OutputFault;
 use std::{
     io::Write,
-    os::unix::fs::MetadataExt,
-    process::Command,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -58,102 +56,6 @@ impl Logs {
     }
 }
 
-struct PausedBackend {
-    pid: u32,
-    parent: u32,
-    resumed: bool,
-}
-
-impl PausedBackend {
-    fn stop() -> Self {
-        let pid: u32 = std::env::var("HITO_PRIVATE_PULSE_PID")
-            .expect("the isolated launcher must expose its owned PulseAudio PID")
-            .parse()
-            .unwrap();
-        assert!(pid > 1 && pid != std::process::id());
-        let process = format!("/proc/{pid}");
-        let parent = |process: &str| -> u32 {
-            std::fs::read_to_string(format!("{process}/status"))
-                .unwrap()
-                .lines()
-                .find_map(|line| line.strip_prefix("PPid:"))
-                .unwrap()
-                .trim()
-                .parse()
-                .unwrap()
-        };
-        let backend_parent = parent(&process);
-        let test_parent = parent("/proc/self");
-        for pid in [backend_parent, test_parent] {
-            assert_eq!(
-                std::fs::read_to_string(format!("/proc/{pid}/comm"))
-                    .unwrap()
-                    .trim(),
-                "runuser"
-            );
-        }
-        assert_eq!(
-            parent(&format!("/proc/{backend_parent}")),
-            parent(&format!("/proc/{test_parent}")),
-            "the backend and test must share the same isolated launcher"
-        );
-        assert_eq!(
-            std::fs::metadata(&process).unwrap().uid(),
-            std::fs::metadata("/proc/self").unwrap().uid(),
-            "the backend must belong to the fixture account"
-        );
-        assert_eq!(
-            std::fs::read_to_string(format!("{process}/comm"))
-                .unwrap()
-                .trim(),
-            "pulseaudio"
-        );
-        let socket = std::env::var("PULSE_SERVER").unwrap();
-        let socket = socket.strip_prefix("unix:").unwrap();
-        let command = std::fs::read(format!("{process}/cmdline")).unwrap();
-        let expected =
-            format!("--load=module-native-protocol-unix socket={socket} auth-anonymous=1");
-        assert!(
-            command
-                .split(|byte| *byte == 0)
-                .any(|argument| argument == expected.as_bytes()),
-            "only the private fixture backend may be interrupted"
-        );
-        assert!(
-            Command::new("kill")
-                .args(["-STOP", &pid.to_string()])
-                .status()
-                .unwrap()
-                .success()
-        );
-        Self {
-            pid,
-            parent: backend_parent,
-            resumed: false,
-        }
-    }
-    fn resume(mut self) {
-        assert!(
-            Command::new("kill")
-                .args(["-CONT", &self.pid.to_string(), &self.parent.to_string()])
-                .status()
-                .unwrap()
-                .success()
-        );
-        self.resumed = true;
-    }
-}
-
-impl Drop for PausedBackend {
-    fn drop(&mut self) {
-        if !self.resumed {
-            let _ = Command::new("kill")
-                .args(["-CONT", &self.pid.to_string(), &self.parent.to_string()])
-                .status();
-        }
-    }
-}
-
 struct Generation {
     number: u64,
     samples: Vec<f32>,
@@ -185,14 +87,14 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
         counter(u64::from(frame))
     }))
     .unwrap();
+    let fault = OutputFault::ready(false, 1, Duration::from_millis(200));
     player.resume().unwrap();
     wait(|| player.snapshot().position >= Duration::from_millis(500));
     let before = player.snapshot();
     let fault_started = Instant::now();
-    let backend = PausedBackend::stop();
-    std::thread::sleep(Duration::from_millis(200));
-    backend.resume();
+    let outcome = fault.interrupt();
     let fault_elapsed = fault_started.elapsed();
+    assert!(outcome.controller.success() && outcome.watchdog.success());
     let signalled =
         reached(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
     if !signalled {
@@ -350,7 +252,7 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         .with_writer(move || writer.clone())
         .finish();
     let _subscriber = tracing::subscriber::set_default(subscriber);
-    let cancelled = ClientStarvation::ready(false);
+    let cancelled = OutputFault::ready(false, 0, Duration::ZERO);
     let cancelled_ids = cancelled.ids();
     let outcome = cancelled.cancel();
     assert!(outcome.controller.success() && outcome.watchdog.success());
@@ -359,9 +261,9 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
             .iter()
             .all(|pid| !std::path::Path::new(&format!("/proc/{pid}")).exists())
     );
-    let killed = ClientStarvation::ready(true);
+    let killed = OutputFault::ready(true, 0, Duration::ZERO);
     let killed_ids = killed.ids();
-    let outcome = killed.starve();
+    let outcome = killed.interrupt();
     assert!(!outcome.controller.success() && outcome.watchdog.success());
     assert!(
         killed_ids
@@ -371,6 +273,7 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
     eprintln!("client_controller_lifecycle cancelled_joined=2 killed_controller_resumed=true");
     let mut first = Player::open(test_support::wave(RATE, 2, 3 * RATE, |_, _| 1000)).unwrap();
     let mut second = Player::open(test_support::wave(RATE, 2, 3 * RATE, |_, _| 2000)).unwrap();
+    let fault = OutputFault::ready(false, 2, Duration::ZERO);
     first.resume().unwrap();
     second.resume().unwrap();
     wait(|| {
@@ -378,7 +281,7 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
             && second.snapshot().position >= Duration::from_millis(200)
     });
     let positions = [first.snapshot().position, second.snapshot().position];
-    let outcome = ClientStarvation::ready(false).starve();
+    let outcome = fault.interrupt();
     assert!(outcome.controller.success() && outcome.watchdog.success());
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
