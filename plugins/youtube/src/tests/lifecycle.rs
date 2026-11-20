@@ -67,6 +67,19 @@ async fn successful_search_terminates_owned_descendants_with_closed_standard_str
     }
 }
 
+#[test]
+fn a_process_that_exits_during_the_group_scan_reads_as_stopped() {
+    for gone in [
+        io::Error::from(io::ErrorKind::NotFound),
+        io::Error::from_raw_os_error(nix::errno::Errno::ESRCH as i32),
+    ] {
+        assert!(crate::process::vanished(&gone));
+    }
+    assert!(!crate::process::vanished(&io::Error::from(
+        io::ErrorKind::PermissionDenied
+    )));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches() {
     let directory = tempfile::tempdir().unwrap();
