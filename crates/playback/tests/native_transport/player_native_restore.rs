@@ -87,7 +87,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
     assert!(saved >= 2_000);
     let gate = f.server.hold_range(100_000..800_000).await;
     f.ready().await;
-    refresh.release();
+    refresh.open();
     tokio::time::timeout(Duration::from_secs(3), gate.entered())
         .await
         .unwrap();
