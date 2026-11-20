@@ -456,12 +456,9 @@ async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
     );
 }
 
-const INTERMEDIATE_RESULTS: [&str; 9] = [
+const INTERMEDIATE_RESULTS: [&str; 6] = [
     "base",
     "flags",
-    "identified",
-    "counted",
-    "settled",
     "undecided",
     "edited",
     "chosen_names",

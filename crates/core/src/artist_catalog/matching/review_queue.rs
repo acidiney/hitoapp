@@ -113,12 +113,9 @@ pub(super) async fn keep(
 }
 
 fn undecided(credit_filter: &str) -> String {
-    undecided_from("", credit_filter)
-}
-
-fn undecided_from(driving: &str, credit_filter: &str) -> String {
+    let identified = members_identified();
     format!(
-        "SELECT r.id AS id,rc.artist_id AS artist_id FROM {driving} artist_name_checks k
+        "SELECT r.id AS id,rc.artist_id AS artist_id FROM artist_name_checks k
          JOIN recordings r ON r.id=k.recording_id AND r.metadata_observation_id=k.observation_id
          JOIN account_recording_credits rc ON rc.recording_id=r.id AND rc.user_id=k.user_id
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=k.user_id
@@ -126,18 +123,26 @@ fn undecided_from(driving: &str, credit_filter: &str) -> String {
          WHERE k.user_id=?1 AND k.rule={NAME_RULE} AND p.artist_operation_id IS NULL
             AND k.artist_operation_id IS NULL {credit_filter}
             AND NOT EXISTS (SELECT 1 FROM recording_artist_identity_choices c
-                WHERE c.user_id=k.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})"
+                WHERE c.user_id=k.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})
+            AND k.recording_id NOT IN ({identified})"
     )
 }
 
-const MEMBERS_IDENTIFIED: &str =
-    "SELECT chosen.recording_id FROM recording_artist_member_identity_choices chosen
-    JOIN account_recording_credit_members member ON member.user_id=chosen.user_id
-        AND member.recording_id=chosen.recording_id AND member.artist_id=chosen.artist_id
-    WHERE chosen.user_id=?1 AND chosen.retired=0 AND chosen.association_id IS NOT NULL
-    GROUP BY chosen.recording_id
-    HAVING count(*)=(SELECT count(*) FROM account_recording_credit_members listed
-        WHERE listed.user_id=?1 AND listed.recording_id=chosen.recording_id)";
+fn members_identified() -> String {
+    format!(
+        "SELECT chosen.recording_id FROM recording_artist_member_identity_choices chosen
+        JOIN recordings identified_recording ON identified_recording.id=chosen.recording_id
+            AND identified_recording.metadata_observation_id=chosen.observation_id
+        JOIN recording_artist_associations assoc ON assoc.id=chosen.association_id
+            AND assoc.user_id=chosen.user_id
+        JOIN account_recording_credit_members member ON member.user_id=chosen.user_id
+            AND member.recording_id=chosen.recording_id AND member.artist_id=chosen.artist_id
+        WHERE chosen.user_id=?1 AND chosen.retired=0 AND chosen.association_id IS NOT NULL AND {LINKED}
+        GROUP BY chosen.recording_id
+        HAVING count(*)=(SELECT count(*) FROM account_recording_credit_members listed
+            WHERE listed.user_id=?1 AND listed.recording_id=chosen.recording_id)"
+    )
+}
 
 fn edited(credit_filter: &str) -> String {
     format!(
@@ -381,11 +386,7 @@ pub(super) fn queued(listing: Listing) -> String {
         "EXISTS (SELECT 1 FROM chosen_names n WHERE n.name_key=lower(trim(a.name)) AND {offer_dismissal})"
     );
     format!(
-        "WITH identified AS MATERIALIZED ({MEMBERS_IDENTIFIED}),
-              counted AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
-              settled AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
-              undecided AS (SELECT counted.artist_id,counted.tracks-COALESCE(settled.tracks,0) AS tracks
-                FROM counted LEFT JOIN settled ON settled.artist_id=counted.artist_id),
+        "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
               chosen_names AS MATERIALIZED ({}),
               edited AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
               base AS MATERIALIZED (
@@ -414,10 +415,6 @@ pub(super) fn queued(listing: Listing) -> String {
             stored,chosen,matched
          FROM verdicts WHERE stored OR unlisted OR matched OR chosen",
         undecided(""),
-        undecided_from(
-            "identified CROSS JOIN",
-            "AND k.recording_id=identified.recording_id"
-        ),
         chosen_names(),
         edited("")
     )
