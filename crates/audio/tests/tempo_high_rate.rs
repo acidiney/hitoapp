@@ -3,6 +3,7 @@
 use hito_audio::Player;
 use hito_audio::test_support as support;
 use hito_audio::test_support::capture::{Capture, amplitude, wait};
+use hito_audio::test_support::continuity::dump;
 use hito_audio::test_support::output_witness::OutputWitness;
 use std::collections::BTreeSet;
 use tracing_subscriber::{filter::filter_fn, prelude::*};
@@ -329,6 +330,8 @@ fn a_device_offering_only_48_khz_plays_quadruple_rate_sources_at_unit_half_and_d
             );
             print_high_rate_pitch_sample_summary("callback", &report.samples);
             print_high_rate_pitch_sample_summary("monitor", &monitored);
+            dump(&format!("high-rate-{rate}-{speed}-callback"), &report.samples);
+            dump(&format!("high-rate-{rate}-{speed}-monitor"), &monitored);
             assert_tone(
                 &monitored,
                 f64::from(seconds) * 48_000. / f64::from(speed),
