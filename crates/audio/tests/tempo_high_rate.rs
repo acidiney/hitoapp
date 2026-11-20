@@ -330,7 +330,10 @@ fn a_device_offering_only_48_khz_plays_quadruple_rate_sources_at_unit_half_and_d
             );
             print_high_rate_pitch_sample_summary("callback", &report.samples);
             print_high_rate_pitch_sample_summary("monitor", &monitored);
-            dump(&format!("high-rate-{rate}-{speed}-callback"), &report.samples);
+            dump(
+                &format!("high-rate-{rate}-{speed}-callback"),
+                &report.samples,
+            );
             dump(&format!("high-rate-{rate}-{speed}-monitor"), &monitored);
             assert_tone(
                 &monitored,
