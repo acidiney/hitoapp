@@ -175,6 +175,7 @@ test("a credit says in plain words how its tracks were matched", async () => {
             { evidence: "matched_provider_url", tracks: 2 },
             { evidence: "matched_name_discography", tracks: 5 },
             { evidence: "matched_credit_evidence", tracks: 3 },
+            { evidence: "matched_credit_completion", tracks: 2 },
             { evidence: "user_confirmed_candidate", tracks: 3 },
             { evidence: "user_confirmed", tracks: 1 },
           ],
@@ -186,7 +187,7 @@ test("a credit says in plain words how its tracks were matched", async () => {
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
   const how = await screen.findByText(/^Matched on /);
   expect(how.textContent).toBe(
-    "Matched on 85 tracks because the credit covers enough of this artist's tracks, 1 track from the ISRC, 12 tracks from an artist identifier in the file tags, 2 tracks from the provider's artist page, 5 tracks from the artist's name and recordings, 3 tracks from other tracks of this credit, 3 tracks you confirmed and 1 track you chose yourself.",
+    "Matched on 85 tracks because the credit covers enough of this artist's tracks, 1 track from the ISRC, 12 tracks from an artist identifier in the file tags, 2 tracks from the provider's artist page, 5 tracks from the artist's name and recordings, 3 tracks from other tracks of this credit, 2 tracks from the artist you chose for this credit, 3 tracks you confirmed and 1 track you chose yourself.",
   );
 });
 

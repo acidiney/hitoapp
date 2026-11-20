@@ -24569,7 +24569,8 @@
           "matched_credit_evidence",
           "matched_credit_coverage",
           "user_confirmed_candidate",
-          "matched_recording_id"
+          "matched_recording_id",
+          "matched_credit_completion"
         ]
       },
       "ArtistAssociationRetirement": {

@@ -20,6 +20,8 @@ const matched: Record<
     "Matched automatically from the artist's name, corroborated by its recordings.",
   user_confirmed_candidate:
     "You confirmed this artist from the candidates Hito found.",
+  matched_credit_completion:
+    "Matched to the artist you chose for this credit's other tracks.",
 };
 
 export function providerName(
@@ -77,6 +79,7 @@ const tracksBy: Record<Association["evidence"], string> = {
     "because the credit covers enough of this artist's tracks",
   user_confirmed_candidate: "you confirmed",
   user_confirmed: "you chose yourself",
+  matched_credit_completion: "from the artist you chose for this credit",
 };
 
 function listed(parts: string[]) {

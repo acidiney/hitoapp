@@ -30,6 +30,7 @@ const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_associ
     (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'coverage' FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id),
+    (SELECT 'completion' FROM artist_association_completion_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_candidate_confirmations matched WHERE matched.association_id=assoc.id)) AS matched,
     (SELECT matched.source_tracks FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id) AS credit_tracks,
     (SELECT matched.matched_tracks FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id) AS coverage_matched,
@@ -100,6 +101,7 @@ impl Stored {
                 Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
                 Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
                 Some("coverage") => ArtistAssociationEvidence::MatchedCreditCoverage,
+                Some("completion") => ArtistAssociationEvidence::MatchedCreditCompletion,
                 Some("user_confirmed_candidate") => {
                     ArtistAssociationEvidence::UserConfirmedCandidate
                 }
