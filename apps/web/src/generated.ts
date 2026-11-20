@@ -3686,7 +3686,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage" | "user_confirmed_candidate" | "matched_recording_id";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage" | "user_confirmed_candidate" | "matched_recording_id" | "matched_member_solo_credit" | "matched_member_listed_artist_id" | "matched_member_file_tag_artist_id";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
