@@ -10,6 +10,11 @@ export async function pickRelease() {
     await screen.findByRole("button", { name: `Choose ${editionGroup.title}` }),
   );
   await screen.findByRole("group", { name: /^Which track list\?/ });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Use this" }).hasAttribute("disabled"),
+    ).toBe(false),
+  );
 }
 
 export async function loadedTrackList() {
@@ -21,9 +26,7 @@ export async function loadedTrackList() {
 }
 
 export async function confirmEdition() {
-  const use = await screen.findByRole("button", { name: "Use this" });
-  await waitFor(() => expect(use.hasAttribute("disabled")).toBe(false));
-  fireEvent.click(use);
+  fireEvent.click(await screen.findByRole("button", { name: "Use this" }));
   return loadedTrackList();
 }
 
