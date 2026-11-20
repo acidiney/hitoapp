@@ -233,10 +233,23 @@ async fn a_track_with_a_personal_artist_edit_is_left_alone() {
     library.origin.shutdown().await;
 }
 
+async fn retire(library: &NameLibrary, indexes: &[usize]) {
+    for index in indexes {
+        library
+            .execute(&format!(
+                "UPDATE recording_artist_identity_choices SET retired=1,revision=revision+1
+                 WHERE retired=0 AND recording_id='{}'",
+                library.recordings[*index]
+            ))
+            .await;
+    }
+}
+
 #[tokio::test]
 async fn a_current_choice_for_another_artist_on_the_credit_stops_completion() {
     let (personal, _) = confirmed_on_first_two().await;
     choose(&personal, &personal.recordings[2], NAMESAKE).await;
+    retire(&personal, &[3]).await;
     personal.automatic().await;
     undecided(&personal, &[3]).await;
     personal.origin.shutdown().await;
@@ -252,6 +265,7 @@ async fn a_current_choice_for_another_artist_on_the_credit_stops_completion() {
 async fn an_artist_dismissed_for_the_credit_is_not_completed() {
     let (reviewed, credit) = confirmed_on_first_two().await;
     dismiss(&reviewed, &credit, Some(NOVA)).await.unwrap();
+    retire(&reviewed, &[2, 3]).await;
     reviewed.automatic().await;
     undecided(&reviewed, &[2, 3]).await;
     reviewed.origin.shutdown().await;
@@ -268,6 +282,7 @@ async fn an_artist_dismissed_for_the_credit_is_not_completed() {
         )
         .await
         .unwrap();
+    retire(&suggested, &[2, 3]).await;
     suggested.automatic().await;
     undecided(&suggested, &[2, 3]).await;
     suggested.origin.shutdown().await;
