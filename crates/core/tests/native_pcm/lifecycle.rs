@@ -2,11 +2,13 @@ use super::fixture::*;
 use hito_core::{Credentials, Error, QualityRequest, StreamQuality};
 use std::{path::Path, time::Duration};
 
-async fn pid_file(path: &Path) -> String {
+async fn pid_file(path: &Path) -> u32 {
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if let Ok(pid) = std::fs::read_to_string(path) {
-                break pid.trim().to_owned();
+            if let Ok(written) = std::fs::read_to_string(path)
+                && let Ok(pid) = written.trim().parse::<u32>()
+            {
+                break pid;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -15,7 +17,7 @@ async fn pid_file(path: &Path) -> String {
     .unwrap()
 }
 
-async fn gone(pid: &str) {
+async fn gone(pid: u32) {
     tokio::time::timeout(Duration::from_secs(2), async {
         while Path::new(&format!("/proc/{pid}")).exists() {
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -87,7 +89,7 @@ async fn dropping_an_unread_stream_reaps_its_decoder_without_consumer_polling() 
         .unwrap();
     let pid = pid_file(&pid_path).await;
     drop(stream);
-    gone(&pid).await;
+    gone(pid).await;
 }
 
 #[tokio::test]
@@ -137,7 +139,7 @@ async fn logout_reaps_an_idle_decoder_and_prevents_prefetched_audio_delivery() {
         .logout(&session.token)
         .await
         .unwrap();
-    gone(&pid).await;
+    gone(pid).await;
     let delivery = stream.next_block().await;
     assert!(
         matches!(delivery, Err(Error::Unauthorized | Error::NotFound)),
