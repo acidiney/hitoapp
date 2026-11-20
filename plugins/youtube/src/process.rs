@@ -89,7 +89,15 @@ pub(crate) async fn run(
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .process_group(0);
-    let mut child = command.spawn().map_err(|_| Error::Unavailable)?;
+    let mut child = command.spawn().map_err(|error| {
+        tracing::warn!(
+            target: "hito_plugin_youtube::extractor",
+            event = "youtube_process_spawn_failed",
+            outcome = "unavailable",
+            kind = ?error.kind()
+        );
+        Error::Unavailable
+    })?;
     let group = child
         .id()
         .and_then(|id| i32::try_from(id).ok())
