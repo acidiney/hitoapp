@@ -23,6 +23,15 @@ done
 case "$selector" in
     'https://music.youtube.com/search?q=private-first-query-sentinel#songs') slot=first ;;
     'https://music.youtube.com/search?q=private-second-query-sentinel#songs') slot=second ;;
+    'https://music.youtube.com/search?q=private-finished-query-sentinel#songs')
+        remaining=500
+        while [ ! -e "$directory/finish" ] && [ "$remaining" -gt 0 ]; do
+            sleep 0.01
+            remaining=$((remaining - 1))
+        done
+        printf '%s\n' '{"entries":[{"id":"HitoTone005","title":"Owned finished tone","artist":"Hito test performer","duration":12.5}]}'
+        exit 0
+        ;;
     'https://music.youtube.com/search?q=private-fourth-query-sentinel#songs')
         printf '%s\n' '{"entries":[{"id":"HitoTone004","title":"Owned resumed tone","artist":"Hito test performer","duration":12.5}]}'
         exit 0

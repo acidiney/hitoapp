@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
@@ -27,19 +27,16 @@ export default function ScreenLockSettings({
   account: string;
   lock: Schema<"LockStatus">;
 }) {
-  const settings = usePinSettings(account, lock);
+  const [dialog, setDialog] = useState<PinDialogMode | null>(null);
+  const settings = usePinSettings(account, lock, () => setDialog(null));
   const player = usePlayer();
   const locking = useLockSession(account, () => player.clear());
-  const [dialog, setDialog] = useState<PinDialogMode | null>(null);
   const enabled = settings.status.pin_enabled;
   const savedIdle = settings.status.idle_minutes;
   const current =
     idleChoices.find((choice) => choice.minutes === savedIdle) ??
     idleChoices[0];
   useReportUnsaved(settings.pin !== "" || settings.password !== "");
-  useEffect(() => {
-    if (settings.message) setDialog(null);
-  }, [settings.message]);
   function cancel() {
     settings.setPin("");
     settings.setPassword("");

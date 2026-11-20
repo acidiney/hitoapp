@@ -89,7 +89,15 @@ pub(crate) async fn run(
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .process_group(0);
-    let mut child = command.spawn().map_err(|_| Error::Unavailable)?;
+    let mut child = command.spawn().map_err(|error| {
+        tracing::warn!(
+            target: "hito_plugin_youtube::extractor",
+            event = "youtube_process_spawn_failed",
+            outcome = "unavailable",
+            kind = ?error.kind()
+        );
+        Error::Unavailable
+    })?;
     let group = child
         .id()
         .and_then(|id| i32::try_from(id).ok())
@@ -305,18 +313,13 @@ async fn wait_group_stopped(group: Pid, deadline: Instant) -> Result<(), Error> 
             }
             let file = match std::fs::File::open(entry.path().join("stat")) {
                 Ok(file) => file,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) if vanished(&error) => continue,
                 Err(_) => return Err(Error::CleanupFailed),
             };
             let mut value = Vec::new();
             match file.take(MAX_STAT_BYTES as u64 + 1).read_to_end(&mut value) {
                 Ok(_) => {}
-                Err(error)
-                    if error.kind() == std::io::ErrorKind::NotFound
-                        || error.raw_os_error() == Some(Errno::ESRCH as i32) =>
-                {
-                    continue;
-                }
+                Err(error) if vanished(&error) => continue,
                 Err(_) => return Err(Error::CleanupFailed),
             }
             if value.len() > MAX_STAT_BYTES {
@@ -345,4 +348,10 @@ async fn wait_group_stopped(group: Pid, deadline: Instant) -> Result<(), Error> 
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
+}
+
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+pub(crate) fn vanished(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::NotFound
+        || error.raw_os_error() == Some(Errno::ESRCH as i32)
 }

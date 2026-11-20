@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { providerFixture } from "./fixtures/provider";
 import { trackShot } from "./fixtures/track-shots";
@@ -18,6 +19,7 @@ async function selectedTab(page: Page) {
 
 test("a library track walks through every tab with the mouse and the keyboard and keeps its tab on reload", async ({
   page,
+  baseURL,
 }) => {
   if (!sharedAdminSession) await enterAdmin(page);
   const listed = await page.request.get(
@@ -28,9 +30,34 @@ test("a library track walks through every tab with the mouse and the keyboard an
     await listed.json()
   ).items.find((item: Schema<"Recording">) => item.title === "Fixture 440 Hz");
   if (!recording) throw new Error("The scanned fixture library is required");
+  const unliked = await page.request.post("/api/v1/sync", {
+    headers: { "x-hito-request": "1", origin: new URL(baseURL!).origin },
+    data: {
+      device_id: "track-tabs-e2e",
+      operations: [
+        {
+          id: randomUUID(),
+          action: {
+            kind: "like_set",
+            recording_id: recording.id,
+            liked: false,
+          },
+        },
+      ],
+    },
+  });
+  expect(unliked.status()).toBe(200);
   const base = `/recordings/${recording.id}`;
   await page.goto(base);
   const header = page.locator(".track-header");
+  const like = header.getByRole("button", {
+    name: `Like ${recording.title}`,
+    exact: true,
+  });
+  const unlike = header.getByRole("button", {
+    name: `Unlike ${recording.title}`,
+    exact: true,
+  });
   await expect(page.getByRole("tablist", { name: "Track" })).toBeVisible();
   await expect(header.getByRole("heading", { level: 1 })).toHaveText(
     recording.title,
@@ -40,23 +67,13 @@ test("a library track walks through every tab with the mouse and the keyboard an
     header.getByRole("button", { name: "Play", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("tabpanel", { name: "Overview" })).toBeVisible();
-  await expect(
-    header.getByRole("button", { name: `Like ${recording.title}` }),
-  ).toBeVisible();
-  await header.getByRole("button", { name: `Like ${recording.title}` }).click();
-  await expect(
-    header.getByRole("button", { name: `Unlike ${recording.title}` }),
-  ).toBeVisible();
+  await expect(like).toBeVisible();
+  await like.click();
+  await expect(unlike).toBeVisible();
   await page.reload();
-  await expect(
-    header.getByRole("button", { name: `Unlike ${recording.title}` }),
-  ).toBeVisible();
-  await header
-    .getByRole("button", { name: `Unlike ${recording.title}` })
-    .click();
-  await expect(
-    header.getByRole("button", { name: `Like ${recording.title}` }),
-  ).toBeVisible();
+  await expect(unlike).toBeVisible();
+  await unlike.click();
+  await expect(like).toBeVisible();
   await header.getByRole("button", { name: "More actions" }).click();
   await expect(
     page.getByRole("menuitem", { name: "Retry artwork" }),

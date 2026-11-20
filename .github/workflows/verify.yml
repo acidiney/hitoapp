@@ -12,8 +12,6 @@ permissions:
   contents: read
 env:
   CARGO_BUILD_JOBS: "4"
-  COMPOSE_EXTRA: scripts/ci/sccache.compose.yaml
-  COMPOSE_FILE: compose.yaml:scripts/ci/sccache.compose.yaml
 jobs:
   desktop-linux:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -21,7 +19,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Verify Linux desktop in Docker
         run: ./scripts/check-desktop.sh
       - name: Make desktop evidence readable
@@ -40,7 +38,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Check formatting
         run: make fmt-check
       - name: Lint
@@ -51,7 +49,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Test core
         run: make check-core
   rust-server:
@@ -60,7 +58,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Test server
         run: make check-server
   rust-rest:
@@ -69,7 +67,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Test the other crates
         run: make check-rest
   web:
@@ -78,7 +76,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Install
         run: make web-install
       - name: Lint
@@ -99,7 +97,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Install
         run: make web-install
       - name: Browser tests

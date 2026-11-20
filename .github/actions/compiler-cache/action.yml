@@ -1,0 +1,18 @@
+name: Compiler cache
+description: Install sccache and build without it when the GitHub cache service refuses to serve it
+runs:
+  using: composite
+  steps:
+    - uses: mozilla-actions/sccache-action@v0.0.11
+    - name: Check the compiler cache
+      shell: bash
+      env:
+        SCCACHE_GHA_ENABLED: "true"
+      run: |
+        if "$SCCACHE_PATH" --start-server; then
+          "$SCCACHE_PATH" --stop-server >/dev/null || true
+          echo "COMPOSE_EXTRA=scripts/ci/sccache.compose.yaml" >> "$GITHUB_ENV"
+          echo "COMPOSE_FILE=compose.yaml:scripts/ci/sccache.compose.yaml" >> "$GITHUB_ENV"
+        else
+          echo "::warning::The compiler cache is unavailable, so this job builds without it"
+        fi
