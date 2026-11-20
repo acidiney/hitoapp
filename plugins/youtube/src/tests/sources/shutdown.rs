@@ -2,9 +2,14 @@ use super::{Capture, bounded_body, exchange, https, owned_aac, representation};
 use crate::{Config, Service};
 use axum::http::{Method, StatusCode};
 use hito_plugin_sdk::{RecordingRequest, SourcePage};
+use nix::sys::socket::{SockaddrIn, getpeername};
 use serde_json::json;
 use std::{
-    collections::HashSet, fs, net::SocketAddr, os::unix::fs::PermissionsExt, path::PathBuf,
+    collections::HashSet,
+    fs,
+    net::{SocketAddr, SocketAddrV4},
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
     time::Duration,
 };
 
@@ -67,30 +72,21 @@ fn client_socket(server: SocketAddr) -> PathBuf {
     let SocketAddr::V4(server) = server else {
         panic!("The owned CDN must use its explicit IPv4 loopback listener");
     };
-    let remote = format!(
-        "{:08X}:{:04X}",
-        u32::from_ne_bytes(server.ip().octets()),
-        server.port()
-    );
-    let sockets = socket_targets();
-    let table = fs::read_to_string("/proc/net/tcp").unwrap();
-    let matching: Vec<_> = table
-        .lines()
-        .skip(1)
-        .filter_map(|line| {
-            let fields: Vec<_> = line.split_whitespace().collect();
-            if fields.len() < 10 || fields[2] != remote || fields[1] == remote || fields[3] != "01"
-            {
-                return None;
-            }
-            let target = PathBuf::from(format!("socket:[{}]", fields[9]));
-            sockets.contains(&target).then_some(target)
+    let matching: HashSet<_> = fs::read_dir("/proc/self/fd")
+        .unwrap()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let descriptor = entry.file_name().to_str()?.parse().ok()?;
+            let target = fs::read_link(entry.path()).ok()?;
+            let peer: SockaddrIn = getpeername(descriptor).ok()?;
+            (target.to_string_lossy().starts_with("socket:[") && SocketAddrV4::from(peer) == server)
+                .then_some(target)
         })
         .collect();
     assert_eq!(
         matching.len(),
         1,
-        "The owned CDN tuple must identify exactly one live client socket inode"
+        "The owned CDN address must identify exactly one connected client socket inode"
     );
     matching.into_iter().next().unwrap()
 }
