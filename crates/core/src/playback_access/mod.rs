@@ -8,11 +8,12 @@ pub(crate) mod origin;
 mod preferred;
 mod provider;
 pub(crate) mod relay;
+mod warm;
 
 pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
 pub use conversion::{
-    ConversionStream, ConvertedAudio, MAX_CONVERSION_START, QualityAudio, QualityRequest,
-    StreamQuality,
+    ConversionStream, ConvertedAudio, ConvertedBody, MAX_CONVERSION_START, QualityAudio,
+    QualityRequest, StreamQuality,
 };
 pub use decoding::{PcmBlock, PcmFormat, PcmInput, PcmOpening, PcmStream, StreamDecoder};
 pub use grant::PlaybackSource;
@@ -32,6 +33,7 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct PlaybackAccess {
     pub(crate) leases: std::sync::Arc<leases::registry::Registry>,
+    pub(crate) warm: std::sync::Arc<warm::Registry>,
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) origins: Origins,
@@ -64,15 +66,8 @@ impl PlaybackAccess {
         source: &str,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
-        if let Some(opened) = self
-            .origins
-            .provider
-            .open_current(actor, source, request)
-            .await?
-        {
-            return Ok(opened);
-        }
-        self.source_grant(actor, source).await?.open(request).await
+        let grant = self.source_grant(actor, source).await?;
+        self.open_admitted_audio(actor, &grant, request).await
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
@@ -88,18 +83,15 @@ impl PlaybackAccess {
                 .original_audio(actor, source, request, "original-requested")
                 .await;
         };
-        if let Some(opened) = self
-            .origins
-            .provider
-            .open_current(actor, source, request.original)
-            .await?
-        {
+        let grant = self.source_grant(actor, source).await?;
+        if grant.is_provider_remote() {
             return Ok(QualityAudio::Original {
-                audio: opened,
+                audio: self
+                    .open_admitted_audio(actor, &grant, request.original)
+                    .await?,
                 reason: "remote-source",
             });
         }
-        let grant = self.source_grant(actor, source).await?;
         let Some(file) = grant.open_file_if_present().await? else {
             return conversion::original(&grant, request, "remote-source").await;
         };
@@ -128,6 +120,27 @@ impl PlaybackAccess {
         })
     }
 
+    async fn open_admitted_audio(
+        &self,
+        actor: &Actor,
+        grant: &PlaybackSource,
+        request: AudioRequest,
+    ) -> Result<OpenedAudio> {
+        if grant.is_provider_remote()
+            && let Some(mut taken) = self.warm.claim_source(actor, grant, request).await?
+        {
+            let expected = taken.content.length;
+            taken.content.body = Some(AudioStream::prepared(
+                taken.prefix,
+                taken.body,
+                taken.reservation,
+                expected,
+            ));
+            return Ok(OpenedAudio::Content(taken.content));
+        }
+        grant.open(request).await
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id(), source_id))]
     pub async fn audio_file(&self, actor: &Actor, source: &str) -> Result<AudioFile> {
         actor.check_session(&self.store).await?;
@@ -144,7 +157,7 @@ impl PlaybackAccess {
         tokio::time::timeout(Duration::from_secs(1), async {
             actor.check_session(&self.store).await?;
             let recording: String = sqlx::query_scalar(
-                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download','podcast')",
+                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download','podcast','plugin')",
             )
             .bind(source)
             .fetch_optional(&self.store.pool)

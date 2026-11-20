@@ -31,6 +31,8 @@ pub mod community_corrections_schema;
 pub mod correction_schema;
 #[path = "coverage_matches_schema.rs"]
 pub mod coverage_matches_schema;
+#[path = "credit_completion_schema.rs"]
+pub mod credit_completion_schema;
 #[path = "credit_matches_schema.rs"]
 pub mod credit_matches_schema;
 #[path = "credit_member_identity_choice_schema.rs"]
@@ -562,8 +564,12 @@ pub async fn reference_101() -> SqliteConnection {
     album_additions_schema::reference(reference_100().await).await
 }
 
+pub async fn reference_102() -> SqliteConnection {
+    credit_completion_schema::reference(reference_101().await).await
+}
+
 pub async fn reference_103() -> SqliteConnection {
-    credit_member_matches_schema::reference(reference_101().await).await
+    credit_member_matches_schema::reference(reference_102().await).await
 }
 
 pub async fn assert_current(connection: &mut SqliteConnection) {
@@ -622,6 +628,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         99 => reference_99().await,
         100 => reference_100().await,
         101 => reference_101().await,
+        102 => reference_102().await,
         103 => reference_103().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
@@ -874,6 +881,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 97),
+    )
+    .chain(
+        credit_completion_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 102),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
@@ -956,12 +969,8 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .fetch_one(&mut *connection)
             .await
             .unwrap();
+    assert_eq!(receipt, (version, version));
     let migrations = sqlx::migrate!("./migrations");
-    let declared = migrations
-        .iter()
-        .filter(|migration| migration.version <= version)
-        .count() as i64;
-    assert_eq!(receipt, (version, declared));
     for version in [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]
         .into_iter()
         .filter(|candidate| *candidate <= version)

@@ -1,4 +1,5 @@
 mod apply;
+mod completion;
 mod coverage;
 mod credit;
 mod members;

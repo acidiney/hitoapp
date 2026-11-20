@@ -5,7 +5,9 @@ pub(super) mod registry;
 mod testing;
 mod types;
 
-use super::{AudioRequest, OpenedAudio, PlaybackAccess, PlaybackSource};
+use super::{
+    AudioRequest, OpenedAudio, PlaybackAccess, PlaybackSource, QualityAudio, QualityRequest,
+};
 use crate::{Actor, Error, Result};
 use futures_util::FutureExt;
 use registry::{Completion, Retirement, Work};
@@ -44,6 +46,7 @@ struct Entry {
     cancel: watch::Sender<bool>,
     ready: AtomicBool,
     grant: OnceLock<PlaybackSource>,
+    warm: Arc<super::warm::Registry>,
     commands: mpsc::Sender<owner::Command>,
     wake: Arc<Notify>,
 }
@@ -145,6 +148,7 @@ impl PlaybackAccess {
             cancel: watch::channel(false).0,
             ready: AtomicBool::new(false),
             grant: OnceLock::new(),
+            warm: self.warm.clone(),
             commands,
             wake: Arc::new(Notify::new()),
         });
@@ -249,7 +253,19 @@ impl PlaybackAccess {
         let started = entry.started;
         let mut observer = Observer(Some(entry));
         let lease = created.await.map_err(|_| stopped())??;
-        observer.0.as_ref().ok_or_else(stopped)?.check().await?;
+        let entry = observer.0.as_ref().ok_or_else(stopped)?;
+        entry.check().await?;
+        if let Some(grant) = entry.grant.get().cloned() {
+            self.warm
+                .try_start(
+                    entry.metadata.id,
+                    &entry.actor,
+                    entry.cancel.subscribe(),
+                    grant,
+                    entry.deadline,
+                )
+                .await;
+        }
         observer.0 = None;
         tracing::debug!(
             event = "playback_lease_created",
@@ -292,6 +308,57 @@ impl PlaybackAccess {
         result
     }
 
+    #[tracing::instrument(level="debug", skip_all, err(Debug), fields(account_id=actor.id(), playback_lease=tracing::field::Empty, quality=request.quality.label()))]
+    pub async fn open_lease_quality_audio(
+        &self,
+        actor: &Actor,
+        id: Uuid,
+        request: QualityRequest,
+    ) -> Result<QualityAudio> {
+        request.validate()?;
+        let Some(target) = request.quality.target_bitrate() else {
+            if !request.start.is_zero() {
+                return Err(Error::Invalid(
+                    "Start position requires a converted stream".into(),
+                ));
+            }
+            return Ok(QualityAudio::Original {
+                audio: self.open_lease_audio(actor, id, request.original).await?,
+                reason: "original-requested",
+            });
+        };
+        self.lease_actor(actor, id).await?;
+        let entry = self.leases.entry(actor, id)?;
+        tracing::Span::current().record("playback_lease", entry.correlation);
+        entry.check().await?;
+        let (reply, opened) = oneshot::channel();
+        entry
+            .commands
+            .send(owner::Command::OpenQuality(
+                owner::QualityOpen {
+                    request,
+                    limits: self.conversions.clone(),
+                    tools: self.tools.clone(),
+                },
+                reply,
+            ))
+            .await
+            .map_err(|_| Error::NotFound)?;
+        let result = opened.await.map_err(|_| Error::NotFound)?;
+        entry.check().await?;
+        match result? {
+            owner::LeaseConversion::Converted(body) => Ok(super::conversion::converted(
+                request,
+                target,
+                body.map(super::conversion::ConvertedBody::Lease),
+            )),
+            owner::LeaseConversion::Unchanged(reason) => Ok(QualityAudio::Original {
+                audio: self.open_lease_audio(actor, id, request.original).await?,
+                reason,
+            }),
+        }
+    }
+
     #[tracing::instrument(level="debug", skip_all, err(Debug), fields(account_id=actor.id(), playback_lease=tracing::field::Empty))]
     pub async fn release_lease(&self, actor: &Actor, id: Uuid) -> Result<()> {
         self.lease_actor(actor, id).await?;
@@ -314,6 +381,7 @@ impl PlaybackAccess {
         if let Some(completion) = completion {
             completion.await.map_err(|_| stopped())?;
         }
+        self.warm.retire_lease(id).await?;
         Ok(())
     }
 
@@ -323,6 +391,8 @@ impl PlaybackAccess {
     pub async fn close(&self) -> Result<()> {
         let started = std::time::Instant::now();
         self.leases.closing()?.await.map_err(|_| stopped())?;
+        let warm_closed = self.warm.close().await;
+        warm_closed?;
         tracing::debug!(
             event = "playback_leases_closed",
             outcome = "closed",
@@ -419,3 +489,7 @@ fn check_client(client: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "../../tests/playback_leases/quality_lifecycle.rs"]
+mod quality_lifecycle;

@@ -6,13 +6,14 @@ use uuid::Uuid;
 const ASSOCIATIONS_OF_ACCOUNT: &str =
     "(SELECT id FROM recording_artist_associations WHERE user_id=?1)";
 
-const PROVENANCE_TABLES: [&str; 8] = [
+const PROVENANCE_TABLES: [&str; 9] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_recording_id_matches",
     "artist_association_name_matches",
     "artist_association_credit_matches",
     "artist_association_coverage_matches",
+    "artist_association_completion_matches",
     "artist_association_candidate_confirmations",
     "artist_association_member_matches",
 ];

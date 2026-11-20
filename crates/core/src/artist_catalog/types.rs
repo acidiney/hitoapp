@@ -78,6 +78,7 @@ pub enum ArtistAssociationEvidence {
     MatchedCreditCoverage,
     UserConfirmedCandidate,
     MatchedRecordingId,
+    MatchedCreditCompletion,
     MatchedMemberSoloCredit,
     MatchedMemberListedArtistId,
     MatchedMemberFileTagArtistId,

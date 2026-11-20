@@ -863,6 +863,9 @@ impl ArtistCatalog {
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        if !pending.is_empty() {
+            self.complete_after_decision(actor, artist).await;
+        }
         Ok(receipt)
     }
 

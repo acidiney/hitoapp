@@ -45,6 +45,10 @@ test.each([
     "You confirmed this artist from the candidates Hito found.",
   ],
   [
+    "matched_credit_completion",
+    "Matched to the artist you chose for this credit's other tracks.",
+  ],
+  [
     "matched_member_solo_credit",
     "Matched automatically because this artist's own tracks already have this identity.",
   ],

@@ -27,6 +27,7 @@ pub use authorization::{
 pub use configured::{ConfiguredOffer, ConfiguredPluginService};
 pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
+pub(crate) use media::WarmTicket;
 pub(crate) use operation::{CatalogDiscoveryResponse, LyricsDocumentResponse, Operation};
 pub(crate) use playlist_operation::{PlaylistOperation, PlaylistOperationFailure};
 pub(crate) use playlists::PlaylistSnapshot;

@@ -63,6 +63,7 @@ impl Downloads {
         let mut lease: Lease = sqlx::query_as("SELECT j.id,j.account_id,j.intent_id,j.generation,j.attempts,j.lease_token,
             i.recording_id,i.host_device,i.file_id,i.provider_source_id,i.binding_id,i.binding_revision,i.remote_source_id,
             i.installation_id,i.installation_revision,i.service_id,i.service_revision,i.credential_digest,i.audio_generation,
+            COALESCE((SELECT ps.generation FROM provider_sources ps WHERE ps.source_id=i.provider_source_id AND ps.recording_id=i.recording_id),-1) AS source_generation,
             i.origin_kind,i.podcast_source_id,i.podcast_episode_id,i.podcast_subscription_id,
             i.podcast_subscription_generation,i.podcast_enclosure_revision,i.podcast_enclosure_url
             FROM download_jobs j JOIN download_intents i ON i.id=j.intent_id WHERE j.id=?")

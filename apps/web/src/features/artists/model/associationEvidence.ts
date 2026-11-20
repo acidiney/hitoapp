@@ -20,6 +20,8 @@ const matched: Record<
     "Matched automatically from the artist's name, corroborated by its recordings.",
   user_confirmed_candidate:
     "You confirmed this artist from the candidates Hito found.",
+  matched_credit_completion:
+    "Matched to the artist you chose for this credit's other tracks.",
   matched_member_solo_credit:
     "Matched automatically because this artist's own tracks already have this identity.",
   matched_member_listed_artist_id:
@@ -83,6 +85,7 @@ const tracksBy: Record<Association["evidence"], string> = {
     "because the credit covers enough of this artist's tracks",
   user_confirmed_candidate: "you confirmed",
   user_confirmed: "you chose yourself",
+  matched_credit_completion: "from the artist you chose for this credit",
   matched_member_solo_credit: "from this artist's own tracks",
   matched_member_listed_artist_id: "from the identifier listed beside the name",
   matched_member_file_tag_artist_id:

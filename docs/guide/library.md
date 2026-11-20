@@ -103,6 +103,8 @@ Nothing changes until you confirm.
 
 On an artist credit page, **Choose the artist** can apply one artist to every track with that credit. Hito shows what will change before it writes anything. Tracks that already have a different artist keep it.
 
+Once you confirm or choose an artist for some of a credit's tracks, the next background match gives that artist to the credit's other tracks that have no artist yet. Their **Saved artist reviews** say "Matched to the artist you chose for this credit's other tracks." Hito skips this when another artist is linked to any track of that credit, when you dismissed that artist for the credit, and when the credit names several artists. Tracks with a personal artist edit keep what they have.
+
 ### Choose the artist for one credited artist
 
 When a track credits more than one artist, such as a featured guest, you can pick the artist for each of them separately.
