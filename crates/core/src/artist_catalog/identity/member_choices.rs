@@ -402,7 +402,7 @@ pub(crate) async fn retire_changed(
 ) -> Result<()> {
     targets.push(
         "UPDATE recording_artist_member_identity_choices AS choice
-         SET retired=1,revision=revision+1 WHERE retired=0 AND association_id IS NOT NULL
+         SET retired=1,revision=revision+1,role=role WHERE retired=0 AND association_id IS NOT NULL
             AND (choice.user_id,choice.recording_id) IN (SELECT user_id,recording_id FROM targets)
             AND (NOT EXISTS (SELECT 1 FROM account_recording_credit_members member
                     WHERE member.user_id=choice.user_id AND member.recording_id=choice.recording_id

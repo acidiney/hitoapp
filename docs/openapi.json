@@ -24570,7 +24570,10 @@
           "matched_credit_coverage",
           "user_confirmed_candidate",
           "matched_recording_id",
-          "matched_credit_completion"
+          "matched_credit_completion",
+          "matched_member_solo_credit",
+          "matched_member_listed_artist_id",
+          "matched_member_file_tag_artist_id"
         ]
       },
       "ArtistAssociationRetirement": {

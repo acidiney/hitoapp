@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_102().await;
+        let mut reference = collection_artwork_schema::reference_103().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED
@@ -558,6 +558,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::source_readiness_schema::ADDED)
             .chain(collection_artwork_schema::album_additions_schema::ADDED)
             .chain(collection_artwork_schema::credit_completion_schema::ADDED)
+            .chain(collection_artwork_schema::credit_member_matches_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(

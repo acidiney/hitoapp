@@ -22,6 +22,12 @@ const matched: Record<
     "You confirmed this artist from the candidates Hito found.",
   matched_credit_completion:
     "Matched to the artist you chose for this credit's other tracks.",
+  matched_member_solo_credit:
+    "Matched automatically because this artist's own tracks already have this identity.",
+  matched_member_listed_artist_id:
+    "Matched automatically from the artist identifier listed beside this name.",
+  matched_member_file_tag_artist_id:
+    "Matched automatically from the one artist identifier in the file's tags left for this name.",
 };
 
 export function providerName(
@@ -80,6 +86,10 @@ const tracksBy: Record<Association["evidence"], string> = {
   user_confirmed_candidate: "you confirmed",
   user_confirmed: "you chose yourself",
   matched_credit_completion: "from the artist you chose for this credit",
+  matched_member_solo_credit: "from this artist's own tracks",
+  matched_member_listed_artist_id: "from the identifier listed beside the name",
+  matched_member_file_tag_artist_id:
+    "from the identifier left in the file tags",
 };
 
 function listed(parts: string[]) {

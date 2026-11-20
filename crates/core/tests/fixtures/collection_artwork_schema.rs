@@ -37,6 +37,8 @@ pub mod credit_completion_schema;
 pub mod credit_matches_schema;
 #[path = "credit_member_identity_choice_schema.rs"]
 pub mod credit_member_identity_choice_schema;
+#[path = "credit_member_matches_schema.rs"]
+pub mod credit_member_matches_schema;
 #[path = "credit_member_schema.rs"]
 pub mod credit_member_schema;
 #[path = "credited_artist_photos_schema.rs"]
@@ -566,6 +568,10 @@ pub async fn reference_102() -> SqliteConnection {
     credit_completion_schema::reference(reference_101().await).await
 }
 
+pub async fn reference_103() -> SqliteConnection {
+    credit_member_matches_schema::reference(reference_102().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -623,6 +629,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         100 => reference_100().await,
         101 => reference_101().await,
         102 => reference_102().await,
+        103 => reference_103().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

@@ -220,7 +220,7 @@ async fn candidates(
     Ok((candidates, next_after))
 }
 
-fn artist_id(value: &str) -> Option<String> {
+pub(super) fn artist_id(value: &str) -> Option<String> {
     let id = Uuid::parse_str(value.trim()).ok()?;
     (provider::validate_builtin_id(&id.hyphenated().to_string()).is_ok()
         && value.trim().len() == 36)
