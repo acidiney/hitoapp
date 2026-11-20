@@ -258,6 +258,9 @@ impl Drop for HeldReleaseOnDrop {
         while Instant::now() < deadline {
             let stopped = ["first", "second"].iter().all(|slot| {
                 let directory = self.0.join(slot);
+                if !directory.exists() {
+                    return true;
+                }
                 let Ok(leader) = ProcessIdentity::read(&directory.join("leader.identity")) else {
                     return false;
                 };
