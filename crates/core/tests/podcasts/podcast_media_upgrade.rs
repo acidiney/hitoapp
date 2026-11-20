@@ -327,7 +327,11 @@ async fn assert_version(connection: &mut SqliteConnection, expected: i64) {
             .fetch_one(connection)
             .await
             .unwrap();
-    assert_eq!(version, (expected, expected));
+    let declared = sqlx::migrate!("./migrations")
+        .iter()
+        .filter(|migration| migration.version <= expected)
+        .count() as i64;
+    assert_eq!(version, (expected, declared));
 }
 
 #[derive(PartialEq, Eq)]

@@ -79,7 +79,7 @@ async fn opening_schema_96_keeps_credit_targets_and_accepts_private_member_choic
                 .unwrap();
             snapshot::assert_preserved(inspector, &seeded.rows).await;
             assert_eq!(association_keys(inspector).await, seeded.keys);
-            assert_history(inspector, 101).await;
+            assert_history(inspector, &(1..=101).chain([103]).collect::<Vec<_>>()).await;
             assert_eq!(member_count(inspector).await, 0);
             assert_database(inspector).await;
             connection.take().unwrap().close().await.unwrap();
@@ -145,7 +145,7 @@ async fn prepare96(database: &Path, provider: &catalog::DiscoveryServer) -> Seed
                 .filter(|migration| migration.version <= 96).cloned().collect()),
             ..Migrator::DEFAULT
         }.run(&mut *connection).await.unwrap();
-        assert_history(connection, 96).await;
+        assert_history(connection, &(1..=96).collect::<Vec<_>>()).await;
         let absent: i64 = sqlx::query_scalar("SELECT count(*) FROM sqlite_schema WHERE name='recording_artist_member_identity_choices'")
             .fetch_one(&mut *connection).await.unwrap();
         assert_eq!(absent, 0);
@@ -533,13 +533,13 @@ async fn member_count(connection: &mut SqliteConnection) -> i64 {
         .unwrap()
 }
 
-async fn assert_history(connection: &mut SqliteConnection, latest: i64) {
+async fn assert_history(connection: &mut SqliteConnection, applied: &[i64]) {
     let history: Vec<i64> =
         sqlx::query_scalar("SELECT version FROM _sqlx_migrations WHERE success=1 ORDER BY version")
             .fetch_all(connection)
             .await
             .unwrap();
-    assert_eq!(history, (1..=latest).collect::<Vec<_>>());
+    assert_eq!(history, applied);
 }
 
 async fn assert_database(connection: &mut SqliteConnection) {
