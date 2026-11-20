@@ -123,7 +123,7 @@ Automatic matching also picks an artist for each credited artist when your own l
 - The file lists a MusicBrainz identifier beside each name.
 - The file's artist identifiers leave exactly one identifier for the last credited artist that has none.
 
-A combined name such as "Ada & Bo, Cy" is only split when MusicBrainz has no artist with the whole name and every part has its own track with an artist, as above. So a duo whose name contains "&" stays whole when MusicBrainz knows the duo. A split credit lists its parts under **Credited artists** and leaves the review queue once every part has an artist. If a part loses its own artist, the next matching run puts the name back together, unless you changed the choice for one of its parts yourself.
+A combined name such as "Ada & Bo, Cy" is only split when MusicBrainz has no artist with the whole name and every part has its own track with an artist, as above. So a duo whose name contains "&" stays whole when MusicBrainz knows the duo. A name you chose or cleared for the whole credit also keeps it whole. Parts after "feat." are listed as featured. A split credit lists its parts under **Credited artists** and leaves the review queue once every part has an artist. If a part loses its own artist, the next matching run puts the name back together, unless you changed the choice for one of its parts yourself.
 
 Hito never replaces a choice you made, including **Clear choice**, and leaves tracks with a personal artist edit alone.
 
