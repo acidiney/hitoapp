@@ -1,4 +1,5 @@
 use super::apply::{EvidenceKind, Origin, Pending, Planned, REPLACEABLE, plan};
+use super::name_probe::normalize;
 use crate::artist_catalog::identity::groups::current_choices;
 use crate::{Actor, Result};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
@@ -6,18 +7,30 @@ use std::collections::BTreeMap;
 
 const MAX_SIBLINGS: i64 = 1000;
 
+const MAX_PARTS: usize = 16;
+const MAX_PART_BYTES: usize = 256;
+const MAX_JOIN_CHARS: usize = 64;
+
+fn fold(character: char) -> char {
+    match character {
+        '\u{ff01}'..='\u{ff5e}' => {
+            char::from_u32(u32::from(character) - 0xfee0).unwrap_or(character)
+        }
+        '\u{3000}' => ' ',
+        '\u{3001}' => ',',
+        other => other,
+    }
+}
+
 fn folded(name: &str) -> String {
     name.chars()
-        .map(|character| match character {
-            '\u{ff01}'..='\u{ff5e}' => {
-                char::from_u32(u32::from(character) - 0xfee0).unwrap_or(character)
-            }
-            '\u{3000}' => ' ',
-            '\u{3001}' => ',',
-            other => other,
-        })
+        .map(fold)
         .flat_map(char::to_lowercase)
         .collect()
+}
+
+fn separates(character: char) -> bool {
+    matches!(character, '&' | ',' | ';' | '/' | '+' | '|' | '\u{d7}')
 }
 
 const SEPARATOR_WORDS: [&str; 13] = [
@@ -37,7 +50,7 @@ const SEPARATOR_WORDS: [&str; 13] = [
 ];
 
 fn lists_several(text: &str) -> bool {
-    text.contains(['&', ',', ';', '/', '+', '|', '\u{d7}'])
+    text.contains(separates)
         || text
             .split(|character: char| !character.is_alphanumeric())
             .any(|word| SEPARATOR_WORDS.contains(&word))
@@ -61,6 +74,106 @@ pub(super) fn names_several(name: &str) -> bool {
         }
     }
     lists_several(&outside) || lists_several(&inside)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct CreditPart {
+    pub(super) name: String,
+    pub(super) join: Option<String>,
+}
+
+fn separators(name: &str) -> Vec<(usize, usize)> {
+    let characters: Vec<(usize, char)> = name
+        .char_indices()
+        .map(|(at, character)| (at, fold(character)))
+        .collect();
+    let end_of = |index: usize| characters.get(index).map_or(name.len(), |(at, _)| *at);
+    let mut cuts = Vec::new();
+    let mut depth = 0_u32;
+    let mut index = 0;
+    while index < characters.len() {
+        let (at, character) = characters[index];
+        if matches!(character, '(' | '[' | '{') {
+            depth += 1;
+        } else if matches!(character, ')' | ']' | '}') {
+            depth = depth.saturating_sub(1);
+        } else if character.is_alphanumeric() {
+            let start = index;
+            while characters
+                .get(index)
+                .is_some_and(|(_, character)| character.is_alphanumeric())
+            {
+                index += 1;
+            }
+            let word: String = characters[start..index]
+                .iter()
+                .flat_map(|(_, character)| character.to_lowercase())
+                .collect();
+            if depth == 0
+                && start > 0
+                && index < characters.len()
+                && SEPARATOR_WORDS.contains(&word.as_str())
+            {
+                if characters
+                    .get(index)
+                    .is_some_and(|(_, character)| *character == '.')
+                {
+                    index += 1;
+                }
+                cuts.push((at, end_of(index)));
+            }
+            continue;
+        } else if depth == 0 && separates(character) {
+            cuts.push((at, end_of(index + 1)));
+        }
+        index += 1;
+    }
+    cuts
+}
+
+pub(super) fn split_names(name: &str) -> Option<Vec<CreditPart>> {
+    let cuts = separators(name);
+    let mut spans: Vec<(usize, usize)> = Vec::new();
+    let mut previous = 0;
+    let ends = cuts.iter().copied().chain([(name.len(), name.len())]);
+    for (index, (start, end)) in ends.enumerate() {
+        let segment = &name[previous..start];
+        let trimmed = segment.trim();
+        if trimmed.is_empty() {
+            if index == 0 || index == cuts.len() {
+                return None;
+            }
+        } else {
+            let offset = previous + segment.len() - segment.trim_start().len();
+            spans.push((offset, offset + trimmed.len()));
+        }
+        previous = end;
+    }
+    if !(2..=MAX_PARTS).contains(&spans.len()) {
+        return None;
+    }
+    let mut seen = std::collections::HashSet::new();
+    let mut parts = Vec::with_capacity(spans.len());
+    for (index, (start, end)) in spans.iter().enumerate() {
+        let part = &name[*start..*end];
+        let join = spans
+            .get(index + 1)
+            .map(|(next, _)| name[*end..*next].to_owned());
+        if part.len() > MAX_PART_BYTES
+            || part.chars().any(char::is_control)
+            || !seen.insert(normalize(part))
+            || join
+                .as_ref()
+                .is_some_and(|join| join.chars().count() > MAX_JOIN_CHARS)
+        {
+            return None;
+        }
+        parts.push(CreditPart {
+            name: part.to_owned(),
+            join,
+        });
+    }
+    Some(parts)
 }
 
 struct Group {
@@ -317,7 +430,84 @@ pub(super) async fn extend(
 
 #[cfg(test)]
 mod tests {
-    use super::names_several;
+    use super::{names_several, split_names};
+
+    fn parts(name: &str) -> Option<Vec<(String, Option<String>)>> {
+        split_names(name).map(|parts| {
+            parts
+                .into_iter()
+                .map(|part| (part.name, part.join))
+                .collect()
+        })
+    }
+
+    fn joined(items: &[(&str, Option<&str>)]) -> Option<Vec<(String, Option<String>)>> {
+        Some(
+            items
+                .iter()
+                .map(|(name, join)| ((*name).to_owned(), join.map(str::to_owned)))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn a_combined_credit_splits_outside_brackets_into_distinct_names_with_their_joins() {
+        assert_eq!(
+            parts("Duo North & Duo South, Night Band"),
+            joined(&[
+                ("Duo North", Some(" & ")),
+                ("Duo South", Some(", ")),
+                ("Night Band", None)
+            ])
+        );
+        assert_eq!(
+            parts("Ada feat. Bo"),
+            joined(&[("Ada", Some(" feat. ")), ("Bo", None)])
+        );
+        assert_eq!(
+            parts("Ada feat.Bo"),
+            joined(&[("Ada", Some(" feat.")), ("Bo", None)])
+        );
+        assert_eq!(
+            parts("Ada x Bo"),
+            joined(&[("Ada", Some(" x ")), ("Bo", None)])
+        );
+        assert_eq!(
+            parts("Ada, and Bo"),
+            joined(&[("Ada", Some(", and ")), ("Bo", None)])
+        );
+        assert_eq!(
+            parts("Ada (Live) & Bo"),
+            joined(&[("Ada (Live)", Some(" & ")), ("Bo", None)])
+        );
+        assert_eq!(
+            parts("A \u{ff06} B"),
+            joined(&[("A", Some(" \u{ff06} ")), ("B", None)])
+        );
+        assert_eq!(
+            parts("Xavier & Maxwell"),
+            joined(&[("Xavier", Some(" & ")), ("Maxwell", None)])
+        );
+        for whole in [
+            "Ada (feat. Bo)",
+            "Nova Quartet",
+            "Ada & ada",
+            "& Ada",
+            "Ada &",
+            "Ada & ",
+            "With Love",
+            "Love x",
+        ] {
+            assert_eq!(parts(whole), None, "{whole}");
+        }
+        let sixteen: Vec<String> = (0..16).map(|index| format!("Member {index}")).collect();
+        assert_eq!(
+            split_names(&sixteen.join(", ")).map(|parts| parts.len()),
+            Some(16)
+        );
+        let seventeen: Vec<String> = (0..17).map(|index| format!("Member {index}")).collect();
+        assert_eq!(split_names(&seventeen.join(", ")), None);
+    }
 
     #[test]
     fn credits_listing_several_artists_are_not_one_artist() {

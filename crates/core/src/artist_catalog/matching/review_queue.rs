@@ -113,8 +113,12 @@ pub(super) async fn keep(
 }
 
 fn undecided(credit_filter: &str) -> String {
+    undecided_from("", credit_filter)
+}
+
+fn undecided_from(driving: &str, credit_filter: &str) -> String {
     format!(
-        "SELECT r.id AS id,rc.artist_id AS artist_id FROM artist_name_checks k
+        "SELECT r.id AS id,rc.artist_id AS artist_id FROM {driving} artist_name_checks k
          JOIN recordings r ON r.id=k.recording_id AND r.metadata_observation_id=k.observation_id
          JOIN account_recording_credits rc ON rc.recording_id=r.id AND rc.user_id=k.user_id
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=k.user_id
@@ -125,6 +129,15 @@ fn undecided(credit_filter: &str) -> String {
                 WHERE c.user_id=k.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})"
     )
 }
+
+const MEMBERS_IDENTIFIED: &str =
+    "SELECT chosen.recording_id FROM recording_artist_member_identity_choices chosen
+    JOIN account_recording_credit_members member ON member.user_id=chosen.user_id
+        AND member.recording_id=chosen.recording_id AND member.artist_id=chosen.artist_id
+    WHERE chosen.user_id=?1 AND chosen.retired=0 AND chosen.association_id IS NOT NULL
+    GROUP BY chosen.recording_id
+    HAVING count(*)=(SELECT count(*) FROM account_recording_credit_members listed
+        WHERE listed.user_id=?1 AND listed.recording_id=chosen.recording_id)";
 
 fn edited(credit_filter: &str) -> String {
     format!(
@@ -368,7 +381,11 @@ pub(super) fn queued(listing: Listing) -> String {
         "EXISTS (SELECT 1 FROM chosen_names n WHERE n.name_key=lower(trim(a.name)) AND {offer_dismissal})"
     );
     format!(
-        "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
+        "WITH identified AS MATERIALIZED ({MEMBERS_IDENTIFIED}),
+              counted AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
+              settled AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
+              undecided AS (SELECT counted.artist_id,counted.tracks-COALESCE(settled.tracks,0) AS tracks
+                FROM counted LEFT JOIN settled ON settled.artist_id=counted.artist_id),
               chosen_names AS MATERIALIZED ({}),
               edited AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
               base AS MATERIALIZED (
@@ -397,6 +414,10 @@ pub(super) fn queued(listing: Listing) -> String {
             stored,chosen,matched
          FROM verdicts WHERE stored OR unlisted OR matched OR chosen",
         undecided(""),
+        undecided_from(
+            "identified CROSS JOIN",
+            "AND k.recording_id=identified.recording_id"
+        ),
         chosen_names(),
         edited("")
     )

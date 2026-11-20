@@ -6,6 +6,7 @@ pub(crate) enum Scope<'a> {
     Recording(&'a str),
     Folder(&'a str),
     Library { user: &'a str, library: &'a str },
+    Credit { user: &'a str, artist: &'a str },
 }
 
 impl Scope<'_> {
@@ -17,6 +18,21 @@ impl Scope<'_> {
             Scope::Folder(folder) => {
                 query.push(" AND r.id IN (SELECT s.recording_id FROM local_files f JOIN sources s ON s.id = f.source_id WHERE f.folder_id = ")
                     .push_bind(folder.to_string()).push(")");
+            }
+            Scope::Credit { user, artist } => {
+                if let Some(column) = user_column {
+                    query
+                        .push(" AND ")
+                        .push(column)
+                        .push(" = ")
+                        .push_bind(user.to_string());
+                }
+                query
+                    .push(" AND r.id IN (SELECT c.recording_id FROM account_recording_credits c WHERE c.user_id = ")
+                    .push_bind(user.to_string())
+                    .push(" AND c.artist_id = ")
+                    .push_bind(artist.to_string())
+                    .push(")");
             }
             Scope::Library { user, library } => {
                 if let Some(column) = user_column {
@@ -49,6 +65,7 @@ impl Scope<'_> {
             CASE WHEN p.override_artist IS NULL THEN credit.credit_key END AS credit_key,
             credit.rowid AS credit_order, credit.observation_id AS credit_observation,
             (SELECT o.artist FROM metadata_observations o WHERE o.id = r.metadata_observation_id) AS observed,
+            p.override_artist IS NOT NULL AS edited,
             EXISTS (SELECT 1 FROM recording_credited_artist_observations f
                 WHERE f.observation_id = credit.observation_id AND f.role = 'featured') AS featured
          FROM recordings r JOIN library_members access ON access.library_id = r.library_id
@@ -90,7 +107,13 @@ const FIRST_SEEN: &str = "(SELECT t.*, ROW_NUMBER() OVER (PARTITION BY t.user_id
 
 const MEMBERS: &str = "(SELECT t.user_id, t.library_id, t.recording_id, member.name, member.role FROM targets t
         JOIN recording_credited_artist_observations member ON member.observation_id = t.credit_observation
-        WHERE t.credit_key IS NOT NULL)";
+        WHERE t.credit_key IS NOT NULL
+        UNION ALL
+        SELECT t.user_id, t.library_id, t.recording_id, split.name, 'main' FROM targets t
+        JOIN account_artists whole ON whole.user_id = t.user_id AND whole.library_id = t.library_id
+            AND whole.name = t.name COLLATE BINARY
+        JOIN account_credit_splits split ON split.user_id = whole.user_id AND split.artist_id = whole.id
+        WHERE t.credit_key IS NULL AND t.credit_observation IS NULL AND t.edited = 0)";
 
 const REGISTER_MEMBER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
         SELECT m.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), m.library_id, m.name FROM MEMBERS m
@@ -193,6 +216,14 @@ pub(crate) async fn recording(tx: &mut Transaction<'_, Sqlite>, recording: &str)
 
 pub(crate) async fn folder(tx: &mut Transaction<'_, Sqlite>, folder: &str) -> Result<()> {
     refresh(tx, Scope::Folder(folder)).await
+}
+
+pub(crate) async fn credit(
+    tx: &mut Transaction<'_, Sqlite>,
+    user: &str,
+    artist: &str,
+) -> Result<()> {
+    refresh(tx, Scope::Credit { user, artist }).await
 }
 
 #[derive(sqlx::FromRow)]

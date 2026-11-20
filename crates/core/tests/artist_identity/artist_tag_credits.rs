@@ -1,7 +1,7 @@
 use hito_core::test_support::{musicbrainz::FakeMusicBrainz, support};
 use hito_core::{
-    ArtistAssociationEvidence, Browse, CreditRole, MatchArtistsFromTags, MetadataHistoryQuery,
-    Search, Services,
+    ArtistAssociationEvidence, Browse, Credentials, CreditRole, MatchArtistsFromProviderEvidence,
+    MatchArtistsFromTags, MetadataHistoryQuery, RecordingArtistIdentityState, Search, Services,
 };
 use lofty::{
     TextEncoding,
@@ -458,4 +458,238 @@ async fn a_file_with_thousands_of_artist_tags_keeps_its_text_credit_and_stays_pl
     .await;
     assert!(world.credited("crowd").await.is_empty());
     assert_eq!(world.artists().await, [("Crowd".to_owned(), 1)]);
+}
+
+impl World {
+    async fn walk(&self, actor: &hito_core::Actor) {
+        let mut after = None;
+        for _ in 0..32 {
+            let receipt = self
+                .hito
+                .artist_catalog
+                .match_artists_from_tags(
+                    actor,
+                    MatchArtistsFromTags {
+                        request_id: Uuid::new_v4(),
+                        after: after.clone(),
+                        limit: None,
+                    },
+                )
+                .await
+                .unwrap();
+            match receipt.next_after {
+                Some(next) => after = Some(next),
+                None => break,
+            }
+        }
+        let mut after = None;
+        for _ in 0..32 {
+            let receipt = self
+                .hito
+                .artist_catalog
+                .match_artists_from_provider_evidence(
+                    actor,
+                    MatchArtistsFromProviderEvidence {
+                        request_id: Uuid::new_v4(),
+                        after: after.clone(),
+                        limit: None,
+                    },
+                )
+                .await
+                .unwrap();
+            match receipt.next_after {
+                Some(next) => after = Some(next),
+                None => return,
+            }
+        }
+        panic!("The provider walk must end");
+    }
+
+    async fn scalar(&self, sql: &str) -> String {
+        let pool = sqlx::SqlitePool::connect(&format!(
+            "sqlite:{}?mode=ro",
+            self.directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        let value = sqlx::query_scalar::<_, String>(&format!("SELECT CAST(({sql}) AS TEXT)"))
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        pool.close().await;
+        value
+    }
+
+    async fn member(&self, actor: &hito_core::Actor, name: &str) -> String {
+        self.scalar(&format!(
+            "SELECT id FROM account_artists WHERE name='{name}' AND user_id='{}'",
+            actor.user().id
+        ))
+        .await
+    }
+
+    async fn member_identity(
+        &self,
+        actor: &hito_core::Actor,
+        song: &str,
+        name: &str,
+    ) -> Option<(String, ArtistAssociationEvidence)> {
+        let member = self.member(actor, name).await;
+        let choice = self
+            .hito
+            .artist_catalog
+            .recording_credit_member_identity_choice(actor, &self.ids[song], &member)
+            .await
+            .unwrap();
+        let RecordingArtistIdentityState::Selected(selection) = choice.state else {
+            return None;
+        };
+        let association = self
+            .hito
+            .artist_catalog
+            .recording_artist_associations(actor, &self.ids[song])
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|association| association.id == selection.association_id)
+            .unwrap();
+        Some((association.provider_artist_id, association.evidence))
+    }
+}
+
+#[tokio::test]
+async fn artist_ids_listed_beside_the_member_names_identify_each_member_for_its_own_account_only() {
+    let world = World::prepare(&[
+        Song {
+            name: "duo-flac",
+            extension: "flac",
+            artist: "Ada & Bo",
+            artists: &["Ada", "Bo"],
+            ids: &[ADA, BO],
+        },
+        Song {
+            name: "duo-mp3",
+            extension: "mp3",
+            artist: "Ada & Bo",
+            artists: &["Ada", "Bo"],
+            ids: &[ADA, BO],
+        },
+    ])
+    .await;
+    let credentials = || Credentials {
+        username: "listener".into(),
+        password: "owned listener account password".into(),
+    };
+    let listener = world
+        .hito
+        .identity
+        .create_user(&world.actor, credentials())
+        .await
+        .unwrap();
+    world
+        .hito
+        .identity
+        .set_library_access(&world.actor, &world.library, &listener.id, true)
+        .await
+        .unwrap();
+    let session = world.hito.identity.login(credentials()).await.unwrap();
+    let listener = world
+        .hito
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
+    world.walk(&world.actor).await;
+    for song in ["duo-flac", "duo-mp3"] {
+        assert_eq!(
+            world.member_identity(&world.actor, song, "Ada").await,
+            Some((
+                ADA.to_owned(),
+                ArtistAssociationEvidence::MatchedMemberListedArtistId
+            ))
+        );
+        assert_eq!(
+            world.member_identity(&world.actor, song, "Bo").await,
+            Some((
+                BO.to_owned(),
+                ArtistAssociationEvidence::MatchedMemberListedArtistId
+            ))
+        );
+        assert_eq!(world.member_identity(&listener, song, "Ada").await, None);
+    }
+    assert_eq!(
+        world
+            .scalar(&format!(
+                "SELECT count(*) FROM recording_artist_member_identity_choices WHERE user_id='{}'",
+                listener.user().id
+            ))
+            .await,
+        "0"
+    );
+    world.walk(&listener).await;
+    assert_eq!(
+        world.member_identity(&listener, "duo-flac", "Bo").await,
+        Some((
+            BO.to_owned(),
+            ArtistAssociationEvidence::MatchedMemberListedArtistId
+        ))
+    );
+    assert_eq!(
+        world
+            .scalar("SELECT count(*) FROM recording_artist_member_identity_choices")
+            .await,
+        "8"
+    );
+}
+
+#[tokio::test]
+async fn the_one_identifier_tag_left_after_the_other_members_names_the_last_member() {
+    let both = format!("{ADA};{BO}");
+    let world = World::prepare(&[
+        Song {
+            name: "ada",
+            extension: "flac",
+            artist: "Ada",
+            artists: &[],
+            ids: &[ADA],
+        },
+        Song {
+            name: "duo",
+            extension: "flac",
+            artist: "Ada & Bo",
+            artists: &["Ada", "Bo"],
+            ids: &[&both],
+        },
+        Song {
+            name: "trio",
+            extension: "flac",
+            artist: "Ada, Bo & Cy",
+            artists: &["Ada", "Bo", "Cy"],
+            ids: &[&both],
+        },
+    ])
+    .await;
+    world.walk(&world.actor).await;
+    assert_eq!(
+        world.member_identity(&world.actor, "duo", "Ada").await,
+        Some((
+            ADA.to_owned(),
+            ArtistAssociationEvidence::MatchedMemberSoloCredit
+        ))
+    );
+    assert_eq!(
+        world.member_identity(&world.actor, "duo", "Bo").await,
+        Some((
+            BO.to_owned(),
+            ArtistAssociationEvidence::MatchedMemberFileTagArtistId
+        ))
+    );
+    assert_eq!(
+        world.member_identity(&world.actor, "trio", "Bo").await,
+        None
+    );
+    assert_eq!(
+        world.member_identity(&world.actor, "trio", "Cy").await,
+        None
+    );
 }

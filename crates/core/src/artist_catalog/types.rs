@@ -78,6 +78,9 @@ pub enum ArtistAssociationEvidence {
     MatchedCreditCoverage,
     UserConfirmedCandidate,
     MatchedRecordingId,
+    MatchedMemberSoloCredit,
+    MatchedMemberListedArtistId,
+    MatchedMemberFileTagArtistId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]

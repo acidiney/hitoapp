@@ -30,7 +30,8 @@ const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_associ
     (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'coverage' FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id),
-    (SELECT matched.evidence_kind FROM artist_association_candidate_confirmations matched WHERE matched.association_id=assoc.id)) AS matched,
+    (SELECT matched.evidence_kind FROM artist_association_candidate_confirmations matched WHERE matched.association_id=assoc.id),
+    (SELECT 'member_'||matched.evidence_kind FROM artist_association_member_matches matched WHERE matched.association_id=assoc.id)) AS matched,
     (SELECT matched.source_tracks FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id) AS credit_tracks,
     (SELECT matched.matched_tracks FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id) AS coverage_matched,
     (SELECT matched.probed_tracks FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id) AS coverage_probed";
@@ -102,6 +103,13 @@ impl Stored {
                 Some("coverage") => ArtistAssociationEvidence::MatchedCreditCoverage,
                 Some("user_confirmed_candidate") => {
                     ArtistAssociationEvidence::UserConfirmedCandidate
+                }
+                Some("member_solo_credit") => ArtistAssociationEvidence::MatchedMemberSoloCredit,
+                Some("member_listed_artist_id") => {
+                    ArtistAssociationEvidence::MatchedMemberListedArtistId
+                }
+                Some("member_file_tag_artist_id") => {
+                    ArtistAssociationEvidence::MatchedMemberFileTagArtistId
                 }
                 Some(kind) if kind.starts_with("credit_") => {
                     ArtistAssociationEvidence::MatchedCreditEvidence
@@ -240,7 +248,7 @@ pub(super) async fn existing(
     existing_for_target(connection, actor, recording, request, &credit.target).await
 }
 
-async fn existing_for_target(
+pub(super) async fn existing_for_target(
     connection: &mut SqliteConnection,
     actor: &Actor,
     recording: &str,
