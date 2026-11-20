@@ -5,7 +5,11 @@ import { errorMessage } from "../../../shared/format";
 
 import { lockApi } from "../api/lockApi";
 
-export function usePinSettings(account: string, initial: Schema<"LockStatus">) {
+export function usePinSettings(
+  account: string,
+  initial: Schema<"LockStatus">,
+  onSaved: () => void,
+) {
   const [status, setStatus] = useState(initial);
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +33,7 @@ export function usePinSettings(account: string, initial: Schema<"LockStatus">) {
       setPassword("");
       router.reload({ only: ["lock"] });
       setMessage(saved);
+      onSaved();
     } catch (error) {
       setError(errorMessage(error));
     } finally {
