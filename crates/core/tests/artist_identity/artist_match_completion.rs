@@ -135,6 +135,10 @@ async fn source_tracks(library: &NameLibrary, index: usize) -> String {
 }
 
 async fn undecided(library: &NameLibrary, indexes: &[usize]) {
+    undecided_beside(library, indexes, 0).await;
+}
+
+async fn undecided_beside(library: &NameLibrary, indexes: &[usize], completions: i64) {
     for index in indexes {
         assert!(
             library
@@ -146,7 +150,7 @@ async fn undecided(library: &NameLibrary, indexes: &[usize]) {
     }
     assert_eq!(
         library.rows("artist_association_completion_matches").await,
-        0
+        completions
     );
 }
 
@@ -251,7 +255,7 @@ async fn a_current_choice_for_another_artist_on_the_credit_stops_completion() {
     choose(&personal, &personal.recordings[2], NAMESAKE).await;
     retire(&personal, &[3]).await;
     personal.automatic().await;
-    undecided(&personal, &[3]).await;
+    undecided_beside(&personal, &[3], 2).await;
     personal.origin.shutdown().await;
 
     let automatic = two_of_four().await;
@@ -267,7 +271,7 @@ async fn an_artist_dismissed_for_the_credit_is_not_completed() {
     dismiss(&reviewed, &credit, Some(NOVA)).await.unwrap();
     retire(&reviewed, &[2, 3]).await;
     reviewed.automatic().await;
-    undecided(&reviewed, &[2, 3]).await;
+    undecided_beside(&reviewed, &[2, 3], 2).await;
     reviewed.origin.shutdown().await;
 
     let (suggested, credit) = confirmed_on_first_two().await;
@@ -284,7 +288,7 @@ async fn an_artist_dismissed_for_the_credit_is_not_completed() {
         .unwrap();
     retire(&suggested, &[2, 3]).await;
     suggested.automatic().await;
-    undecided(&suggested, &[2, 3]).await;
+    undecided_beside(&suggested, &[2, 3], 2).await;
     suggested.origin.shutdown().await;
 }
 
