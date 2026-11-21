@@ -107,3 +107,98 @@ test("an empty album disables Play and Shuffle", () => {
       .disabled,
   ).toBe(true);
 });
+
+function addition(
+  missing: number,
+  total: number,
+  extra: Partial<import("../hooks/useAlbumAddition").AlbumAdditionState> = {},
+) {
+  return {
+    missing,
+    total,
+    phase: null,
+    added: null,
+    undone: null,
+    error: "",
+    add: vi.fn().mockResolvedValue(undefined),
+    undo: vi.fn().mockResolvedValue(undefined),
+    ...extra,
+  };
+}
+
+test("an album you own none of offers Add album, and a partly owned one offers the rest", () => {
+  viewport(false);
+  const none = addition(4, 4);
+  const view = render(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: none,
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Add album" }));
+  expect(none.add).toHaveBeenCalledOnce();
+  view.rerender(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: addition(2, 5),
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  expect(screen.getByRole("button", { name: "Add the other 2" })).toBeTruthy();
+  view.rerender(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: addition(0, 5),
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  expect(screen.queryByRole("button", { name: /^Add/ })).toBeNull();
+});
+
+test("on a phone the add sits in More, next to Shuffle", () => {
+  viewport(true);
+  render(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: addition(3, 3),
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  expect(menuItems()).toEqual(["Shuffle album", "Add album"]);
+});
+
+test("after adding, the status says how many and offers Undo; after undo it says what stayed", () => {
+  viewport(false);
+  const added = addition(0, 4, {
+    added: { id: "addition-1", release_id: "release-1", added: 4 },
+  });
+  const view = render(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: added,
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  expect(screen.getByRole("status").textContent).toContain(
+    "Added 4 tracks to your library.",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(added.undo).toHaveBeenCalledOnce();
+  view.rerender(
+    createElement(AlbumActions, {
+      play: play(),
+      addition: addition(4, 4, { undone: { removed: 3, kept: 1 } }),
+      detailsHref: null,
+      retry: null,
+    }),
+  );
+  expect(screen.getByRole("status").textContent).toBe(
+    "Removed 3 tracks. Kept 1 track you've already used.",
+  );
+});

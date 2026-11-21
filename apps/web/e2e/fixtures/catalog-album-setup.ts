@@ -124,6 +124,16 @@ export async function connectCatalogArtist(
             headers,
             data: { revision: connection.revision },
           });
+          const withdrawn = await administrator.delete(
+            `/api/v1/plugins/services/${service.id}`,
+            {
+              headers,
+              data: {
+                revision: service.revision,
+              } satisfies Schema<"PluginRevision">,
+            },
+          );
+          expect(withdrawn.ok(), "withdraw the offered service").toBe(true);
         } finally {
           await provider.close();
         }

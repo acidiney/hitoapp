@@ -1,6 +1,6 @@
-use super::{PcmFormat, opening::Stop, unfinished};
+use super::{Authority, Feed, PcmFormat, opening::Stop, unfinished};
 use crate::playback_access::conversion::ConversionSlot;
-use crate::{AudioFile, Error, MediaTools, PlaybackSource, Result, media_command};
+use crate::{Error, MediaTools, Result, media_command};
 use serde::Deserialize;
 use std::{ffi::OsString, path::Path, process::Stdio, time::Duration};
 use tokio::io::AsyncReadExt;
@@ -24,11 +24,11 @@ struct Container {
     duration: Option<String>,
 }
 
-#[tracing::instrument(level = "debug", skip_all, fields(playback_grant = authority.correlation_id(), account_id = authority.actor().id()))]
+#[tracing::instrument(level = "debug", skip_all, fields(playback_grant = authority.correlation_id()))]
 pub(super) async fn probe(
     tools: &MediaTools,
-    file: &AudioFile,
-    authority: PlaybackSource,
+    feed: &Feed,
+    authority: Authority,
     slot: ConversionSlot,
     stop: &Stop,
 ) -> Result<(PcmFormat, ConversionSlot)> {
@@ -47,11 +47,10 @@ pub(super) async fn probe(
     );
     let mut command = media_command::command(&tools.ffprobe, arguments);
     command
-        .stdin(Stdio::from(
-            file.file.try_clone().map_err(|_| unfinished())?,
-        ))
+        .stdin(super::process::stdin(feed)?)
         .stderr(Stdio::null());
     let mut child = command.spawn().map_err(super::process::spawn_error)?;
+    let feeding = super::process::feed(feed, &mut child);
     let stdout = child.stdout.take();
     let inspect = async {
         let mut output = Vec::new();
@@ -73,6 +72,9 @@ pub(super) async fn probe(
             result = tokio::time::timeout(Duration::from_secs(10), inspect) => result.unwrap_or_else(|_| Err(unfinished())),
     };
     super::process::retire(&mut child).await;
+    if let Some(feeding) = feeding {
+        feeding.abort();
+    }
     result.map(|format| (format, slot))
 }
 

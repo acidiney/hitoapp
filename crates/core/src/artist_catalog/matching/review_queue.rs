@@ -113,6 +113,7 @@ pub(super) async fn keep(
 }
 
 fn undecided(credit_filter: &str) -> String {
+    let identified = members_identified();
     format!(
         "SELECT r.id AS id,rc.artist_id AS artist_id FROM artist_name_checks k
          JOIN recordings r ON r.id=k.recording_id AND r.metadata_observation_id=k.observation_id
@@ -122,7 +123,24 @@ fn undecided(credit_filter: &str) -> String {
          WHERE k.user_id=?1 AND k.rule={NAME_RULE} AND p.artist_operation_id IS NULL
             AND k.artist_operation_id IS NULL {credit_filter}
             AND NOT EXISTS (SELECT 1 FROM recording_artist_identity_choices c
-                WHERE c.user_id=k.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})"
+                WHERE c.user_id=k.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})
+            AND k.recording_id NOT IN ({identified})"
+    )
+}
+
+fn members_identified() -> String {
+    format!(
+        "SELECT chosen.recording_id FROM recording_artist_member_identity_choices chosen
+        JOIN recordings identified_recording ON identified_recording.id=chosen.recording_id
+            AND identified_recording.metadata_observation_id=chosen.observation_id
+        JOIN recording_artist_associations assoc ON assoc.id=chosen.association_id
+            AND assoc.user_id=chosen.user_id
+        JOIN account_recording_credit_members member ON member.user_id=chosen.user_id
+            AND member.recording_id=chosen.recording_id AND member.artist_id=chosen.artist_id
+        WHERE chosen.user_id=?1 AND chosen.retired=0 AND chosen.association_id IS NOT NULL AND {LINKED}
+        GROUP BY chosen.recording_id
+        HAVING count(*)=(SELECT count(*) FROM account_recording_credit_members listed
+            WHERE listed.user_id=?1 AND listed.recording_id=chosen.recording_id)"
     )
 }
 
@@ -459,9 +477,15 @@ impl ArtistCatalog {
     ) -> Result<Page<ArtistReviewItem>> {
         let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
         let offset = query.offset.unwrap_or(0);
-        if !(1..=MAX_LIMIT).contains(&limit) || !(0..=MAX_OFFSET).contains(&offset) {
+        if !(1..=MAX_LIMIT).contains(&limit)
+            || !(0..=MAX_OFFSET).contains(&offset)
+            || query
+                .artist
+                .as_ref()
+                .is_some_and(|artist| artist.is_empty() || artist.len() > 64)
+        {
             return Err(Error::Invalid(
-                "Use a page of 1 to 50 credits and a smaller offset".into(),
+                "Use a page of 1 to 50 credits, a smaller offset and a valid credit".into(),
             ));
         }
         let mut tx = self.store.pool.begin().await?;
@@ -470,21 +494,26 @@ impl ArtistCatalog {
         let filter = listing.filter();
         let rows: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
             "SELECT id,name,tracks,stored,chosen,matched,count(*) OVER () FROM ({base})
+             WHERE ?4 IS NULL OR id=?4
              ORDER BY (stored+chosen+matched)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3"
         ))
         .bind(actor.id())
         .bind(limit)
         .bind(offset)
+        .bind(query.artist.as_deref())
         .fetch_all(&mut *tx)
         .await?;
         let total = match rows.first() {
             Some(first) => first.6,
             None if offset == 0 => 0,
             None => {
-                sqlx::query_scalar(&format!("SELECT count(*) FROM ({base})"))
-                    .bind(actor.id())
-                    .fetch_one(&mut *tx)
-                    .await?
+                sqlx::query_scalar(&format!(
+                    "SELECT count(*) FROM ({base}) WHERE ?2 IS NULL OR id=?2"
+                ))
+                .bind(actor.id())
+                .bind(query.artist.as_deref())
+                .fetch_one(&mut *tx)
+                .await?
             }
         };
         let searching: Vec<&str> = rows
@@ -831,6 +860,9 @@ impl ArtistCatalog {
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        if !pending.is_empty() {
+            self.complete_after_decision(actor, artist).await;
+        }
         Ok(receipt)
     }
 

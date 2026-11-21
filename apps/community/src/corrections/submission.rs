@@ -64,23 +64,29 @@ impl Corrections {
             )
         } else {
             let recent: i64 = sqlx::query_scalar(
-                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_reporter_created WHERE reporter_id = ? AND created_at > unixepoch() - 60 LIMIT 10)",
+                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_reporter_created WHERE reporter_id = ? AND created_at > unixepoch() - 60 LIMIT ?)",
             )
             .bind(&reporter_id)
+            .bind(i64::from(self.limits.correction_recent_per_minute))
             .fetch_one(&mut *transaction)
             .await?;
             let pending: i64 = sqlx::query_scalar(
-                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_reporter_status_sequence WHERE reporter_id = ? AND status = 'pending' LIMIT 32)",
+                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_reporter_status_sequence WHERE reporter_id = ? AND status = 'pending' LIMIT ?)",
             )
             .bind(&reporter_id)
+            .bind(i64::from(self.limits.correction_pending_per_reporter))
             .fetch_one(&mut *transaction)
             .await?;
             let total_pending: i64 = sqlx::query_scalar(
-                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_status_sequence WHERE status = 'pending' LIMIT 1024)",
+                "SELECT count(*) FROM (SELECT 1 FROM correction_suggestions INDEXED BY corrections_status_sequence WHERE status = 'pending' LIMIT ?)",
             )
+            .bind(i64::from(self.limits.correction_pending_total))
             .fetch_one(&mut *transaction)
             .await?;
-            if recent >= 10 || pending >= 32 || total_pending >= 1024 {
+            if recent >= i64::from(self.limits.correction_recent_per_minute)
+                || pending >= i64::from(self.limits.correction_pending_per_reporter)
+                || total_pending >= i64::from(self.limits.correction_pending_total)
+            {
                 return Err(Error::RateLimited);
             }
             let correction_id = Uuid::new_v4();

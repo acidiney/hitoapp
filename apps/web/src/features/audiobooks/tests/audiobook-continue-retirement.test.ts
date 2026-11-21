@@ -182,6 +182,7 @@ async function playingBook() {
           device_id: null,
           ready: true,
           can_prepare: false,
+          community_public: false,
           label: "Owned fixture source",
           match_kind: "verified",
         } satisfies Schema<"Source">,

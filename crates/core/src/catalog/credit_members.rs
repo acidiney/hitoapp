@@ -1,11 +1,11 @@
 use crate::Result;
 use hito_plugin_sdk::CreditRole;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 use std::collections::HashMap;
 use utoipa::ToSchema;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct CreditMember {
     pub id: String,
     pub name: String,

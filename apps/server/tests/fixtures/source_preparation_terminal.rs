@@ -28,6 +28,7 @@ pub(super) async fn run(
     assert_eq!(response.status, StatusCode::CREATED);
     let session = response.json();
     let token = session["token"].as_str().unwrap();
+    super::without_background_preparation(address, token).await;
     let response = http::call(
         address,
         "POST",

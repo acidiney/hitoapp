@@ -25,7 +25,11 @@ function settings(over: Record<string, boolean> = {}) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-const toggle = (name: string) => screen.findByRole("switch", { name });
+async function toggle(name: string) {
+  const control = await screen.findByRole("switch", { name });
+  await waitFor(() => expect(control.hasAttribute("disabled")).toBe(false));
+  return control;
+}
 
 test("three switches show the server choices and say what is sent and that they are on by default", async () => {
   vi.stubGlobal(

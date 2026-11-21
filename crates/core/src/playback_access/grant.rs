@@ -102,6 +102,66 @@ impl PlaybackSource {
         self.origin.local()
     }
 
+    pub(crate) fn is_provider_remote(&self) -> bool {
+        self.origin.kind() == "provider" && !self.origin.local()
+    }
+
+    pub(crate) async fn warm_open(
+        &self,
+        request: AudioRequest,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
+    ) -> Result<(OpenedAudio, Arc<crate::plugins::WarmTicket>)> {
+        self.warm_check().await?;
+        self.origin
+            .open_warm(self, request, monitors)
+            .await?
+            .ok_or(Error::NotFound)
+    }
+
+    pub(crate) async fn warm_check(&self) -> Result<()> {
+        if self.revoked.load(Ordering::Acquire) {
+            return Err(Error::NotFound);
+        }
+        tokio::time::timeout(Duration::from_secs(1), async {
+            self.actor.check_session(&self.store).await?;
+            if playback_membership(&self.store, &self.actor, &self.recording, &self.source).await?
+                != self.membership
+            {
+                return Err(Error::NotFound);
+            }
+            if !self
+                .origin
+                .warm_still_valid(&self.actor, &self.source, &self.located)
+                .await?
+            {
+                return Err(Error::NotFound);
+            }
+            Ok(())
+        })
+        .await
+        .unwrap_or(Err(Error::Upstream(
+            "Playback authorization could not be checked in time",
+        )))
+    }
+
+    pub(crate) fn warm_equivalent(&self, other: &Self) -> bool {
+        if !self.actor.same_session(&other.actor)
+            || self.recording != other.recording
+            || self.source != other.source
+            || self.membership != other.membership
+            || self.origin.kind() != other.origin.kind()
+        {
+            return false;
+        }
+        let (Ok(left), Ok(right)) = (
+            self.located.pinned::<crate::plugins::AudioAuthority>(),
+            other.located.pinned::<crate::plugins::AudioAuthority>(),
+        ) else {
+            return false;
+        };
+        left.same_identity(right)
+    }
+
     pub(crate) fn actor(&self) -> &Actor {
         &self.actor
     }
@@ -221,7 +281,7 @@ impl PlaybackSource {
             .await
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug", Debug), fields(playback_grant = self.id))]
     pub async fn open(&self, request: AudioRequest) -> Result<OpenedAudio> {
         self.origin.open(self, request).await
     }

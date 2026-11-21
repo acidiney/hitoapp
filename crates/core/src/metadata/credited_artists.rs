@@ -110,18 +110,29 @@ pub(crate) async fn read(
     recording: &str,
 ) -> Result<Vec<CreditedArtistView>> {
     let rows: Vec<(String, String, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT c.name,c.role,c.join_phrase,
+        "SELECT name,role,join_phrase,artist_id FROM (
+         SELECT c.name,c.role,c.join_phrase,
             (SELECT a.id FROM account_artists a
               WHERE a.user_id=?1 AND a.library_id=r.library_id AND a.name=c.name COLLATE BINARY
                 AND (EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id=a.user_id AND rc.artist_id=a.id)
                   OR EXISTS (SELECT 1 FROM account_recording_credit_members m WHERE m.user_id=a.user_id AND m.artist_id=a.id)
                   OR EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id=a.user_id AND ar.artist_id=a.id))
-              ORDER BY a.id LIMIT 1)
+              ORDER BY a.id LIMIT 1) AS artist_id,c.position AS position
          FROM recordings r
          JOIN recording_credited_artist_observations c ON c.observation_id=r.metadata_observation_id AND c.recording_id=r.id
          LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=?1
          WHERE r.id=?2 AND p.override_artist IS NULL
-         ORDER BY c.position",
+         UNION ALL
+         SELECT split.name,split.role,split.join_phrase,member.artist_id,split.position
+         FROM recordings r
+         JOIN account_recording_credits whole ON whole.user_id=?1 AND whole.recording_id=r.id
+         JOIN account_credit_splits split ON split.user_id=whole.user_id AND split.artist_id=whole.artist_id
+         JOIN account_artists a ON a.user_id=whole.user_id AND a.library_id=r.library_id AND a.name=split.name COLLATE BINARY
+         JOIN account_recording_credit_members member ON member.user_id=a.user_id
+            AND member.recording_id=r.id AND member.artist_id=a.id
+         WHERE r.id=?2 AND NOT EXISTS (SELECT 1 FROM recording_credited_artist_observations c
+            WHERE c.observation_id=r.metadata_observation_id AND c.recording_id=r.id))
+         ORDER BY position",
     )
     .bind(actor.id())
     .bind(recording)

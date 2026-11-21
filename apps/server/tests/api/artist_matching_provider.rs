@@ -328,7 +328,7 @@ async fn a_credit_is_matched_by_name_only_when_the_artists_recordings_corroborat
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         (&names["matched"], &names["uncertain"], &names["next_after"]),
-        (&json!(2), &json!(0), &Value::Null)
+        (&json!(2), &json!(0), &json!("member:"))
     );
     let asked = musicbrainz.requests().len();
     assert_eq!(asked, 2);

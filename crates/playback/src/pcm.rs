@@ -1,6 +1,7 @@
+use crate::seam::Grant;
 use crate::{Source, SourceStop};
 use hito_audio::{AudioFormat, Decoded, Decoder, Error, PcmSource, Result};
-use hito_core::{PcmStream, PlaybackSource};
+use hito_core::PcmStream;
 use std::{
     future::Future,
     time::{Duration, Instant},
@@ -18,7 +19,7 @@ pub(crate) fn decode(input: Source, interrupted: &mut dyn FnMut() -> bool) -> Re
     }
     match Decoder::open(input) {
         Ok(decoder) => Ok(decoder),
-        Err(Error::Unsupported) if grant.is_local() => {
+        Err(Error::Unsupported) => {
             tracing::debug!(
                 event = "native_fallback_selected",
                 source_id = grant.source_id(),
@@ -31,7 +32,7 @@ pub(crate) fn decode(input: Source, interrupted: &mut dyn FnMut() -> bool) -> Re
 }
 
 struct Pcm {
-    grant: PlaybackSource,
+    grant: Grant,
     stop: SourceStop,
     runtime: Handle,
     format: AudioFormat,
@@ -43,7 +44,7 @@ struct Pcm {
 
 impl Pcm {
     fn open(
-        grant: PlaybackSource,
+        grant: Grant,
         stop: SourceStop,
         runtime: Handle,
         interrupted: &mut dyn FnMut() -> bool,
@@ -79,7 +80,7 @@ impl Pcm {
 }
 
 async fn open(
-    grant: &PlaybackSource,
+    grant: &Grant,
     stop: &SourceStop,
     position: Duration,
     interrupted: &mut dyn FnMut() -> bool,

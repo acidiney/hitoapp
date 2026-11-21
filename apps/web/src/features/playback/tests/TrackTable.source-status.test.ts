@@ -76,6 +76,7 @@ test("a playlist row flips from No source to Ready when its source is resolved, 
       match_kind: "verified",
       ready: true,
       can_prepare: true,
+      community_public: false,
     },
   ];
   await act(async () => {
@@ -100,6 +101,7 @@ test("a playable row names its source when that ready source is already known", 
     match_kind: "verified",
     ready: true,
     can_prepare: true,
+    community_public: false,
   });
   sources = [known("r1", "youtube", "YouTube Music")];
   sourceStatusStore.refresh("alice", "r1");

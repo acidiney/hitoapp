@@ -222,3 +222,33 @@ async fn one_recording_reports_only_the_current_users_like() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn an_unliked_recording_no_longer_reports_a_like() {
+    let (_dir, hito, actor, _library) = catalog().await;
+    let items = hito
+        .catalog
+        .recordings(&actor, Search::default())
+        .await
+        .unwrap()
+        .items;
+    let recording = Uuid::parse_str(&items[0].id).unwrap();
+    for liked in [true, false] {
+        synchronize(
+            &hito,
+            &actor,
+            vec![Action::LikeSet {
+                recording_id: recording,
+                liked,
+            }],
+        )
+        .await;
+        assert_eq!(
+            hito.catalog
+                .recording_liked(&actor, &items[0].id)
+                .await
+                .unwrap(),
+            liked
+        );
+    }
+}

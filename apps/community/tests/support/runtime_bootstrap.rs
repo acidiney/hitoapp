@@ -25,6 +25,18 @@ impl Process {
         filter: &str,
         run: &str,
     ) -> Self {
+        Self::start_with(directory, state, credential, address, filter, run, &[])
+    }
+
+    pub fn start_with(
+        directory: &Path,
+        state: &Path,
+        credential: &Path,
+        address: SocketAddr,
+        filter: &str,
+        run: &str,
+        extra: &[&str],
+    ) -> Self {
         let log = directory.join(format!("private-bootstrap-{run}.jsonl"));
         let output = OpenOptions::new()
             .write(true)
@@ -39,6 +51,7 @@ impl Process {
             .arg(credential)
             .arg("--listen")
             .arg(address.to_string())
+            .args(extra)
             .env_clear()
             .env("RUST_LOG", filter)
             .stdout(Stdio::from(output.try_clone().unwrap()))

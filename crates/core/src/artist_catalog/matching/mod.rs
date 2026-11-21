@@ -1,6 +1,8 @@
 mod apply;
+mod completion;
 mod coverage;
 mod credit;
+mod members;
 mod name_discography;
 mod name_probe;
 mod provider_evidence;

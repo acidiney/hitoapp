@@ -161,6 +161,7 @@ async fn desktop(port: ReturnPort) -> Desktop {
         None,
         None,
         Some(Arc::new(SystemBrowser::new(|_| true))),
+        None,
         port,
     )
     .await

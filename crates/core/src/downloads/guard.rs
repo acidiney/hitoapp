@@ -34,7 +34,7 @@ impl<'a> Guard<'a> {
     }
 
     async fn check(&mut self) -> Result<()> {
-        if self.checked.elapsed() >= Duration::from_millis(250) {
+        if self.checked.elapsed() >= self.downloads.authority_interval {
             self.lease.check(&self.downloads.store).await?;
             self.checked = Instant::now();
         }
@@ -67,7 +67,7 @@ impl<'a> Guard<'a> {
                 biased;
                 _ = self.stopped.changed() => { if *self.stopped.borrow() { return Ok(None); } },
                 result = &mut pending => { self.check().await?; return result.map(Some); },
-                _ = tokio::time::sleep(Duration::from_millis(250)) => self.check().await?,
+                _ = tokio::time::sleep(self.downloads.authority_interval) => self.check().await?,
             }
         }
     }
@@ -87,7 +87,7 @@ impl<'a> Guard<'a> {
                     return Ok((!withdrawn).then_some(value));
                 },
                 _ = self.stopped.changed(), if !withdrawn => { withdrawn = *self.stopped.borrow(); },
-                _ = tokio::time::sleep(Duration::from_millis(250)), if authority_error.is_none() => {
+                _ = tokio::time::sleep(self.downloads.authority_interval), if authority_error.is_none() => {
                     if let Err(error) = self.check().await { authority_error = Some(error); }
                 },
             }

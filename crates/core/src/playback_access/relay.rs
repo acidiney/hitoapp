@@ -7,6 +7,7 @@ mod validators;
 use crate::{AudioFile, PlaybackSource, Result};
 pub use pace::StreamPace;
 pub use range::ByteRange;
+pub(crate) use remote::MonitorRegistry;
 pub use stream::AudioStream;
 pub use validators::AudioValidators;
 

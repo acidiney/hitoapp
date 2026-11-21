@@ -40,4 +40,24 @@ struct GenresTests {
         #expect(last.items.isEmpty && last.next == nil)
         #expect(fake.requests.map(\.query) == ["key=r%26b%20soul&limit=100", "key=r%26b%20soul&limit=100&after=c1"])
     }
+
+    @Test func loadingPastThePreviewKeepsPagingUntilThereIsMoreThanThePreviewShowed() async throws {
+        let second = recording.replacingOccurrences(of: #""id":"r1""#, with: #""id":"r2""#)
+        let fake = FakeServer(routes: ["GET /api/v1/genres/tracks": .sequence([
+            .json(200, #"{"items":[\#(recording)],"next_after":"c1"}"#),
+            .json(200, #"{"items":[\#(recording),\#(second)],"next_after":"c2"}"#),
+        ])])
+        let page = try await genres(fake).tracks("r&b soul", after: nil, past: 1)
+        #expect(page.items.map(\.id) == ["r1", "r2"])
+        #expect(page.next == "c2")
+        #expect(fake.requests.map(\.query) == ["key=r%26b%20soul&limit=100", "key=r%26b%20soul&limit=100&after=c1"])
+    }
+
+    @Test func loadingPastThePreviewStopsWhenTheServerHasNoMore() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/genres/tracks": .json(200, #"{"items":[\#(recording)],"next_after":null}"#)])
+        let page = try await genres(fake).tracks("r&b soul", after: nil, past: 1)
+        #expect(page.items.map(\.id) == ["r1"])
+        #expect(page.next == nil)
+        #expect(fake.requests.count == 1)
+    }
 }

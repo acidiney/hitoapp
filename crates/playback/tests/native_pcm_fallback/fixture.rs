@@ -174,11 +174,13 @@ pub async fn until(session: &Session, condition: impl Fn(&Snapshot) -> bool) {
     .expect("native playback state did not arrive");
 }
 
-pub async fn pid(path: &Path) -> String {
+pub async fn pid(path: &Path) -> u32 {
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if let Ok(pid) = std::fs::read_to_string(path) {
-                return pid.trim().to_owned();
+            if let Ok(written) = std::fs::read_to_string(path)
+                && let Ok(pid) = written.trim().parse::<u32>()
+            {
+                return pid;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }

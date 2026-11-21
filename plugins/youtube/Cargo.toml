@@ -33,3 +33,6 @@ reqwest = { workspace = true, features = ["stream"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tower.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+nix = { version = "0.30.1", default-features = false, features = ["net", "socket"] }

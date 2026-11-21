@@ -11,7 +11,7 @@ mod sources;
 #[cfg(feature = "device")]
 pub(super) struct Target {
     pub key: Key,
-    pub actor: hito_core::Actor,
+    pub actor: crate::seam::Listener,
     pub recording: Uuid,
     pub playing: bool,
     pub play_revision: u64,
@@ -69,18 +69,17 @@ pub(super) enum Effects {
 }
 impl Effects {
     #[cfg(feature = "device")]
-    pub fn native(catalog: hito_core::Catalog, playback: hito_core::PlaybackAccess) -> Self {
-        Self::Native(Box::new(native::Native::new(catalog, playback)))
+    pub fn native(seam: crate::seam::Seam) -> Self {
+        Self::Native(Box::new(native::Native::new(seam)))
     }
     #[cfg(all(test, feature = "device"))]
     pub(super) fn native_with_held_finalizer(
-        catalog: hito_core::Catalog,
-        playback: hito_core::PlaybackAccess,
+        seam: crate::seam::Seam,
         entered: tokio::sync::oneshot::Sender<()>,
         release: tokio::sync::oneshot::Receiver<()>,
         handled: tokio::sync::oneshot::Sender<()>,
     ) -> Self {
-        let mut native = native::Native::new(catalog, playback);
+        let mut native = native::Native::new(seam);
         native.arm_finalizer_for_test(entered, release, handled);
         Self::Native(Box::new(native))
     }

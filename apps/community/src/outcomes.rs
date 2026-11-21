@@ -10,16 +10,15 @@ use crate::{
     wire::{OutcomeKind, OutcomeReceipt, SubmitOutcome},
 };
 
-const MAX_RECENT_OUTCOMES: i64 = 300;
-
 #[derive(Clone)]
 pub(crate) struct Outcomes {
     storage: Arc<Storage>,
+    limits: crate::Limits,
 }
 
 impl Outcomes {
-    pub(crate) fn new(storage: Arc<Storage>) -> Self {
-        Self { storage }
+    pub(crate) fn new(storage: Arc<Storage>, limits: crate::Limits) -> Self {
+        Self { storage, limits }
     }
 
     pub(crate) async fn submit(
@@ -64,10 +63,10 @@ impl Outcomes {
                 "SELECT count(*) FROM (SELECT 1 FROM outcomes INDEXED BY outcomes_reporter_created WHERE reporter_id = ? AND created_at > unixepoch() - 60 LIMIT ?)",
             )
             .bind(reporter.0.to_string())
-            .bind(MAX_RECENT_OUTCOMES)
+            .bind(i64::from(self.limits.outcome_recent_per_minute))
             .fetch_one(&mut *transaction)
             .await?;
-            if recent >= MAX_RECENT_OUTCOMES {
+            if recent >= i64::from(self.limits.outcome_recent_per_minute) {
                 return Err(Error::RateLimited);
             }
             let receipt_id = Uuid::new_v4();

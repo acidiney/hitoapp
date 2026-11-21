@@ -105,9 +105,11 @@ impl EnclosureOrigin {
                     Some(Permits {
                         _account: account,
                         _global: global,
+                        _warm: None,
                     }),
                     crate::StreamPace::DEFAULT,
-                ),
+                    None,
+                )?,
                 audio.length,
             ));
         }

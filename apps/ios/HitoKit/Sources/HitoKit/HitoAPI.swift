@@ -53,8 +53,8 @@ public struct HitoAPI: Sendable {
         try await change("PUT", path, body: body, as: type)
     }
 
-    func delete<Value: Decodable>(_ path: [String], as type: Value.Type) async throws -> Value {
-        var request = request(path)
+    func delete<Value: Decodable>(_ path: [String], query: [URLQueryItem] = [], as type: Value.Type) async throws -> Value {
+        var request = request(path, query: query)
         request.httpMethod = "DELETE"
         request.setValue("1", forHTTPHeaderField: "x-hito-request")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

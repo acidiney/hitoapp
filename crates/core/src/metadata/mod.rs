@@ -28,7 +28,7 @@ pub(crate) use musicbrainz_ids::retain_tag_identities;
 pub(crate) use projection::release as refresh_release;
 pub(crate) use projection::{provision, source as refresh_source};
 pub(crate) use recording_credits::{
-    Scope as RecordingScope, folder as refresh_folder_credits,
+    Scope as RecordingScope, credit as refresh_credit_members, folder as refresh_folder_credits,
     recording as refresh_recording_credits, repair_missing_main_members,
 };
 

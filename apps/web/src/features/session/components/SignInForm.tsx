@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SignInFlow } from "../hooks/useSignIn";
+import type { AppServer } from "../../place/hooks/useAppServer";
 import Button from "../../../shared/ui/Button";
 import { AuthAlert, AuthField, DotSpinner, ServerLine } from "./AuthFields";
 
@@ -11,13 +12,30 @@ export default function SignInForm({
   busy,
   error,
   submit,
-}: SignInFlow) {
+  app,
+}: SignInFlow & { app: AppServer }) {
   const form = useRef<HTMLFormElement>(null);
+  const [another, setAnother] = useState(false);
+  const choseAnother = useRef(false);
+  const remembered = another ? null : (app.server?.remembered ?? null);
   useEffect(() => {
     if (!error) return;
     setPassword("");
     form.current?.querySelector<HTMLInputElement>("#sign-in-password")?.focus();
   }, [error, setPassword]);
+  useEffect(() => {
+    if (remembered && !choseAnother.current) setUsername(remembered);
+  }, [remembered, setUsername]);
+  const startOver = () => {
+    choseAnother.current = true;
+    setAnother(true);
+    setUsername("");
+    setPassword("");
+  };
+  const forgetMe = async () => {
+    await app.forgetMe().catch(() => {});
+    startOver();
+  };
   return (
     <form
       ref={form}
@@ -26,19 +44,23 @@ export default function SignInForm({
       onSubmit={submit}
     >
       <div className="auth-heading">
-        <h1>Sign in</h1>
-        <ServerLine busy={busy} />
+        <h1>{remembered ? "Welcome back" : "Sign in"}</h1>
+        <ServerLine busy={busy} address={app.server?.origin} />
       </div>
-      <AuthField
-        label="Username"
-        value={username}
-        onValue={setUsername}
-        maxLength={64}
-        autoComplete="username"
-        autoFocus
-        required
-        disabled={busy}
-      />
+      {remembered ? (
+        <p className="auth-account">{remembered}</p>
+      ) : (
+        <AuthField
+          label="Username"
+          value={username}
+          onValue={setUsername}
+          maxLength={64}
+          autoComplete="username"
+          autoFocus
+          required
+          disabled={busy}
+        />
+      )}
       <AuthField
         label="Password"
         id="sign-in-password"
@@ -46,6 +68,7 @@ export default function SignInForm({
         onValue={setPassword}
         type="password"
         autoComplete="current-password"
+        autoFocus={Boolean(remembered)}
         required
         disabled={busy}
         reveal
@@ -64,6 +87,29 @@ export default function SignInForm({
       <p className="auth-note">
         Forgot your password? Ask whoever runs this server to set a new one.
       </p>
+      {(remembered || app.server) && (
+        <div className="auth-links">
+          {remembered && (
+            <>
+              <Button variant="link" onClick={startOver} disabled={busy}>
+                Use another account
+              </Button>
+              <Button
+                variant="link"
+                onClick={() => void forgetMe()}
+                disabled={busy}
+              >
+                Forget me on this device
+              </Button>
+            </>
+          )}
+          {app.server && (
+            <Button variant="link" onClick={app.changeServer} disabled={busy}>
+              Change server
+            </Button>
+          )}
+        </div>
+      )}
     </form>
   );
 }

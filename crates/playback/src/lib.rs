@@ -1,6 +1,7 @@
 mod cancel;
 mod media;
 mod player;
+pub mod seam;
 mod seeking;
 mod source;
 pub use cancel::SourceStop;

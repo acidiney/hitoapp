@@ -7,6 +7,7 @@ export const preparableSourceB: Schema<"Source"> = {
   ...choiceSourceB,
   ready: false,
   can_prepare: true,
+  community_public: false,
 };
 
 export const initialEligibility: Schema<"Source">[] = [

@@ -85,7 +85,7 @@ async fn provider_schema_upgrade_preserves_file_evidence_references_and_search()
             .as_deref(),
         Some(legacy::RECORDING)
     );
-    let mut tx = pool.begin().await.unwrap();
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
     sqlx::query("INSERT INTO recordings(id,library_id,title,artist,initial_file_checksum,provenance) VALUES ('provider-probe',?,'Provider track','Provider artist',NULL,'provider_response')").bind(legacy::LIBRARY).execute(&mut *tx).await.expect("recordings without file evidence need a real NULL checksum");
     sqlx::query("INSERT INTO metadata_observations(id,recording_id,provider,origin,observed_at,inspection_version,title,artist,duration_ms) VALUES ('provider-observation-probe','provider-probe','org.hito.test','provider_response',unixepoch(),NULL,'Provider track','Provider artist',0)").execute(&mut *tx).await.expect("provider provenance must not invent a local source or inspection version");
     let sequence: i64 = sqlx::query_scalar(
