@@ -29157,7 +29157,7 @@
             ],
             "properties": {
               "artists": {
-                "$ref": "#/components/schemas/ArtistIdentityGroupPage"
+                "$ref": "#/components/schemas/ArtistPage"
               },
               "home": {
                 "$ref": "#/components/schemas/Home"
