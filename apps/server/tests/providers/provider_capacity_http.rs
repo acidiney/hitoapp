@@ -43,8 +43,9 @@ async fn typed_provider_capacity_preserves_the_existing_http_conflict_contract()
                 assert!(busy.headers.get("content-type").is_some_and(|value| value == "application/json"),
                     "the capacity error must retain its JSON response type");
                 assert!(busy.json() == json!({
-                    "error": "Provider requests for this account are busy. Try again."
-                }), "capacity rejection must retain the exact safe message and omit an error code");
+                    "error": "Provider requests for this account are busy. Try again.",
+                    "code": "provider_busy"
+                }), "capacity rejection must retain the exact safe message and say it is a busy provider");
                 let mut stale = draft.clone();
                 stale["service_revision"] = json!(service["revision"].as_i64().unwrap() + 1);
                 let changed = http::call(server.address, "POST", "/api/v1/plugins",

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import HitoKit
 import SwiftUI
 
@@ -17,7 +18,9 @@ struct PluginDetailView: View {
     @State private var confirmingSignOut = false
     @State private var signingIn: PluginSignIn.Attempt?
     @State private var waiting: Task<Void, Never>?
+    @State private var onlyOnTheWeb = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @Environment(\.scenePhase) private var scenePhase
 
     init(connection: PluginConnection) {
@@ -104,6 +107,11 @@ struct PluginDetailView: View {
                                     .foregroundStyle(Theme.focus)
                                     .frame(minHeight: 32)
                             }
+                        } else if onlyOnTheWeb, let api = model.api {
+                            Button { openURL(PluginSignIn.webSettings(on: api.address)) } label: {
+                                Text("Connect on the web").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
+                            }
+                            .buttonStyle(.plain)
                         } else if accountUnknown {
                             Button { Task { await loadAccount() } } label: {
                                 Text("Check again").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
@@ -178,8 +186,11 @@ struct PluginDetailView: View {
                     .background(Theme.ground)
             }
         }
-        .task(id: connection.signsIn) { await loadAccount() }
-        .onChange(of: scenePhase) { if scenePhase == .active, signingIn != nil { Task { await checkSignIn() } } }
+        .task(id: connection.signsIn) {
+            await resumeKeptSignIn()
+            await loadAccount()
+        }
+        .onChange(of: scenePhase) { if scenePhase == .active, signingIn != nil, !working { Task { await checkSignIn() } } }
         .onDisappear { waiting?.cancel() }
     }
 
@@ -245,44 +256,99 @@ struct PluginDetailView: View {
         working = true
         defer { working = false }
         problem = nil
+        note = nil
+        let attempt: PluginSignIn.Attempt
+        let url: URL
         do {
-            let attempt = try await PluginSignIn(api: api).begin(connection.id, revision: connection.revision)
-            signingIn = attempt
-            openURL(attempt.url)
-            waiting?.cancel()
-            waiting = Task { await waitForSignIn(attempt) }
+            (attempt, url) = try await PluginSignIn(api: api).begin(connection.id, revision: connection.revision)
+        } catch is PluginSignIn.OnlyOnTheWeb {
+            onlyOnTheWeb = true
+            problem = "This server needs an update before the app can sign in to \(connection.name). Connect it on the web instead."
+            return
         } catch let refused as PluginSignIn.Refused {
             problem = refused.reason ?? "Signing in with \(connection.name) could not start. Try again."
+            return
         } catch {
             problem = "Signing in with \(connection.name) could not start. Try again."
+            model.handle(error)
+            return
         }
+        signingIn = attempt
+        model.keep(attempt)
+        guard let returned = try? await authenticate(url), let secret = PluginSignIn.returnSecret(from: returned, for: attempt.id) else {
+            await track()
+            return
+        }
+        var finishing = attempt
+        finishing.returnSecret = secret
+        signingIn = finishing
+        model.keep(finishing)
+        await complete(finishing, secret: secret)
+    }
+
+    private func authenticate(_ url: URL) async throws -> URL {
+        if #available(iOS 17.4, *) {
+            return try await webAuthenticationSession.authenticate(using: url, callback: .customScheme(PluginSignIn.callbackScheme), additionalHeaderFields: [:])
+        }
+        return try await webAuthenticationSession.authenticate(using: url, callbackURLScheme: PluginSignIn.callbackScheme)
+    }
+
+    private func complete(_ attempt: PluginSignIn.Attempt, secret: String) async {
+        guard let api = model.api else { return }
+        do {
+            conclude(try await PluginSignIn(api: api).complete(attempt, returnSecret: secret))
+            await loadAccount()
+        } catch HitoAPI.Problem.refused(404) {
+            finish("Signing in with \(connection.name) could not be completed. Try again.")
+        } catch {
+            problem = "Hito hasn't finished signing in with \(connection.name) yet. Check again in a moment."
+            model.handle(error)
+        }
+    }
+
+    private func resumeKeptSignIn() async {
+        guard signingIn == nil, let kept = model.pendingSignIn, kept.connection == connection.id else { return }
+        signingIn = kept
+        await track()
+    }
+
+    private func track() async {
+        if await checkSignIn() { return }
+        waiting?.cancel()
+        guard let attempt = signingIn else { return }
+        waiting = Task { await waitForSignIn(attempt) }
     }
 
     private func waitForSignIn(_ attempt: PluginSignIn.Attempt) async {
         for delay in PluginSignIn.delays {
             try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled, signingIn == attempt else { return }
+            guard !Task.isCancelled, signingIn?.id == attempt.id else { return }
             if await checkSignIn() { return }
         }
-        if signingIn == attempt { finish("Signing in with \(connection.name) timed out. Try again.") }
+        if signingIn?.id == attempt.id { finish("Signing in with \(connection.name) timed out. Try again.") }
     }
 
     @discardableResult private func checkSignIn() async -> Bool {
         guard let api = model.api, let attempt = signingIn else { return true }
-        guard let state = try? await PluginSignIn(api: api).status(connection.id, attempt: attempt.id) else {
+        let resumption: PluginSignIn.Resumption
+        do {
+            resumption = try await PluginSignIn(api: api).resume(attempt)
+        } catch {
+            model.handle(error)
             if Date.now >= attempt.expires { finish("Signing in with \(connection.name) timed out. Try again.") }
             return Date.now >= attempt.expires
         }
-        switch state {
-        case .completed:
-            finish(nil)
+        switch resumption {
+        case let .finished(outcome):
+            conclude(outcome)
             await loadAccount()
             return true
-        case .failed:
-            finish("Signing in with \(connection.name) did not finish. Try again.")
+        case .notReturned:
+            finish(nil)
+            note = "Sign-in stopped. Nothing was connected."
             return true
-        case .gone:
-            finish("Signing in with \(connection.name) could not be completed. Try again.")
+        case .ended:
+            finish("Signing in with \(connection.name) did not finish. Nothing was connected. Try again.")
             return true
         case .waiting:
             if Date.now >= attempt.expires {
@@ -293,8 +359,14 @@ struct PluginDetailView: View {
         }
     }
 
+    private func conclude(_ outcome: PluginSignIn.Outcome) {
+        finish(outcome.problem(connection.name))
+        if outcome == .connected { note = "Signed in to \(connection.name)." }
+    }
+
     private func finish(_ message: String?) {
         signingIn = nil
+        model.forgetSignIn()
         waiting?.cancel()
         waiting = nil
         problem = message

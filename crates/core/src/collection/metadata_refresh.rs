@@ -198,6 +198,9 @@ impl Collection {
         receipts::save(&mut tx, actor.id(), &digest, &receipt, sequence).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        self.changes.playlist_changed(actor.id(), playlist.as_str());
+        self.changes
+            .publish(actor.id(), [crate::ChangeNotice::Recordings]);
         tracing::info!(
             outcome = "complete",
             updated = receipt.updated_recordings,

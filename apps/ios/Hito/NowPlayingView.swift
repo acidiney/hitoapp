@@ -157,6 +157,7 @@ struct NowPlayingView: View {
 
     private var status: String {
         if player.retrying != nil { return player.searching }
+        if player.buffering { return "Buffering…" }
         if let notice = player.notice { return notice }
         if player.state == .loading { return player.searching }
         return player.sourceLabel.map { "Ready · from \($0)" } ?? "Ready"

@@ -9,7 +9,7 @@ use crate::catalog::provider::{
     bindings::{self, Binding},
     evidence, persist,
 };
-use crate::{Actor, Catalog, Error, Result};
+use crate::{Actor, Catalog, ChangeNotice, Error, Result, identity::recording_readers};
 use uuid::Uuid;
 
 pub(super) enum Publication {
@@ -37,6 +37,7 @@ impl Catalog {
         authority::access(&mut tx, actor, recording).await?;
         receipts::recheck_on(&mut tx, attempt).await?;
         let current = authority::capture(&mut tx, actor, recording).await?;
+        let mut readers = vec![actor.id().to_owned()];
         let outcome = if authority::protected(&mut tx, actor, recording).await? {
             SourceResolutionOutcome::ProtectedChoice
         } else if current.digest()? != attempt.target_digest {
@@ -119,6 +120,7 @@ impl Catalog {
             let musical_metadata = candidate.musical_metadata()?;
             sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision,musical_metadata) VALUES (?,?,?,?,?,?,?,?)")
                 .bind(&attempt.id).bind(&binding.id).bind(candidate.policy(basis)).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
+            readers = recording_readers(&mut tx, recording).await?;
             SourceResolutionOutcome::Ready
         } else if providers.provider_unavailable {
             SourceResolutionOutcome::ProviderUnavailable
@@ -138,6 +140,17 @@ impl Catalog {
             candidate_rank = basis.rank_index(),
             "Source resolution committed"
         );
+        if !matches!(
+            outcome,
+            SourceResolutionOutcome::Cancelled | SourceResolutionOutcome::ProtectedChoice
+        ) {
+            self.changes.publish_to(
+                &readers,
+                &[ChangeNotice::Sources {
+                    recording_id: recording.to_owned(),
+                }],
+            );
+        }
         Ok(Publication::Settled(outcome))
     }
 
@@ -161,6 +174,17 @@ impl Catalog {
         };
         receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome, None).await?;
         tx.commit().await?;
+        if !matches!(
+            outcome,
+            SourceResolutionOutcome::Cancelled | SourceResolutionOutcome::ProtectedChoice
+        ) {
+            self.changes.publish(
+                actor.id(),
+                [ChangeNotice::Sources {
+                    recording_id: recording.to_owned(),
+                }],
+            );
+        }
         Ok(outcome)
     }
 }

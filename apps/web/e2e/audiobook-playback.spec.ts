@@ -14,6 +14,7 @@ import {
   observeAudiobookMedia,
   preservedAudiobookPlayback,
 } from "./fixtures/audiobook-playback-state";
+import { networkQuiet } from "./fixtures/settled";
 
 test.use({
   trace: "off",
@@ -173,7 +174,7 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
         .getByRole("list", { name: "Chapters", exact: true })
         .getByRole("listitem"),
     ).toHaveCount(3);
-    await page.waitForLoadState("networkidle", { timeout: 10_000 });
+    await networkQuiet(page, 10_000);
     await expect.poll(() => evidence!.pending()).toBe(0);
     expect(
       await page.locator("audio").evaluateAll(

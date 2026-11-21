@@ -4,6 +4,7 @@ import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 
 import { log } from "../shared/log";
+import { useChangeStream } from "../shared/changeStream";
 import { useReloadOnInvalidated } from "../shared/hooks/useReloadOnInvalidated";
 import AccountMenu from "./AccountMenu";
 import ShellShortcuts from "./ShellShortcuts";
@@ -44,6 +45,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
+  useChangeStream(user.id, !lock.locked);
   useReloadOnInvalidated("playlists", ["playlists"]);
   useEffect(() => {
     const apple = isApplePlatform();

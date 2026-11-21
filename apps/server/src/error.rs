@@ -27,6 +27,7 @@ pub enum ErrorCode {
     PluginCredentialsRequired,
     ArtworkAdmissionBusy,
     ArtworkStorageFull,
+    ProviderBusy,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -74,6 +75,10 @@ impl IntoResponse for ApiError {
             Error::PluginCredentialsRequired(_) => Some(ErrorCode::PluginCredentialsRequired),
             Error::ArtworkAdmissionBusy => Some(ErrorCode::ArtworkAdmissionBusy),
             Error::ArtworkStorageFull => Some(ErrorCode::ArtworkStorageFull),
+            Error::ProviderBusy(_) => Some(ErrorCode::ProviderBusy),
+            Error::Conflict(message) if message == hito_core::ACCOUNT_PROVIDER_BUSY => {
+                Some(ErrorCode::ProviderBusy)
+            }
             _ => None,
         };
         let error = if matches!(

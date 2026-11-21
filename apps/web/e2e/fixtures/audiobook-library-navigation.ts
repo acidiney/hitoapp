@@ -4,6 +4,7 @@ import type { Schema } from "../../src/shared/schema";
 import { libraryId, type LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
 import { openLibrarySection } from "./library-sections";
+import { networkQuiet } from "./settled";
 
 export async function documentToken(page: Page) {
   return page.evaluate(
@@ -56,7 +57,7 @@ export async function pageLink(
   await assertBooks(page, books);
   expect(delivery.counts.visits - before).toBe(1);
   expect(await documentToken(page)).toBe(token);
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   return href;
 }
 export async function openBooks(
@@ -93,7 +94,7 @@ export async function openBooks(
       .getByRole("link", { name: fixture.peerName, exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
 }
 
 export async function traverseLibrary(
@@ -136,7 +137,7 @@ export async function traverseLibrary(
   expect(new URL(page.url()).pathname + new URL(page.url()).search).toBe(href);
   const restored = await documentToken(page);
   expect(restored !== token).toBe(true);
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   await page.goBack();
   await assertBooks(page, fixture.books.slice(0, 60));
   expect(await documentToken(page)).toBe(restored);

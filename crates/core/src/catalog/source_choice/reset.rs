@@ -1,5 +1,5 @@
 use super::{Catalog, ResetSourceChoice, SourceChoiceResetReceipt, choice_access, recording_id};
-use crate::{Actor, Error, Result};
+use crate::{Actor, ChangeNotice, Error, Result};
 use std::time::Instant;
 
 impl Catalog {
@@ -99,6 +99,12 @@ impl Catalog {
             .bind(request.expected_revision).bind(revision).execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        self.changes.publish(
+            actor.id(),
+            [ChangeNotice::Sources {
+                recording_id: recording.clone(),
+            }],
+        );
         Ok(SourceChoiceResetReceipt {
             request_id: request.request_id,
             recording_id: recording,

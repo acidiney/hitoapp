@@ -59,7 +59,9 @@ function isFinal(value: Cacheable) {
 function isTransient(error: unknown) {
   if (error instanceof ConnectionError) return true;
   return (
-    error instanceof HttpError && TRANSIENT_STATUSES.includes(error.status)
+    error instanceof HttpError &&
+    (TRANSIENT_STATUSES.includes(error.status) ||
+      error.code === "provider_busy")
   );
 }
 

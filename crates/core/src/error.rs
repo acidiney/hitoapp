@@ -1,3 +1,5 @@
+pub const ACCOUNT_PROVIDER_BUSY: &str = "Provider requests for this account are busy. Try again.";
+
 #[derive(Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
 pub struct PluginInstallationStamp {
     pub installation_id: String,
