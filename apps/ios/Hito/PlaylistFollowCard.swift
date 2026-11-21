@@ -13,6 +13,8 @@ struct PlaylistFollowCard: View {
     @State private var refreshing = false
     @State private var resuming = false
     @State private var waiting = false
+    @State private var reconnecting: PluginOffer?
+    @State private var finding = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -57,6 +59,10 @@ struct PlaylistFollowCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
         .task(id: playlist) { await watch() }
+        .fullScreenCover(item: $reconnecting) { offer in
+            ConnectSheet(offer: offer) { Task { await load() } }
+                .presentationBackground(.clear)
+        }
     }
 
     @ViewBuilder private func paused(_ follow: PlaylistFollowing.Follow) -> some View {
@@ -68,6 +74,14 @@ struct PlaylistFollowCard: View {
                     Text("\(PlaylistFollowing.Change.value(change.before)) → \(PlaylistFollowing.Change.value(change.after))").font(Theme.small)
                 }
                 .accessibilityElement(children: .combine)
+            }
+        }
+        if let review = follow.review, review.removed {
+            Text(review.reconnectServiceId == nil ? "Ask your administrator to offer \(review.connectionName) again, then connect it." : review.reconnectNote)
+                .font(Theme.small)
+            if let service = review.reconnectServiceId {
+                PrimaryButton(title: review.reconnectTitle, busyTitle: "Opening…", busy: finding) { Task { await reconnect(service) } }
+                    .disabled(finding)
             }
         }
         Text("Your saved entries remain available.").font(Theme.small).foregroundStyle(Theme.soft)
@@ -157,6 +171,19 @@ struct PlaylistFollowCard: View {
             refreshProblem = "Hito couldn't ask for an update. Try again."
         }
         await load()
+    }
+
+    private func reconnect(_ service: String) async {
+        guard let api = model.api else { return }
+        finding = true
+        defer { finding = false }
+        do {
+            let offer = try await Plugins(api: api).load().available.first { $0.id == service }
+            reconnecting = offer
+            resumeProblem = offer == nil ? "This plugin isn't offered to connect right now. Try again later." : nil
+        } catch {
+            resumeProblem = "Hito couldn't open the plugin. Try again."
+        }
     }
 
     private func resume(_ current: PlaylistFollowing.Follow) async {

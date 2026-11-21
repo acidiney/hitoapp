@@ -43,13 +43,19 @@ public struct PlaylistFollowing: Sendable {
         public let serviceRevision: Int
         public let resumable: Bool
         public let changes: [Change]
+        public let reconnectServiceId: String?
 
         enum CodingKeys: String, CodingKey {
             case resumable, changes
             case connectionName = "connection_name"
             case installationRevision = "installation_revision"
             case serviceRevision = "service_revision"
+            case reconnectServiceId = "reconnect_service_id"
         }
+
+        public var removed: Bool { changes.contains { $0.kind == "removed" } }
+        public var reconnectTitle: String { "Connect \(connectionName) again" }
+        public var reconnectNote: String { "Connect \(connectionName) again and this playlist resumes updating." }
 
         static let gainedOrder: [(String, String)] = [
             ("search", "song search"),

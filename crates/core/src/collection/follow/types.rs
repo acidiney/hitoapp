@@ -83,4 +83,5 @@ pub struct PlaylistFollowReview {
     pub service_revision: i64,
     pub resumable: bool,
     pub changes: Vec<PlaylistFollowChange>,
+    pub reconnect_service_id: Option<String>,
 }

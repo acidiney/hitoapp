@@ -17,6 +17,7 @@ export default function PluginSettings(props: {
   account: string;
   admin: boolean;
   desktop?: boolean;
+  connect?: string | null;
 }) {
   return <PluginPanel key={props.account} {...props} />;
 }
@@ -53,15 +54,17 @@ function PluginPanel({
   account,
   admin,
   desktop = false,
+  connect = null,
 }: {
   account: string;
   admin: boolean;
   desktop?: boolean;
+  connect?: string | null;
 }) {
   const actions = usePlugins(account);
   const heading = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState<View>("mine");
-  const [connecting, setConnecting] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState<string | null>(connect);
   const [focusRequest, setFocusRequest] = useState(0);
   const restoreFocus = () => setFocusRequest((count) => count + 1);
   useEffect(() => {

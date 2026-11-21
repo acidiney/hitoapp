@@ -24,7 +24,10 @@ vi.mock("../../metadata/components/MetadataPreferences", async () => {
 });
 vi.mock("../../plugins/components/PluginSettings", async () => {
   const { createElement: h } = await import("react");
-  return { default: () => h("p", null, "Plugins stub") };
+  return {
+    default: ({ connect }: { connect?: string | null }) =>
+      h("p", { "data-connect": connect ?? "" }, "Plugins stub"),
+  };
 });
 vi.mock("../../community/components/CommunitySettings", async () => {
   const { createElement: h } = await import("react");
@@ -171,6 +174,13 @@ test("the Plugins section opens as its own page without the settings navigation"
   expect(
     screen.queryByRole("navigation", { name: "Settings sections" }),
   ).toBeNull();
+});
+
+test("a plugins link can name the service to connect", async () => {
+  open("/settings?section=plugins&connect=offered-service");
+  const stub = await screen.findByText("Plugins stub");
+  expect(stub.getAttribute("data-connect")).toBe("offered-service");
+  expect(window.location.search).toBe("?section=plugins");
 });
 
 test("members never see the Accounts section or reach it by URL", () => {

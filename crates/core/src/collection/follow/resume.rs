@@ -57,30 +57,32 @@ pub(in crate::collection) async fn resume(
             "This playlist connection is already approved for updates".into(),
         ));
     }
-    let reviewed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM playlist_follows f
+    let connection: Option<String> = sqlx::query_scalar(&format!("SELECT installation.id FROM playlist_follows f
         JOIN playlists p ON p.id = f.playlist_id AND p.user_id = f.user_id AND p.deleted = 0 AND p.kind = 'followed'
         JOIN users account ON account.id = f.user_id
-        JOIN plugin_installations installation ON installation.id = f.installation_id
-            AND installation.user_id = f.user_id AND installation.active = 1
-            AND installation.revision = ? AND installation.service_id = f.service_id
+        JOIN plugin_installations installation ON installation.id = ({CONNECTION})
+            AND installation.user_id = f.user_id AND installation.active = 1 AND installation.revision = ?
             AND json_extract(installation.manifest,'$.id') = f.provider
-        JOIN plugin_services service ON service.id = f.service_id AND service.active = 1 AND service.revision = ?
+        JOIN plugin_services service ON service.id = installation.service_id AND service.active = 1 AND service.revision = ?
         WHERE f.playlist_id = ? AND f.user_id = ? AND f.active = 1 AND f.generation = ?
-            AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'playlists'))")
+            AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'playlists')", CONNECTION = approval::CONNECTION))
         .bind(installation_revision).bind(service_revision).bind(&playlist).bind(actor.id()).bind(generation)
-        .fetch_one(&mut **tx).await?;
-    if !reviewed {
+        .fetch_optional(&mut **tx).await?;
+    let Some(connection) = connection else {
         return Err(Error::Conflict(
             "The reviewed playlist connection changed. Review it again.".into(),
         ));
-    }
+    };
     let next_generation = generation.checked_add(1).ok_or_else(|| {
         Error::Conflict("This playlist cannot advance its update generation".into())
     })?;
-    let changed = sqlx::query("UPDATE playlist_follows SET installation_revision = ?,service_revision = ?,generation = ?,error = NULL,next_refresh_at = unixepoch()
-        WHERE playlist_id = ? AND user_id = ? AND generation = ? AND active = 1")
+    let changed = sqlx::query("UPDATE playlist_follows SET installation_id = installation.id,service_id = installation.service_id,
+            installation_revision = ?,service_revision = ?,generation = ?,error = NULL,next_refresh_at = unixepoch()
+        FROM plugin_installations installation
+        WHERE playlist_follows.playlist_id = ? AND playlist_follows.user_id = ? AND playlist_follows.generation = ?
+            AND playlist_follows.active = 1 AND installation.id = ?")
         .bind(installation_revision).bind(service_revision).bind(next_generation)
-        .bind(&playlist).bind(actor.id()).bind(generation).execute(&mut **tx).await?.rows_affected();
+        .bind(&playlist).bind(actor.id()).bind(generation).bind(&connection).execute(&mut **tx).await?.rows_affected();
     if changed != 1 {
         return Err(Error::Conflict(
             "This playlist changed. Review its connection again.".into(),
@@ -94,6 +96,7 @@ pub(in crate::collection) async fn resume(
     tracing::info!(
         outcome = "resumed",
         generation = next_generation,
+        installation_id = %connection,
         cancelled_jobs = cancelled,
         pruned_jobs = pruned,
         elapsed_ms = started.elapsed().as_millis() as u64,

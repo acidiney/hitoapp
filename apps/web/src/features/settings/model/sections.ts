@@ -100,6 +100,7 @@ export function readLocation(
   chosen: boolean;
   requested: string | null;
   anchor: string | null;
+  connect: string | null;
 } {
   const parsed = new URL(url, "http://hito.local");
   const requested = parsed.searchParams.get("section");
@@ -108,6 +109,7 @@ export function readLocation(
     : null;
   return {
     anchor,
+    connect: parsed.searchParams.get("connect"),
     section: resolveSection(requested, admin),
     chosen: requested !== null,
     requested,

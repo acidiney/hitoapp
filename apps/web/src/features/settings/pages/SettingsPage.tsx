@@ -32,7 +32,7 @@ import {
 
 export default function SettingsPage(props: Schema<"SettingsPageProps">) {
   const { url } = usePage();
-  const { section, chosen, requested, anchor } = readLocation(
+  const { section, chosen, requested, anchor, connect } = readLocation(
     url,
     props.user.admin,
   );
@@ -49,13 +49,13 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
     (chosen ? sectionHeading : pageHeading).current?.focus();
   }, [section, chosen]);
   useEffect(() => {
-    if (requested !== null && requested !== section)
+    if ((requested !== null && requested !== section) || connect !== null)
       window.history.replaceState(
         window.history.state,
         "",
         sectionHref(section),
       );
-  }, [requested, section]);
+  }, [requested, section, connect]);
   const [request, setRequest] = useState<RevealRequest | null>(() =>
     anchor ? { anchor, serial: 0 } : null,
   );
@@ -99,6 +99,7 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
           account={props.user.id}
           admin={props.user.admin}
           desktop={props.native_playback}
+          connect={connect}
         />
       </UnsavedContext.Provider>
     );
