@@ -132,7 +132,7 @@ async fn home_page_lists_library_artists_with_album_counts_for_album_only_credit
         counts,
         [
             ("Album Band".to_owned(), 0, 1),
-            ("Track Singer".to_owned(), 2, 0)
+            ("Track Singer".to_owned(), 2, 1)
         ]
     );
 }
