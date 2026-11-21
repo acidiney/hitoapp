@@ -1,4 +1,9 @@
-use super::{Downloads, guard::Guard, lease::Lease, transfer::Representation};
+use super::{
+    Downloads,
+    guard::Guard,
+    lease::{Claim, Lease},
+    transfer::Representation,
+};
 use crate::{AudioRequest, Error, OpenedAudio, Result, library_storage::ManagedFileLocation};
 use std::{future::Future, time::Instant};
 use tokio::sync::watch;
@@ -17,7 +22,7 @@ impl Downloads {
         let (stop, stopped) = watch::channel(false);
         let (done, finished) = tokio::sync::oneshot::channel::<()>();
         let job = async move {
-            let result = self.run_job(stopped).await;
+            let result = self.run_job(stopped, Claim::Chosen).await;
             drop(done);
             result
         };
@@ -28,11 +33,15 @@ impl Downloads {
         result
     }
 
-    async fn run_job(&self, mut stopped: watch::Receiver<bool>) -> Result<bool> {
+    pub(super) async fn run_job(
+        &self,
+        mut stopped: watch::Receiver<bool>,
+        kind: Claim,
+    ) -> Result<bool> {
         if *stopped.borrow() {
             return Ok(false);
         }
-        let reclaimed = match self.reclaim_pending().await {
+        let reclaimed = match self.reclaim_for(kind).await {
             Ok(reclaimed) => reclaimed,
             Err(error) => {
                 tracing::debug!(
@@ -42,7 +51,7 @@ impl Downloads {
                 false
             }
         };
-        let Some(lease) = self.claim().await? else {
+        let Some(lease) = self.claim(kind).await? else {
             return Ok(reclaimed);
         };
         let started = Instant::now();
@@ -57,14 +66,28 @@ impl Downloads {
                 return Err(error);
             }
         };
-        if outcome != "ready"
-            && let Err(error) = self.reclaim_pending().await
-        {
-            tracing::debug!(error_code = error.code(), "Download cleanup deferred");
+        if outcome != "ready" {
+            let cleaned = match kind {
+                Claim::Chosen => self.reclaim_pending().await,
+                Claim::Automatic => self.reclaim_file(&lease.file_id).await,
+            };
+            if let Err(error) = cleaned {
+                tracing::debug!(error_code = error.code(), "Download cleanup deferred");
+            }
+        }
+        if outcome == "ready" && lease.automatic {
+            self.enforce_budget(&lease.account_id).await;
         }
         tracing::info!(job_id = %lease.id, intent_id = %lease.intent_id, account_id = %lease.account_id,
-            attempt = lease.attempts, outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Download transfer finished");
+            attempt = lease.attempts, automatic = lease.automatic, outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Download transfer finished");
         Ok(true)
+    }
+
+    async fn reclaim_for(&self, kind: Claim) -> Result<bool> {
+        match kind {
+            Claim::Chosen => self.reclaim_pending().await,
+            Claim::Automatic => Ok(false),
+        }
     }
 
     async fn settle(
@@ -96,12 +119,13 @@ impl Downloads {
     ) -> Result<Option<ManagedFileLocation>> {
         let mut guard = Guard::new(lease, self, stopped);
         lease.check(&self.store).await?;
-        let Some(opened) = guard
+        let Some((opened, yielded)) = guard
             .wait(self.open_origin(lease, AudioRequest::default()))
             .await?
         else {
             return Ok(None);
         };
+        guard.yielded = yielded;
         let OpenedAudio::Content(content) = opened else {
             return Err(Error::Upstream(
                 "The download service did not return complete audio",
@@ -130,6 +154,9 @@ impl Downloads {
         };
         self.record_verified(lease, verified.location()).await?;
         lease.check(&self.store).await?;
+        if lease.automatic && self.disk_low() {
+            return Err(Error::InsufficientStorage);
+        }
         let location = guard.publish(self.files.publish(verified)).await?;
         Ok(location)
     }

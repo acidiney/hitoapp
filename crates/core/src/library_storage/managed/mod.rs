@@ -3,6 +3,7 @@ mod lifecycle;
 mod private_root;
 mod publication;
 mod reading;
+mod space;
 
 use super::{FileInspector, Root, blocking};
 use crate::{Error, Result};
@@ -11,6 +12,7 @@ use cap_std::fs::OpenOptions;
 pub(crate) use lifecycle::ManagedAttempt;
 use lifecycle::{Writer, Writers};
 use publication::sync_directory;
+pub use space::DiskSpace;
 use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},
@@ -38,6 +40,8 @@ pub(crate) struct ManagedFiles {
     root: Option<Root>,
     inspector: FileInspector,
     writers: Writers,
+    #[cfg(any(test, feature = "test-support"))]
+    simulated_space: Arc<Mutex<Option<DiskSpace>>>,
 }
 
 pub(crate) struct PendingManagedFile {
@@ -97,6 +101,8 @@ impl ManagedFiles {
             root,
             inspector,
             writers: Writers::default(),
+            #[cfg(any(test, feature = "test-support"))]
+            simulated_space: Arc::default(),
         })
     }
 

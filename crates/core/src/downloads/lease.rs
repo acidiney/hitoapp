@@ -15,6 +15,8 @@ pub(super) struct Lease {
     pub attempts: i64,
     pub lease_token: String,
     pub file_id: String,
+    pub automatic: bool,
+    pub busy_retries: i64,
     #[sqlx(flatten)]
     pub origin: DownloadOrigin,
     #[sqlx(skip)]
@@ -23,8 +25,14 @@ pub(super) struct Lease {
     pub reservation: Option<ManagedAttempt>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Claim {
+    Chosen,
+    Automatic,
+}
+
 impl Downloads {
-    pub(super) async fn claim(&self) -> Result<Option<Lease>> {
+    pub(super) async fn claim(&self, kind: Claim) -> Result<Option<Lease>> {
         let eligible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM download_jobs j INDEXED BY download_job_queue
             JOIN download_intents i ON i.id=j.intent_id WHERE j.status='queued' AND j.next_attempt_at<=unixepoch() AND i.host_device=?)
             OR EXISTS(SELECT 1 FROM download_jobs j INDEXED BY download_job_expired JOIN download_intents i ON i.id=j.intent_id
@@ -41,11 +49,25 @@ impl Downloads {
         sqlx::query("UPDATE download_jobs INDEXED BY download_job_queue SET status='cancelled',updated_at=unixepoch() WHERE status='queued'
             AND EXISTS(SELECT 1 FROM download_intents i WHERE i.id=download_jobs.intent_id AND i.host_device=? AND i.state IN ('failed','removed'))")
             .bind(self.host.as_str()).execute(&mut *tx).await?;
-        let id: Option<String> = sqlx::query_scalar("SELECT j.id FROM download_jobs j JOIN download_intents i ON i.id=j.intent_id
+        let selection = match kind {
+            Claim::Chosen => "SELECT j.id FROM download_jobs j JOIN download_intents i ON i.id=j.intent_id
             JOIN current_download_authority a ON a.id=i.id WHERE i.host_device=? AND j.status='queued' AND j.attempts<3 AND j.next_attempt_at<=unixepoch()
+            AND EXISTS(SELECT 1 FROM chosen_download_intents chosen WHERE chosen.id=i.id)
             AND NOT EXISTS(SELECT 1 FROM download_jobs busy WHERE busy.account_id=j.account_id AND busy.status='running')
-            AND (SELECT count(*) FROM download_jobs busy WHERE busy.status='running')<2 ORDER BY j.created_at,j.id LIMIT 1")
-            .bind(self.host.as_str()).fetch_optional(&mut *tx).await?;
+            AND (SELECT count(*) FROM download_jobs busy WHERE busy.status='running')<2 ORDER BY j.created_at,j.id LIMIT 1",
+            Claim::Automatic => "SELECT j.id FROM download_jobs j JOIN download_intents i ON i.id=j.intent_id
+            JOIN current_download_authority a ON a.id=i.id WHERE i.host_device=?1 AND j.status='queued' AND j.attempts<3 AND j.next_attempt_at<=unixepoch()
+            AND NOT EXISTS(SELECT 1 FROM chosen_download_intents chosen WHERE chosen.id=i.id)
+            AND NOT EXISTS(SELECT 1 FROM download_jobs busy WHERE busy.account_id=j.account_id AND busy.status='running')
+            AND NOT EXISTS(SELECT 1 FROM download_jobs busy JOIN download_intents running ON running.id=busy.intent_id
+                WHERE busy.status='running' AND running.host_device=?1
+                AND NOT EXISTS(SELECT 1 FROM chosen_download_intents chosen WHERE chosen.id=running.id))
+            ORDER BY j.created_at DESC,j.id LIMIT 1",
+        };
+        let id: Option<String> = sqlx::query_scalar(selection)
+            .bind(self.host.as_str())
+            .fetch_optional(&mut *tx)
+            .await?;
         let Some(id) = id else {
             tx.commit().await?;
             return Ok(None);
@@ -60,7 +82,8 @@ impl Downloads {
         sqlx::query("UPDATE download_intents SET state='running',file_id=?,bytes_received=0,total_bytes=NULL,error=NULL,updated_at=unixepoch()
             WHERE id=(SELECT intent_id FROM download_jobs WHERE id=?)")
             .bind(&file).bind(&id).execute(&mut *tx).await?;
-        let mut lease: Lease = sqlx::query_as("SELECT j.id,j.account_id,j.intent_id,j.generation,j.attempts,j.lease_token,
+        let mut lease: Lease = sqlx::query_as("SELECT j.id,j.account_id,j.intent_id,j.generation,j.attempts,j.lease_token,j.busy_retries,
+            NOT EXISTS(SELECT 1 FROM chosen_download_intents chosen WHERE chosen.id=i.id) AS automatic,
             i.recording_id,i.host_device,i.file_id,i.provider_source_id,i.binding_id,i.binding_revision,i.remote_source_id,
             i.installation_id,i.installation_revision,i.service_id,i.service_revision,i.credential_digest,i.audio_generation,
             COALESCE((SELECT ps.generation FROM provider_sources ps WHERE ps.source_id=i.provider_source_id AND ps.recording_id=i.recording_id),-1) AS source_generation,
@@ -74,7 +97,7 @@ impl Downloads {
             stored_uuid(&lease.lease_token)?,
         )?);
         tx.commit().await?;
-        tracing::debug!(job_id = %lease.id, intent_id = %lease.intent_id, account_id = %lease.account_id, attempt = lease.attempts, "Download lease acquired");
+        tracing::debug!(job_id = %lease.id, intent_id = %lease.intent_id, account_id = %lease.account_id, attempt = lease.attempts, automatic = lease.automatic, "Download lease acquired");
         Ok(Some(lease))
     }
 

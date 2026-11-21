@@ -33,6 +33,7 @@ pub(crate) use directories::OpenedMedia;
 pub use directories::SharedDirectory;
 pub use folder_types::{ConnectFolder, DirectoryRef, MusicFolder};
 pub(crate) use inspection::FileInspector;
+pub use managed::DiskSpace;
 pub(crate) use managed::managed_mime;
 pub(crate) use managed::{
     MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles, PendingManagedFile,

@@ -6,6 +6,7 @@ use crate::{
         remote::{Authority, RemoteAudio},
     },
 };
+use tokio::sync::watch;
 
 impl Downloads {
     #[tracing::instrument(level = "debug", skip_all,
@@ -14,13 +15,21 @@ impl Downloads {
         &self,
         lease: &Lease,
         request: AudioRequest,
-    ) -> Result<OpenedAudio> {
+    ) -> Result<(OpenedAudio, Option<watch::Receiver<bool>>)> {
         match &lease.origin {
-            DownloadOrigin::Provider(origin) => {
+            DownloadOrigin::Provider(origin) if lease.automatic => {
+                let (opened, yielded) = self
+                    .plugins
+                    .open_download_in_background(&lease.account_id, origin, request)
+                    .await?;
+                Ok((opened, Some(yielded)))
+            }
+            DownloadOrigin::Provider(origin) => Ok((
                 self.plugins
                     .open_download(&lease.account_id, origin, request)
-                    .await
-            }
+                    .await?,
+                None,
+            )),
             DownloadOrigin::Podcast(origin) => {
                 lease.check(&self.store).await?;
                 let remote = self
@@ -47,7 +56,7 @@ impl Downloads {
                         audio.length,
                     ));
                 }
-                Ok(opened)
+                Ok((opened, None))
             }
         }
     }

@@ -111,9 +111,10 @@ pub use community::{
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{
-    DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus, Downloads,
+    AutomaticCopies, AutomaticCopyBudget, AutomaticCopyPreference, DownloadReceipt,
+    DownloadRequest, DownloadState, DownloadStatus, Downloads, MAX_UPCOMING_RECORDINGS,
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
-    PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
+    PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus, UpcomingRecordings,
 };
 pub use error::{ACCOUNT_PROVIDER_BUSY, Error, PluginInstallationStamp, Result};
 pub use hito_plugin_sdk::CreditRole;
@@ -122,9 +123,9 @@ pub use identity::{
     DeleteAccount, Identity, Library, LockStatus, MAX_AVATAR_UPLOAD_BYTES, RemovePin,
     SESSION_SECONDS, SessionInfo, SessionsRevoked, SetPin, Unlock, UpdateDisplayName, User,
 };
-pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]
 pub use library_storage::WatchCounters;
+pub use library_storage::{AudioFile, DiskSpace};
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef,
     FolderWatchSettings, Job, JobFailure, LibraryStorage, MissingRecordingsRemoval, MusicFolder,
@@ -346,12 +347,14 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let downloads = Downloads {
         store: store.clone(),
         plugins: plugins.clone(),
+        catalog: catalog.clone(),
         remote: podcast_remote.clone(),
         host: config.host_device.clone(),
         files: managed.clone(),
         active: Default::default(),
         playlist_turn: Default::default(),
         authority_interval: downloads::AUTHORITY_INTERVAL,
+        announcements: Default::default(),
     };
     if let Err(error) = downloads.sweep_staging().await {
         tracing::warn!(
