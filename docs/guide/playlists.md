@@ -56,7 +56,9 @@ If the plugin behind a followed playlist changes in a way that matters, for exam
 - Select **Resume updates** to accept the change and continue.
 - Select **Review connection** to look at the plugin in Settings first.
 
-If the plugin was removed or no longer offers playlists, updates can't resume. Small changes, such as a plugin restart with nothing new, don't pause anything.
+If you removed the plugin, the page says the connection was removed or replaced and offers **Connect *plugin* again**. Connect the same plugin again and the playlist picks up where it left off. If the new connection offers more than before or uses a different token, the page shows what changed and **Resume updates**.
+
+If the plugin no longer offers playlists, updates can't resume. Small changes, such as a plugin restart with nothing new, don't pause anything.
 
 ## Tracks that aren't ready yet
 
