@@ -47,7 +47,7 @@ impl Accounts {
     }
 
     fn busy() -> Error {
-        Error::Conflict("Provider requests for this account are busy. Try again.".into())
+        Error::Conflict(crate::error::ACCOUNT_PROVIDER_BUSY.into())
     }
 
     fn slot(&self, account: &str) -> Result<Arc<Semaphore>> {

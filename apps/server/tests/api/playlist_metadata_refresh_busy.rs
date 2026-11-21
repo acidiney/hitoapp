@@ -13,7 +13,7 @@ use tokio::task::JoinSet;
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn an_uncoded_busy_conflict_can_precede_the_same_requests_accepted_receipt() {
+async fn a_coded_busy_conflict_can_precede_the_same_requests_accepted_receipt() {
     let f = private_copy().await;
     f.publish_verified_album().await;
     let before = f.state().await;
@@ -56,9 +56,9 @@ async fn an_uncoded_busy_conflict_can_precede_the_same_requests_accepted_receipt
         let error: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(
             error,
-            json!({"error": "Provider requests for this account are busy. Try again."})
+            json!({"error": "Provider requests for this account are busy. Try again.", "code": "provider_busy"})
         );
-        assert!(error.get("code").is_none());
+        assert_eq!(error["code"], "provider_busy");
         assert_eq!(f.state().await, before);
         assert_eq!(f.provider_requests().await, held_requests);
     }

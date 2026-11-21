@@ -208,6 +208,10 @@ impl Catalog {
             .bind(status).bind(error).bind(reservation).bind(delay).bind(&lease.id).bind(&lease.lease_token)
             .execute(&mut *tx).await?;
         tx.commit().await?;
+        if status == "ready" {
+            self.changes
+                .publish(&lease.user_id, lease.target.change_notices());
+        }
         Ok(status)
     }
 }

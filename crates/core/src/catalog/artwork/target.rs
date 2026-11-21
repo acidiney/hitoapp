@@ -1,3 +1,4 @@
+use crate::{ArtworkChangeEntity, ChangeNotice};
 use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest};
 use sqlx::{FromRow, Row, sqlite::SqliteRow};
 
@@ -19,6 +20,28 @@ pub(super) enum Target {
 }
 
 impl Target {
+    pub(super) fn change_notices(&self) -> Vec<ChangeNotice> {
+        let (entity, id) = match self {
+            Self::Recording { id, .. } => (ArtworkChangeEntity::Recording, id),
+            Self::Release { id, .. } => (ArtworkChangeEntity::Release, id),
+            Self::Playlist { id, .. } => (ArtworkChangeEntity::Playlist, id),
+        };
+        let artwork = ChangeNotice::Artwork {
+            entity,
+            id: id.clone(),
+        };
+        match self {
+            Self::Playlist { id, .. } => vec![
+                artwork,
+                ChangeNotice::Playlist {
+                    playlist_id: id.clone(),
+                },
+                ChangeNotice::Playlists,
+            ],
+            _ => vec![artwork],
+        }
+    }
+
     pub(super) fn request(&self) -> ArtworkRequest {
         match self {
             Self::Recording { provider_id, .. } => ArtworkRequest {

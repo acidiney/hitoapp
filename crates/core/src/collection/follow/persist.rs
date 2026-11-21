@@ -68,7 +68,7 @@ pub(super) async fn refresh(
     operation: &PlaylistOperation,
     playlist: &str,
     snapshot: PlaylistSnapshot,
-) -> Result<()> {
+) -> Result<bool> {
     let (
         interval,
         previous_digest,
@@ -91,7 +91,7 @@ pub(super) async fn refresh(
             outcome = "unchanged",
             "Follow snapshot checked without collection publication"
         );
-        return Ok(());
+        return Ok(false);
     }
     let next_revision = content_revision
         .checked_add(1)
@@ -145,7 +145,7 @@ pub(super) async fn refresh(
         outcome = "prepared",
         "Follow snapshot publication prepared"
     );
-    Ok(())
+    Ok(true)
 }
 
 async fn snapshot_for_publication(

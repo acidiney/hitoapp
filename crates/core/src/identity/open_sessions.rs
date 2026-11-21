@@ -56,6 +56,7 @@ impl Identity {
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
+        self.changes.sessions_changed(actor.id());
         let current = target == actor.session_binding();
         tracing::info!(
             event = "session_revoked",
@@ -78,6 +79,7 @@ impl Identity {
             .await?
             .rows_affected();
         tx.commit().await?;
+        self.changes.sessions_changed(actor.id());
         tracing::info!(
             event = "other_sessions_revoked",
             sessions_revoked = revoked,

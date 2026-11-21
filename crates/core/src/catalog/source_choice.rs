@@ -4,7 +4,7 @@ mod reset;
 mod types;
 
 use super::Catalog;
-use crate::{Actor, Error, Result, identity::recording_access};
+use crate::{Actor, ChangeNotice, Error, Result, identity::recording_access};
 pub(crate) use policy::push_source_choice;
 pub(super) use policy::{push_selectable_source, push_selected_source};
 use sqlx::{QueryBuilder, SqliteConnection};
@@ -121,6 +121,12 @@ impl Catalog {
             .bind(request.source_id.to_string()).bind(revision).execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        self.changes.publish(
+            actor.id(),
+            [ChangeNotice::Sources {
+                recording_id: recording.clone(),
+            }],
+        );
         Ok(SourceChoiceReceipt {
             request_id: request.request_id,
             recording_id: recording,

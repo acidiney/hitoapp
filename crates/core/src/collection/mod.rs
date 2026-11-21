@@ -65,4 +65,5 @@ pub struct Collection {
     pub(crate) host: HostDeviceId,
     pub(crate) plugins: crate::Plugins,
     pub(crate) metadata_refresh_admission: metadata_refresh::Admission,
+    pub(crate) changes: crate::changes::ChangeHub,
 }
