@@ -1,5 +1,5 @@
 use super::provider_fixture::ProviderServer;
-use super::support::{admin, call, services};
+use super::support::{admin, browser_call, call, services};
 use axum::{
     Router,
     body::Body,
@@ -420,7 +420,7 @@ impl Flow {
     }
 
     pub(super) async fn begin_for(&self, session: &str, installation: &Value) -> Attempt {
-        let (status, attempt) = call(
+        let (status, attempt) = browser_call(
             &self.app,
             "POST",
             &format!(
@@ -428,6 +428,36 @@ impl Flow {
                 installation["id"].as_str().unwrap()
             ),
             json!({"revision": installation["revision"]}),
+            session,
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{attempt}");
+        let uri: Uri = attempt["authorization_url"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let query: BTreeMap<String, String> =
+            url::form_urlencoded::parse(uri.query().unwrap().as_bytes())
+                .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                .collect();
+        Attempt {
+            id: attempt["id"].as_str().unwrap().to_owned(),
+            state: query["state"].clone(),
+            challenge: query["code_challenge"].clone(),
+        }
+    }
+
+    pub(super) async fn begin_native(&self, session: &str, verifier: &str) -> Attempt {
+        use base64::Engine;
+        use sha2::Digest;
+        let hash = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(sha2::Sha256::digest(verifier.as_bytes()));
+        let (status, attempt) = call(
+            &self.app,
+            "POST",
+            &self.begin_path(),
+            json!({"revision": self.installation["revision"], "verifier_hash": hash}),
             Some(session),
         )
         .await;
@@ -446,6 +476,22 @@ impl Flow {
             state: query["state"].clone(),
             challenge: query["code_challenge"].clone(),
         }
+    }
+
+    pub(super) async fn complete_native(
+        &self,
+        session: &str,
+        attempt: &Attempt,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        call(
+            &self.app,
+            "POST",
+            &format!("{}/{}/completion", self.begin_path(), attempt.id),
+            body,
+            Some(session),
+        )
+        .await
     }
 
     pub(super) async fn install_as(&self, session: &str) -> Value {
