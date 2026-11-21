@@ -67,6 +67,18 @@ import Testing
         #expect(try sentence(#"{"kind":"removed","before":[],"after":[]},{"kind":"credential","before":[],"after":[]}"#) == "The Mixes connection changed.")
     }
 
+    @Test func aRemovedConnectionNamesTheServiceToConnectAgain() throws {
+        let removed = #"{"connection_name":"Mixes","installation_revision":0,"service_revision":0,"resumable":false,"changes":[{"kind":"removed","before":["Connected"],"after":["Removed or replaced"]}],"reconnect_service_id":"s1"}"#
+        let parsed = try JSONDecoder().decode(PlaylistFollowing.Review.self, from: Data(removed.utf8))
+        #expect(parsed.removed)
+        #expect(parsed.reconnectServiceId == "s1")
+        #expect(parsed.reconnectTitle == "Connect Mixes again")
+        #expect(parsed.reconnectNote == "Connect Mixes again and this playlist resumes updating.")
+        let changed = try JSONDecoder().decode(PlaylistFollowing.Review.self, from: Data(review(#"{"kind":"credential","before":[],"after":[]}"#).utf8))
+        #expect(!changed.removed)
+        #expect(changed.reconnectServiceId == nil)
+    }
+
     @Test func changeValuesReadAsPlainWords() throws {
         let change = try JSONDecoder().decode(PlaylistFollowing.Change.self, from: Data(#"{"kind":"capabilities","before":[],"after":["source_links","search"]}"#.utf8))
         #expect(change.label == "Abilities")
