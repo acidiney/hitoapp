@@ -129,6 +129,14 @@ fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(identity::delete_user))
         .routes(routes!(identity::grant_access, identity::revoke_access))
         .routes(routes!(
+            api::automatic_copies::budget,
+            api::automatic_copies::update_budget
+        ))
+        .routes(routes!(
+            api::automatic_copies::status,
+            api::automatic_copies::update
+        ))
+        .routes(routes!(
             api::community::preferences,
             api::community::update_preferences
         ))
@@ -156,6 +164,7 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
             api::playback_leases::begin,
             api::playback_leases::release_client
         ))
+        .routes(routes!(api::automatic_copies::announce))
         .routes(routes!(
             api::playback_leases::status,
             api::playback_leases::release

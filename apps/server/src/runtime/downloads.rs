@@ -5,6 +5,12 @@ use tokio::sync::watch;
 pub(super) const TRANSFER: Worker =
     worker!("download_worker", "Download worker", Reporting::Claimed);
 
+pub(super) const COPIES: Worker = worker!(
+    "automatic_copy_worker",
+    "Automatic copy worker",
+    Reporting::Claimed
+);
+
 pub(super) const RECONCILIATION: Worker = worker!(
     "download_reconciliation",
     "Playlist download reconciliation",
@@ -15,6 +21,11 @@ pub(super) const RECONCILIATION: Worker = worker!(
 #[tracing::instrument(level = "info", skip_all, fields(worker_slot = worker_slot))]
 pub(super) async fn worker(downloads: Downloads, stopped: watch::Receiver<bool>, worker_slot: u8) {
     polling::run(TRANSFER, stopped, |stop| downloads.run_next_job_until(stop)).await;
+}
+
+#[tracing::instrument(level = "info", skip_all)]
+pub(super) async fn copies(downloads: Downloads, stopped: watch::Receiver<bool>) {
+    polling::run(COPIES, stopped, |stop| downloads.run_next_copy_until(stop)).await;
 }
 
 #[tracing::instrument(level = "info", skip_all)]

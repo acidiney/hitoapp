@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn every_worker_keeps_its_event_names_and_messages() {
-        let expected: [(Worker, [(&str, &str); 4]); 11] = [
+        let expected: [(Worker, [(&str, &str); 4]); 12] = [
             (
                 artwork::ARTWORK,
                 [
@@ -306,6 +306,27 @@ mod tests {
                     ),
                     ("download_worker_failed", "Download worker failed"),
                     ("download_worker_stopped", "Download worker stopped"),
+                ],
+            ),
+            (
+                downloads::COPIES,
+                [
+                    (
+                        "automatic_copy_worker_started",
+                        "Automatic copy worker started",
+                    ),
+                    (
+                        "automatic_copy_worker_polled",
+                        "Automatic copy worker checked pending work",
+                    ),
+                    (
+                        "automatic_copy_worker_failed",
+                        "Automatic copy worker failed",
+                    ),
+                    (
+                        "automatic_copy_worker_stopped",
+                        "Automatic copy worker stopped",
+                    ),
                 ],
             ),
             (
