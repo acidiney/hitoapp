@@ -13,28 +13,28 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
-struct PendingSecrets {
-    state: Zeroizing<String>,
-    verifier: Zeroizing<String>,
+pub(super) struct PendingSecrets {
+    pub(super) state: Zeroizing<String>,
+    pub(super) verifier: Zeroizing<String>,
 }
 
-struct Consumed {
-    attempt_id: String,
-    account_id: String,
-    installation_id: String,
-    service_id: String,
-    installation_revision: i64,
-    service_revision: i64,
-    redirect_uri: String,
-    client_id: String,
-    token_endpoint: String,
-    code: Zeroizing<String>,
-    verifier: Zeroizing<String>,
-    digest: [u8; 32],
-    requested_scopes: String,
+pub(super) struct Consumed {
+    pub(super) attempt_id: String,
+    pub(super) account_id: String,
+    pub(super) installation_id: String,
+    pub(super) service_id: String,
+    pub(super) installation_revision: i64,
+    pub(super) service_revision: i64,
+    pub(super) redirect_uri: String,
+    pub(super) client_id: String,
+    pub(super) token_endpoint: String,
+    pub(super) code: Zeroizing<String>,
+    pub(super) verifier: Zeroizing<String>,
+    pub(super) digest: [u8; 32],
+    pub(super) requested_scopes: String,
 }
 
-enum Claim {
+pub(super) enum Claim {
     Done(PluginAuthorizationOutcome),
     Exchange(Box<Consumed>),
 }
@@ -270,7 +270,7 @@ impl Plugins {
         })))
     }
 
-    async fn exchange_and_finish(
+    pub(super) async fn exchange_and_finish(
         &self,
         consumed: Consumed,
         started: Instant,
@@ -361,13 +361,13 @@ impl Plugins {
     }
 }
 
-async fn close(
+pub(super) async fn close(
     connection: &mut sqlx::SqliteConnection,
     attempt_id: &str,
     from: &str,
     to: &str,
 ) -> Result<()> {
-    sqlx::query("UPDATE plugin_authorization_attempts SET status = ?, pending_secret = zeroblob(74) WHERE id = ? AND status = ?")
+    sqlx::query("UPDATE plugin_authorization_attempts SET status = ?, pending_secret = zeroblob(74), returned_code = NULL, return_hash = NULL WHERE id = ? AND status = ?")
         .bind(to)
         .bind(attempt_id)
         .bind(from)
@@ -376,11 +376,18 @@ async fn close(
     Ok(())
 }
 
-fn same_secret(left: &str, right: &str) -> bool {
-    let left = Sha256::digest(left.as_bytes());
-    let right = Sha256::digest(right.as_bytes());
-    left.iter()
-        .zip(right.iter())
-        .fold(0u8, |difference, (a, b)| difference | (a ^ b))
-        == 0
+pub(super) fn same_secret(left: &str, right: &str) -> bool {
+    same_digest(
+        &Sha256::digest(left.as_bytes()),
+        &Sha256::digest(right.as_bytes()),
+    )
+}
+
+pub(super) fn same_digest(left: &[u8], right: &[u8]) -> bool {
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right.iter())
+            .fold(0u8, |difference, (a, b)| difference | (a ^ b))
+            == 0
 }

@@ -149,7 +149,12 @@ async fn rows(connection: &mut SqliteConnection, tables: &[String]) -> Vec<Table
                 .collect::<Vec<_>>()
                 .join(",")
         } else if table == "plugin_authorization_attempts" {
-            columns.retain(|name| name != "status" && name != "delivery");
+            columns.retain(|name| {
+                !matches!(
+                    name.as_str(),
+                    "status" | "delivery" | "completion_hash" | "return_hash" | "returned_code"
+                )
+            });
             columns
                 .iter()
                 .map(|name| quoted(name))
@@ -519,8 +524,10 @@ pub async fn assert_preserved(
             collection_artwork_schema::reference_101().await
         } else if expected_version == 102 {
             collection_artwork_schema::reference_102().await
-        } else {
+        } else if expected_version == 103 {
             collection_artwork_schema::reference_103().await
+        } else {
+            collection_artwork_schema::reference_104().await
         };
         let declared = schema(&mut reference).await;
         reference.close().await.unwrap();

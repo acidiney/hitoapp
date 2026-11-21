@@ -330,7 +330,12 @@ async fn a_native_sign_in_parks_the_code_returns_to_the_app_and_completes_with_b
     );
     assert_eq!(pairs["attempt"], started.attempt.id);
     assert!(pairs["return"].len() >= 43);
-    for private in [CODE, started.state.as_str(), VERIFIER, &verifier_hash(VERIFIER)] {
+    for private in [
+        CODE,
+        started.state.as_str(),
+        VERIFIER,
+        &verifier_hash(VERIFIER),
+    ] {
         assert!(!app.as_str().contains(private));
     }
     assert_eq!(fixture.exchanges(), 0);
@@ -445,7 +450,12 @@ async fn another_account_or_another_session_cannot_complete_the_attempt() {
     let fixture = fixture().await;
     let started = fixture.begin().await;
     let secret = fixture.approve(&started).await;
-    let admin = fixture.hito.identity.authenticate(&fixture.token).await.unwrap();
+    let admin = fixture
+        .hito
+        .identity
+        .authenticate(&fixture.token)
+        .await
+        .unwrap();
     fixture
         .hito
         .identity
@@ -467,7 +477,12 @@ async fn another_account_or_another_session_cannot_complete_the_attempt() {
         })
         .await
         .unwrap();
-    let member = fixture.hito.identity.authenticate(&member.token).await.unwrap();
+    let member = fixture
+        .hito
+        .identity
+        .authenticate(&member.token)
+        .await
+        .unwrap();
     let other_session = fixture
         .hito
         .identity
@@ -485,7 +500,9 @@ async fn another_account_or_another_session_cannot_complete_the_attempt() {
         .unwrap();
     for actor in [&member, &other_session] {
         assert!(matches!(
-            fixture.complete_as(actor, &started, VERIFIER, &secret).await,
+            fixture
+                .complete_as(actor, &started, VERIFIER, &secret)
+                .await,
             Err(Error::NotFound)
         ));
     }
@@ -545,7 +562,11 @@ async fn a_wrong_verifier_or_return_secret_closes_the_attempt_without_an_exchang
     let secret = fixture.approve(&wrong_verifier).await;
     assert_eq!(
         fixture
-            .complete(&wrong_verifier, "owned-native-verifier-of-someone-else-0123456789", &secret)
+            .complete(
+                &wrong_verifier,
+                "owned-native-verifier-of-someone-else-0123456789",
+                &secret
+            )
             .await
             .unwrap(),
         PluginAuthorizationOutcome::Invalid
@@ -553,7 +574,10 @@ async fn a_wrong_verifier_or_return_secret_closes_the_attempt_without_an_exchang
     let missing_secret = fixture.begin().await;
     let real_secret = fixture.approve(&missing_secret).await;
     assert_eq!(
-        fixture.complete(&missing_secret, VERIFIER, "").await.unwrap(),
+        fixture
+            .complete(&missing_secret, VERIFIER, "")
+            .await
+            .unwrap(),
         PluginAuthorizationOutcome::Invalid
     );
     for (started, secret) in [(&wrong_verifier, &secret), (&missing_secret, &real_secret)] {
@@ -575,7 +599,11 @@ async fn completing_before_the_provider_returns_changes_nothing() {
     let started = fixture.begin().await;
     assert_eq!(
         fixture
-            .complete(&started, VERIFIER, "owned-guessed-return-secret-0123456789abcdef")
+            .complete(
+                &started,
+                VERIFIER,
+                "owned-guessed-return-secret-0123456789abcdef"
+            )
             .await
             .unwrap(),
         PluginAuthorizationOutcome::Invalid
@@ -624,15 +652,28 @@ async fn the_expiry_sweep_clears_every_expired_parked_code() {
     fixture
         .sql("UPDATE plugin_authorization_attempts SET created_at = unixepoch() - 300, expires_at = unixepoch() + 300 WHERE id = (SELECT id FROM plugin_authorization_attempts ORDER BY id LIMIT 1)")
         .await;
+    fixture
+        .sql("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 64)
+            INSERT INTO plugin_authorization_attempts(id,user_id,session_hash,installation_id,service_id,installation_revision,service_revision,redirect_uri,state_hash,pending_secret,created_at,expires_at,status,delivery)
+            SELECT 'older-' || i,a.user_id,a.session_hash,a.installation_id,a.service_id,a.installation_revision,a.service_revision,a.redirect_uri,randomblob(32),zeroblob(74),unixepoch() - 1000,unixepoch() - 900,'failed','session'
+            FROM n CROSS JOIN (SELECT * FROM plugin_authorization_attempts LIMIT 1) a")
+        .await;
     fixture.begin().await;
+    let mut states = Vec::new();
     for started in &parked {
         let stored = fixture.stored(started).await;
         if stored.0 == "returned" {
             assert!(stored.1.is_some(), "A live attempt keeps its parked code");
         } else {
-            assert!(is_cleared(&stored), "An expired attempt keeps no parked code");
+            assert!(
+                is_cleared(&stored),
+                "An expired attempt keeps no parked code"
+            );
         }
+        states.push(stored.0);
     }
+    states.sort();
+    assert_eq!(states, ["failed", "failed", "returned"]);
 }
 
 #[tokio::test]

@@ -3,6 +3,7 @@ mod callback;
 mod connection;
 mod exchange;
 mod launch;
+mod native;
 mod types;
 
 use super::Plugins;
@@ -18,8 +19,9 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::time::Instant;
 pub use types::{
-    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
-    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginAppReturn, PluginAuthorization, PluginAuthorizationCallback,
+    PluginAuthorizationCompletion, PluginAuthorizationOutcome, PluginAuthorizationRedirect,
+    PluginAuthorizationReturn, PluginAuthorizationState, PluginAuthorizationStatus,
     PluginConnectionState, PluginConnectionStatus, ProviderAccess,
 };
 use url::Url;
@@ -89,21 +91,28 @@ impl Plugins {
         let removed = sqlx::query("DELETE FROM plugin_authorization_attempts WHERE id IN (
             SELECT id FROM plugin_authorization_attempts WHERE expires_at <= unixepoch() ORDER BY expires_at,id LIMIT 64)")
             .execute(&mut *tx).await?.rows_affected();
-        let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM plugin_authorization_attempts WHERE user_id = ? AND expires_at > unixepoch() AND status IN ('pending','exchanging')")
+        let returns_cleared = sqlx::query("UPDATE plugin_authorization_attempts
+            SET status = 'failed', pending_secret = zeroblob(74), returned_code = NULL, return_hash = NULL
+            WHERE status = 'returned' AND expires_at <= unixepoch()")
+            .execute(&mut *tx).await?.rows_affected();
+        let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM plugin_authorization_attempts WHERE user_id = ? AND expires_at > unixepoch() AND status IN ('pending','returned','exchanging')")
             .bind(actor.id()).fetch_one(&mut *tx).await?;
         if pending >= 8 {
             return Err(Error::Conflict("Your account has eight pending provider connections. Finish one or wait ten minutes before trying again.".into()));
         }
         let expires_at: i64 = sqlx::query_scalar("INSERT INTO plugin_authorization_attempts
-            (id,user_id,session_hash,installation_id,service_id,installation_revision,service_revision,redirect_uri,state_hash,pending_secret,delivery,expires_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,unixepoch() + 600) RETURNING expires_at")
+            (id,user_id,session_hash,installation_id,service_id,installation_revision,service_revision,redirect_uri,state_hash,pending_secret,delivery,completion_hash,expires_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,unixepoch() + 600) RETURNING expires_at")
             .bind(&attempt_id).bind(actor.id()).bind(actor.session_binding()).bind(id).bind(&service)
             .bind(revision).bind(service_revision).bind(redirect.as_str()).bind(&state_hash[..]).bind(secret).bind(redirect.delivery().as_str())
+            .bind(redirect.completion_hash())
             .fetch_one(&mut *tx).await?;
         tx.commit().await?;
         tracing::info!(
             attempt_id,
             expired_removed = removed,
+            expired_returns_cleared = returns_cleared,
+            delivery = redirect.delivery().as_str(),
             elapsed_ms = started.elapsed().as_millis() as u64,
             outcome = "pending",
             "Provider authorization started"
@@ -183,6 +192,7 @@ impl Plugins {
             .fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
         let status = match state.as_str() {
             "pending" => PluginAuthorizationState::Pending,
+            "returned" => PluginAuthorizationState::Returned,
             "exchanging" => PluginAuthorizationState::Exchanging,
             "completed" => PluginAuthorizationState::Completed,
             _ => PluginAuthorizationState::Failed,
@@ -216,7 +226,7 @@ struct PendingSecrets<'a> {
     verifier: &'a str,
 }
 
-fn random_secret() -> Result<Zeroizing<String>> {
+pub(super) fn random_secret() -> Result<Zeroizing<String>> {
     let mut bytes = Zeroizing::new([0u8; 32]);
     OsRng.try_fill_bytes(bytes.as_mut()).map_err(|_| {
         Error::Internal("Secure provider authorization could not be initialized".into())
