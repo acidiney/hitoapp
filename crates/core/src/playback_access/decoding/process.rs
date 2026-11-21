@@ -1,16 +1,21 @@
-use super::{Message, PcmBlock, PcmFormat, PcmStream, opening::Stop, unfinished};
+use super::{
+    Authority, Feed, Message, PcmBlock, PcmFormat, PcmInput, PcmStream, opening::Stop, unfinished,
+};
 use crate::playback_access::conversion::ConversionSlot;
-use crate::{AudioFile, Error, MediaTools, PlaybackSource, Result, media_command};
+use crate::{Error, MediaTools, Result, media_command};
+use futures_util::StreamExt;
 use std::{
     ffi::OsString,
     path::Path,
     process::Stdio,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::{
-    io::AsyncReadExt,
-    process::{Child, ChildStdout},
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::{Child, ChildStdin, ChildStdout},
     sync::mpsc,
+    task::JoinHandle,
 };
 use tracing::{Instrument, instrument::WithSubscriber};
 
@@ -23,6 +28,32 @@ pub(super) fn spawn_error(error: std::io::Error) -> Error {
     }
 }
 
+pub(super) fn stdin(feed: &Feed) -> Result<Stdio> {
+    Ok(match feed {
+        Feed::File(file) => Stdio::from(file.file.try_clone().map_err(|_| unfinished())?),
+        Feed::Stream(_) => Stdio::piped(),
+    })
+}
+
+pub(super) fn feed(feed: &Feed, child: &mut Child) -> Option<JoinHandle<Result<()>>> {
+    let Feed::Stream(input) = feed else {
+        return None;
+    };
+    let stdin = child.stdin.take()?;
+    Some(tokio::spawn(copy(input.clone(), stdin)))
+}
+
+async fn copy(input: Arc<dyn PcmInput>, mut stdin: ChildStdin) -> Result<()> {
+    let mut bytes = input.bytes().await?;
+    while let Some(chunk) = bytes.next().await {
+        if stdin.write_all(&chunk?).await.is_err() {
+            return Ok(());
+        }
+    }
+    let _ = stdin.shutdown().await;
+    Ok(())
+}
+
 pub(super) async fn retire(child: &mut Child) {
     if !matches!(child.try_wait(), Ok(Some(_))) {
         let _ = child.kill().await;
@@ -32,10 +63,10 @@ pub(super) async fn retire(child: &mut Child) {
 
 pub(super) async fn start(
     tools: &MediaTools,
-    file: AudioFile,
+    source: Feed,
     format: PcmFormat,
     start: Duration,
-    authority: PlaybackSource,
+    authority: Authority,
     slot: ConversionSlot,
     stop: Stop,
 ) -> Result<PcmStream> {
@@ -61,16 +92,23 @@ pub(super) async fn start(
     let first_frame =
         ((start.as_nanos() * u128::from(format.sample_rate) + 500_000_000) / 1_000_000_000) as u64;
     let effective_start = first_frame as f64 / f64::from(format.sample_rate);
-    let preroll = effective_start.min(1.0);
+    let seekable = matches!(source, Feed::File(_));
+    let preroll = if seekable {
+        effective_start.min(1.0)
+    } else {
+        effective_start
+    };
     let mut arguments = media_command::audio_input(Path::new("/dev/stdin"));
-    let input = arguments.len() - 2;
-    arguments.splice(
-        input..input,
-        [
-            "-ss".into(),
-            format!("{:.9}", effective_start - preroll).into(),
-        ],
-    );
+    if seekable {
+        let input = arguments.len() - 2;
+        arguments.splice(
+            input..input,
+            [
+                "-ss".into(),
+                format!("{:.9}", effective_start - preroll).into(),
+            ],
+        );
+    }
     arguments.extend(["-ss".into(), format!("{preroll:.9}").into()]);
     arguments.extend(
         [
@@ -96,16 +134,17 @@ pub(super) async fn start(
     ]);
     arguments.push("pipe:1".into());
     let mut command = media_command::command(&tools.ffmpeg, arguments);
-    command.stdin(Stdio::from(file.file)).stderr(Stdio::null());
+    command.stdin(stdin(&source)?).stderr(Stdio::null());
     let mut child = command.spawn().map_err(spawn_error)?;
+    let feeding = feed(&source, &mut child);
+    drop(source);
     let stdout = child.stdout.take();
     let (sender, receiver) = mpsc::channel(2);
     let owner_stop = stop.clone();
     let owner_authority = authority.clone();
     let span = tracing::debug_span!(
         "native_pcm_decoder",
-        playback_grant = authority.correlation_id(),
-        account_id = authority.actor().id()
+        playback_grant = authority.correlation_id()
     );
     let owner = tokio::spawn(async move {
         let started = Instant::now();
@@ -118,6 +157,15 @@ pub(super) async fn start(
             result = pump(&mut child, stdout, &sender, format, first_frame, &mut samples) => Some(result),
         };
         retire(&mut child).await;
+        let result = match (result, feeding) {
+            (Some(Ok(())), Some(feeding)) => Some(feeding.await.unwrap_or_else(|_| Err(unfinished()))),
+            (result, feeding) => {
+                if let Some(feeding) = feeding {
+                    feeding.abort();
+                }
+                result
+            }
+        };
         drop(slot);
         let outcome = match &result { None => "cancelled", Some(Ok(())) => "complete", Some(Err(_)) => "failed" };
         let error_kind = result.as_ref().and_then(|result| result.as_ref().err()).map(Error::code);

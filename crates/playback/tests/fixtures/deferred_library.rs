@@ -388,6 +388,25 @@ pub struct Run {
 
 impl Run {
     pub async fn start(f: Deferred, worker: bool, queue: impl Fn(&Deferred) -> Vec<&str>) -> Self {
+        let witnessed = std::env::var("HITO_OUTPUT_WITNESS").is_ok_and(|value| value == "1");
+        Self::begin(f, worker, queue, witnessed).await
+    }
+
+    pub async fn start_witnessed_when_kept(
+        f: Deferred,
+        worker: bool,
+        queue: impl Fn(&Deferred) -> Vec<&str>,
+    ) -> Self {
+        let kept = std::env::var_os("HITO_CAPTURE_DUMP").is_some();
+        Self::begin(f, worker, queue, kept).await
+    }
+
+    async fn begin(
+        f: Deferred,
+        worker: bool,
+        queue: impl Fn(&Deferred) -> Vec<&str>,
+        witnessed: bool,
+    ) -> Self {
         let events = Events::default();
         let writer = events.clone();
         hito_testkit::logs::anchor_callsite_interest();
@@ -399,15 +418,13 @@ impl Run {
                 .with_writer(move || writer.clone())
                 .finish(),
         );
-        let witness = std::env::var("HITO_OUTPUT_WITNESS")
-            .is_ok_and(|value| value == "1")
-            .then(|| {
-                let destination = std::env::var_os("HITO_CAPTURE_DUMP")
-                    .expect("the output witness requires an owned artifact directory");
-                let destination = std::path::Path::new(&destination);
-                assert!(destination.is_absolute() && destination.is_dir());
-                OutputWitness::begin(30 * RATE as usize, 8192).unwrap()
-            });
+        let witness = witnessed.then(|| {
+            let destination = std::env::var_os("HITO_CAPTURE_DUMP")
+                .expect("the output witness requires an owned artifact directory");
+            let destination = std::path::Path::new(&destination);
+            assert!(destination.is_absolute() && destination.is_dir());
+            OutputWitness::begin(30 * RATE as usize, 8192).unwrap()
+        });
         let capture = Capture::open();
         let (player, owner) =
             tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));

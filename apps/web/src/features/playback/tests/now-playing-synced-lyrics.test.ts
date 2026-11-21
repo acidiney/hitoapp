@@ -17,16 +17,17 @@ const state = vi.hoisted(() => ({
   identities: vi.fn(),
   read: vi.fn(),
 }));
+const player = vi.hoisted(() => ({
+  positionSnapshot: () => ({ position: state.position, duration: 10 }),
+  subscribePosition: (listener: () => void) => {
+    state.listeners.add(listener);
+    return () => state.listeners.delete(listener);
+  },
+  seek: state.seek,
+}));
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
 vi.mock("../components/PlaybackProvider", () => ({
-  usePlayer: () => ({
-    positionSnapshot: () => ({ position: state.position, duration: 10 }),
-    subscribePosition: (listener: () => void) => {
-      state.listeners.add(listener);
-      return () => state.listeners.delete(listener);
-    },
-    seek: state.seek,
-  }),
+  usePlayer: () => player,
 }));
 vi.mock("../../lyrics/api/lyricsApi", () => ({
   lyricsApi: { identities: state.identities, readSelected: state.read },

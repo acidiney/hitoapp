@@ -87,6 +87,16 @@
 .album-actions .pill-action[data-primary] {
   padding: 0 22px;
 }
+.album-addition {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
 .album-note {
   margin: 0;
   font-size: 14px;

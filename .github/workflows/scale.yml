@@ -7,14 +7,12 @@ permissions:
   contents: read
 env:
   CARGO_BUILD_JOBS: "4"
-  COMPOSE_EXTRA: scripts/ci/sccache.compose.yaml
-  COMPOSE_FILE: compose.yaml:scripts/ci/sccache.compose.yaml
 jobs:
   scale:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - uses: mozilla-actions/sccache-action@v0.0.11
+      - uses: ./.github/actions/compiler-cache
       - name: Scale checks
         run: make check-scale

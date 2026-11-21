@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+export HITO_NATIVE_EVIDENCE="${HITO_NATIVE_EVIDENCE:-test-results/desktop/native}"
+mkdir -p "$HITO_NATIVE_EVIDENCE"
 docker compose --profile desktop build desktop
 sh ./scripts/check-audio.sh
 sh ./scripts/check-playback.sh
@@ -11,6 +13,7 @@ docker compose --profile desktop run --rm desktop cargo clippy --locked -p hito-
 docker compose --profile desktop run --rm desktop dbus-run-session -- cargo test --locked -p hito-desktop --features gui
 sh scripts/run-audio-test.sh hito-desktop native_http
 sh scripts/run-audio-test.sh hito-desktop native_lifecycle
+sh scripts/run-audio-test.sh hito-desktop remote_native
 docker compose --profile desktop run --rm desktop cargo build --locked -p hito-desktop --features gui
 docker compose -f compose.yaml -f scripts/desktop/no-network.compose.yaml --profile desktop run --rm desktop sh -c '
   mkdir -p /workspace/test-results/desktop

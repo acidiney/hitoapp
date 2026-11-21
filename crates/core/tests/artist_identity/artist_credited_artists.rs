@@ -297,7 +297,10 @@ async fn only_the_main_artists_pages_can_identify_a_credit() {
         .musicbrainz
         .url(OTHER_PAGE, Reply::Artists(vec![library::TRIBUTE.into()]));
     let receipt = library.run().await;
-    assert_eq!(receipt.matched, 1, "{receipt:?}");
+    assert_eq!(
+        receipt.matched, 4,
+        "One whole credit and the three members named Nova: {receipt:?}"
+    );
     assert!(library.group_of(&library.recordings[0]).await.is_some());
     assert!(library.group_of(&library.recordings[1]).await.is_none());
     assert!(library.group_of(&library.recordings[2]).await.is_none());

@@ -1,6 +1,7 @@
 use super::{PlayerError, Result, ownership::State};
-use hito_core::{Actor, Catalog, Identity, Services};
-use std::{future::Future, pin::Pin, time::Duration};
+use crate::seam::Listener;
+use crate::seam::{Authorization, CatalogReads, Seam};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::time::{Interval, MissedTickBehavior};
 use uuid::Uuid;
 
@@ -11,25 +12,25 @@ pub(super) struct Report {
 }
 #[derive(Clone)]
 struct Demand {
-    actor: Actor,
+    actor: Listener,
     lease: Uuid,
     recovering: bool,
     recording: Option<Uuid>,
 }
 pub(super) struct Monitor {
-    identity: Identity,
-    catalog: Catalog,
+    authorization: Arc<dyn Authorization>,
+    catalog: Arc<dyn CatalogReads>,
     demand: Option<Demand>,
     checking: Option<Pin<Box<dyn Future<Output = Report> + Send>>>,
     interval: Interval,
 }
 impl Monitor {
-    pub fn new(services: &Services) -> Self {
+    pub fn new(seam: &Seam) -> Self {
         let mut interval = tokio::time::interval(Duration::from_millis(250));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         Self {
-            identity: services.identity.clone(),
-            catalog: services.catalog.clone(),
+            authorization: seam.authorization.clone(),
+            catalog: seam.catalog.clone(),
             demand: None,
             checking: None,
             interval,
@@ -57,13 +58,13 @@ impl Monitor {
                 },
                 _ = self.interval.tick(), if self.checking.is_none() => {
                     let Some(demand) = self.demand.clone() else { continue; };
-                    let identity = self.identity.clone();
+                    let authorization = self.authorization.clone();
                     let catalog = self.catalog.clone();
                     self.checking = Some(Box::pin(async move {
                         let result = async {
-                            identity.check_session(&demand.actor).await.map_err(PlayerError::from)?;
+                            authorization.check_session(&demand.actor).await.map_err(PlayerError::from)?;
                             if demand.recovering && let Some(recording) = demand.recording {
-                                match catalog.recordings_by_ids(&demand.actor, &[recording]).await.map_err(PlayerError::from) {
+                                match catalog.recordings(&demand.actor, &[recording]).await.map_err(PlayerError::from) {
                                     Ok(_) | Err(PlayerError::NotFound) => (),
                                     Err(error) => return Err(error),
                                 }
@@ -96,7 +97,7 @@ impl State {
             result => owned.authority(result.is_ok(), self.native),
         }
     }
-    pub fn failed_request(&mut self, actor: &Actor, error: PlayerError) {
+    pub fn failed_request(&mut self, actor: &Listener, error: PlayerError) {
         if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable)
             && let Some(owned) = self
                 .owner

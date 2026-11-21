@@ -91,7 +91,11 @@ export default function TrackSources({
       {providerTrack && noAudio && attachment(true)}
       {localFile && !hasSources && <LocalFileSource />}
       {!hideChoice && (
-        <SourceChoiceControls {...choice} fixSource={onFixSource} />
+        <SourceChoiceControls
+          {...choice}
+          account={account}
+          fixSource={onFixSource}
+        />
       )}
       {showCopy && (
         <RecordingDownload

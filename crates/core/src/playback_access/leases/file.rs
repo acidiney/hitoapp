@@ -1,11 +1,7 @@
 use super::{Entry, owner::BodyControl};
 use crate::{AudioFile, Error, Result};
 use bytes::Bytes;
-use std::{
-    fs::{File, Metadata},
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{fs::File, sync::Arc, time::SystemTime};
 
 pub(super) struct RetainedFile {
     file: File,
@@ -18,29 +14,32 @@ pub(super) struct RetainedFile {
 struct Stamp {
     size: u64,
     modified: SystemTime,
+    identity: (u64, u64),
     #[cfg(unix)]
-    identity: (u64, u64, i64, i64),
+    changed: (i64, i64),
     #[cfg(windows)]
     created: u64,
 }
 
 impl Stamp {
-    fn read(metadata: Metadata) -> Result<Self> {
+    fn read(file: &File) -> Result<Self> {
+        let metadata = file.metadata().map_err(|_| changed())?;
         if !metadata.is_file() {
             return Err(Error::NotFound);
         }
+        let identity = {
+            use cap_fs_ext::MetadataExt;
+            let handle = cap_std::fs::Metadata::from_file(file).map_err(|_| changed())?;
+            (handle.dev(), handle.ino())
+        };
         Ok(Self {
             size: metadata.len(),
             modified: metadata.modified().map_err(|_| changed())?,
+            identity,
             #[cfg(unix)]
-            identity: {
+            changed: {
                 use std::os::unix::fs::MetadataExt;
-                (
-                    metadata.dev(),
-                    metadata.ino(),
-                    metadata.ctime(),
-                    metadata.ctime_nsec(),
-                )
+                (metadata.ctime(), metadata.ctime_nsec())
             },
             #[cfg(windows)]
             created: {
@@ -53,7 +52,7 @@ impl Stamp {
 
 impl RetainedFile {
     pub fn new(audio: AudioFile) -> Result<Self> {
-        let stamp = Stamp::read(audio.file.metadata().map_err(|_| changed())?)?;
+        let stamp = Stamp::read(&audio.file)?;
         if stamp.size != audio.length {
             return Err(changed());
         }
@@ -65,8 +64,17 @@ impl RetainedFile {
         })
     }
 
+    pub async fn reopen(&self, grant: &crate::PlaybackSource) -> Result<AudioFile> {
+        let audio = grant.open_file().await?;
+        let stamp = Stamp::read(&audio.file)?;
+        if stamp != self.stamp || audio.length != self.length {
+            return Err(changed());
+        }
+        Ok(audio)
+    }
+
     pub fn check(&self) -> Result<()> {
-        let current = Stamp::read(self.file.metadata().map_err(|_| changed())?)?;
+        let current = Stamp::read(&self.file)?;
         if current != self.stamp {
             return Err(changed());
         }

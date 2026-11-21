@@ -20,12 +20,15 @@ export type ProviderMatchState =
   | { status: "running"; matched: number }
   | { status: "finished"; counts: ProviderMatchCounts; complete: boolean };
 
-const NAME_PHASE = "name:";
+function phase(cursor: string) {
+  if (cursor.startsWith("member:")) return 2;
+  if (cursor.startsWith("name:")) return 1;
+  return 0;
+}
 
 function advances(previous: string | undefined, next: string) {
   if (previous === undefined) return true;
-  if (previous.startsWith(NAME_PHASE) !== next.startsWith(NAME_PHASE))
-    return next.startsWith(NAME_PHASE);
+  if (phase(previous) !== phase(next)) return phase(next) > phase(previous);
   return next > previous;
 }
 

@@ -23,7 +23,7 @@ pub struct LocalHost {
 impl LocalHost {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn start(paths: Paths) -> Result<Self> {
-        Self::start_with_folders(paths, None, None, None, ReturnPort::default()).await
+        Self::start_with_folders(paths, None, None, None, None, ReturnPort::default()).await
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
@@ -32,6 +32,7 @@ impl LocalHost {
         media: Option<hito_playback::MediaIntegration>,
         picker: Option<Arc<dyn FolderPicker>>,
         browser: Option<Arc<dyn HostBrowser>>,
+        place: Option<Arc<dyn hito_server::HostPlace>>,
         return_port: ReturnPort,
     ) -> Result<Self> {
         let lock = storage::claim(&paths.data)?;
@@ -87,8 +88,11 @@ impl LocalHost {
             services.clone(),
             config.http,
             Some(player),
-            folders,
-            browser,
+            hito_server::Hosts {
+                folders,
+                browser,
+                place,
+            },
         );
         let app = access.protect(router);
         let (stop, stopped) = oneshot::channel();

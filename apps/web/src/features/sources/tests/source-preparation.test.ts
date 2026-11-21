@@ -32,6 +32,7 @@ const source: Schema<"Source"> = {
   ready: false,
   label: "Owned exact audio",
   can_prepare: true,
+  community_public: false,
   match_kind: "verified",
 };
 
@@ -424,6 +425,7 @@ test("only capability-eligible sources expose preparation and selecting another 
           id: "local-source",
           label: "Local audio",
           can_prepare: false,
+          community_public: false,
           provider: "local",
         },
         source,

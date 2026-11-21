@@ -4,13 +4,13 @@ import Testing
 
 @Suite struct ServerConnectionTests {
     let healthy: [String: FakeServer.Answer] = [
-        "GET /health": .json(200, #"{"ready":true}"#),
+        "GET /health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
         "GET /api/v1/setup": .json(200, #"{"needs_setup":false}"#),
     ]
 
     @Test func aNewServerAsksForTheAdministrator() async throws {
         let fake = FakeServer(routes: [
-            "GET https://hito.home:8080/health": .json(200, #"{"ready":true}"#),
+            "GET https://hito.home:8080/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
             "GET https://hito.home:8080/api/v1/setup": .json(200, #"{"needs_setup":true}"#),
         ])
         let found = try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "hito.home:8080"))
@@ -27,7 +27,7 @@ import Testing
     @Test func withoutASchemeHttpIsTriedOnlyWhenHttpsDoesNotAnswer() async throws {
         let fake = FakeServer(
             routes: [
-                "GET http://192.168.1.20:8080/health": .json(200, #"{"ready":true}"#),
+                "GET http://192.168.1.20:8080/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
                 "GET http://192.168.1.20:8080/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
             ],
             failures: ["https://192.168.1.20:8080": URLError(.cannotConnectToHost)]
@@ -44,7 +44,7 @@ import Testing
     @Test func aPlainHttpServerAnsweringOnHttpsFallsBackToHttp() async throws {
         let fake = FakeServer(
             routes: [
-                "GET http://localhost:18091/health": .json(200, #"{"ready":true}"#),
+                "GET http://localhost:18091/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
                 "GET http://localhost:18091/api/v1/setup": .json(200, #"{"needs_setup":true}"#),
             ],
             failures: ["https://localhost:18091": URLError(.secureConnectionFailed)]
@@ -57,8 +57,8 @@ import Testing
     @Test func onceHttpsAnswersASetupTimeoutIsNotRetriedOverHttp() async {
         let fake = FakeServer(
             routes: [
-                "GET https://hito.home/health": .json(200, #"{"ready":true}"#),
-                "GET http://hito.home/health": .json(200, #"{"ready":true}"#),
+                "GET https://hito.home/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
+                "GET http://hito.home/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
                 "GET http://hito.home/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
             ],
             failures: ["https://hito.home/api/v1/setup": URLError(.timedOut)]
@@ -72,7 +72,7 @@ import Testing
     @Test func aRedirectLoopOnHttpsIsAnAnswerNotASilence() async {
         let fake = FakeServer(
             routes: [
-                "GET http://hito.home/health": .json(200, #"{"ready":true}"#),
+                "GET http://hito.home/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
                 "GET http://hito.home/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
             ],
             failures: ["https://hito.home": URLError(.httpTooManyRedirects)]
@@ -108,7 +108,7 @@ import Testing
 
     @Test func aMissingSetupEndpointIsNotHito() async {
         let fake = FakeServer(routes: [
-            "GET https://hito.home/health": .json(200, #"{"ready":true}"#),
+            "GET https://hito.home/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
             "GET https://hito.home/api/v1/setup": .text(404, "missing"),
         ])
         await #expect(throws: ServerConnection.Problem.notHito) {
@@ -119,7 +119,7 @@ import Testing
     @Test func aRedirectToAnotherHostIsNotFollowed() async {
         let fake = FakeServer(routes: [
             "GET https://hito.home/health": .redirect("https://elsewhere.example.com/health"),
-            "GET https://elsewhere.example.com/health": .json(200, #"{"ready":true}"#),
+            "GET https://elsewhere.example.com/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
         ])
         await #expect(throws: ServerConnection.Problem.notHito) {
             try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "https://hito.home"))
@@ -137,8 +137,22 @@ import Testing
         }
     }
 
+    @Test func aServerWithoutApiLevelsIsTooOldAndNamesItsVersion() async {
+        let fake = FakeServer(routes: ["GET https://hito.home/health": .json(200, #"{"ready":true,"version":"0.3.0"}"#)])
+        await #expect(throws: ServerConnection.Problem.serverTooOld(version: "0.3.0")) {
+            try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "https://hito.home"))
+        }
+    }
+
+    @Test func aServerThatNeedsANewerAppSaysSo() async {
+        let fake = FakeServer(routes: ["GET https://hito.home/health": .json(200, #"{"ready":true,"api_level":9,"min_client_api_level":9}"#)])
+        await #expect(throws: ServerConnection.Problem.appTooOld) {
+            try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "https://hito.home"))
+        }
+    }
+
     @Test func aServerStillStartingIsReported() async {
-        let fake = FakeServer(routes: ["GET https://hito.home/health": .json(200, #"{"ready":false}"#)])
+        let fake = FakeServer(routes: ["GET https://hito.home/health": .json(200, #"{"ready":false,"api_level":1,"min_client_api_level":1}"#)])
         await #expect(throws: ServerConnection.Problem.notReady) {
             try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "https://hito.home"))
         }
@@ -147,7 +161,7 @@ import Testing
     @Test func checkingAKnownAddressAgainUsesOnlyThatAddress() async throws {
         let address = try #require(try ServerAddressInput(parsing: "http://192.168.1.20:8080").candidates.first)
         let fake = FakeServer(routes: [
-            "GET http://192.168.1.20:8080/health": .json(200, #"{"ready":true}"#),
+            "GET http://192.168.1.20:8080/health": .json(200, #"{"ready":true,"api_level":1,"min_client_api_level":1}"#),
             "GET http://192.168.1.20:8080/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
         ])
         let next = try await ServerConnection(session: fake.session).check(address)

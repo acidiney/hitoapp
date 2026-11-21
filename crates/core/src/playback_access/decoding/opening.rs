@@ -1,6 +1,6 @@
-use super::{PcmStream, unfinished};
+use super::{PcmInput, PcmStream, StreamDecoder, unfinished};
 use crate::{Error, PlaybackSource, Result};
-use std::time::Duration;
+use std::{future::Future, sync::Arc, time::Duration};
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::{Instrument, instrument::WithSubscriber};
 
@@ -40,45 +40,68 @@ pub struct PcmOpening {
 impl PlaybackSource {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.correlation_id(), account_id = self.actor().id()))]
     pub fn begin_pcm(&self, start: Duration) -> Result<PcmOpening> {
-        if start > super::super::MAX_CONVERSION_START {
-            return Err(Error::Invalid("Start position is out of range".into()));
-        }
-        let runtime = tokio::runtime::Handle::try_current().map_err(|_| unfinished())?;
-        let stop = Stop::new();
-        let owner_stop = stop.clone();
         let authority = self.clone();
         let span = tracing::debug_span!(
             "native_pcm_opening",
             playback_grant = self.correlation_id(),
             account_id = self.actor().id()
         );
-        let owner = runtime.spawn(
-            async move {
-                let result = authority.decode_pcm(start, owner_stop.clone()).await;
-                if let Err(error) = &result {
-                    let outcome = if owner_stop.check().is_err() {
-                        "cancelled"
-                    } else {
-                        "failed"
-                    };
-                    tracing::debug!(
-                        event = "native_pcm_open_failed",
-                        outcome,
-                        error_kind = error.code(),
-                        "Native decoder did not open"
-                    );
-                }
-                result
-            }
-            .instrument(span)
-            .with_current_subscriber(),
-        );
-        Ok(PcmOpening {
-            grant_id: self.correlation_id(),
-            stop,
-            owner: Some(owner),
+        begin(self.correlation_id(), start, span, move |stop| async move {
+            authority.decode_pcm(start, stop).await
         })
     }
+}
+
+impl StreamDecoder {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = input.correlation_id()))]
+    pub fn begin(&self, input: Arc<dyn PcmInput>, start: Duration) -> Result<PcmOpening> {
+        let decoder = self.clone();
+        let grant_id = input.correlation_id();
+        let span = tracing::debug_span!("native_pcm_opening", playback_grant = grant_id);
+        begin(grant_id, start, span, move |stop| async move {
+            decoder.decode(input, start, stop).await
+        })
+    }
+}
+
+fn begin<F, D>(grant_id: u64, start: Duration, span: tracing::Span, decode: D) -> Result<PcmOpening>
+where
+    D: FnOnce(Stop) -> F,
+    F: Future<Output = Result<PcmStream>> + Send + 'static,
+{
+    if start > super::super::MAX_CONVERSION_START {
+        return Err(Error::Invalid("Start position is out of range".into()));
+    }
+    let runtime = tokio::runtime::Handle::try_current().map_err(|_| unfinished())?;
+    let stop = Stop::new();
+    let owner_stop = stop.clone();
+    let decoding = decode(owner_stop.clone());
+    let owner = runtime.spawn(
+        async move {
+            let result = decoding.await;
+            if let Err(error) = &result {
+                let outcome = if owner_stop.check().is_err() {
+                    "cancelled"
+                } else {
+                    "failed"
+                };
+                tracing::debug!(
+                    event = "native_pcm_open_failed",
+                    outcome,
+                    error_kind = error.code(),
+                    "Native decoder did not open"
+                );
+            }
+            result
+        }
+        .instrument(span)
+        .with_current_subscriber(),
+    );
+    Ok(PcmOpening {
+        grant_id,
+        stop,
+        owner: Some(owner),
+    })
 }
 
 impl PcmOpening {

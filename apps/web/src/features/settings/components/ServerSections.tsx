@@ -4,7 +4,9 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { setting } from "../model/settingsCatalog";
 import SourcePreferences from "../../sources/components/SourcePreferences";
+import BackgroundPreparation from "../../sources/components/BackgroundPreparation";
 import StreamingQualitySettings from "../../playback/components/StreamingQualitySettings";
+import AppPlaceSetting from "../../place/components/AppPlaceSetting";
 
 export function PlaybackSection({
   native,
@@ -23,11 +25,12 @@ export function PlaybackSection({
         {!native && <StreamingQualitySettings />}
       </SettingsCard>
       <SourcePreferences account={account} />
+      <BackgroundPreparation account={account} />
     </>
   );
 }
 
-export function AboutSection({ libraries }: Schema<"SettingsPageProps">) {
+export function AboutSection({ libraries, user }: Schema<"SettingsPageProps">) {
   return (
     <SettingsCard setting={setting("about-hito")}>
       <SettingRow title="Hito" hint="A self-hosted music library and player." />
@@ -36,6 +39,7 @@ export function AboutSection({ libraries }: Schema<"SettingsPageProps">) {
         hint={window.location.host}
         status={`${libraries.length} ${libraries.length === 1 ? "library" : "libraries"}`}
       />
+      <AppPlaceSetting account={user.id} />
       <SettingRow
         title="Updates"
         hint="Hito does not check for updates yet. Install a newer build on the server to update."

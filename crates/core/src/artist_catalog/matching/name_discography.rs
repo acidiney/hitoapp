@@ -3,6 +3,7 @@ use super::{
     apply::{EvidenceKind, REPLACEABLE},
     coverage::{self, Standing},
     credit::names_several,
+    members::MEMBER_CURSOR,
     name_probe::{
         self, Assessment, Candidate, MAX_NAMESAKES, MIN_CORROBORATING, PROBES_PER_SEARCH, Track,
         normalize,
@@ -142,6 +143,7 @@ struct Answers {
     recordings: HashMap<(String, String), ArtistRecordings>,
     described: HashMap<String, NameCandidate>,
     reviews: HashMap<String, Vec<ReviewCandidate>>,
+    misses: HashMap<String, bool>,
 }
 
 fn split_cursor(after: &str) -> (&str, u32) {
@@ -300,6 +302,7 @@ impl ArtistCatalog {
         } else {
             (handled < credits.len() || more)
                 .then(|| format!("{NAME_CURSOR}{}", credits[handled - 1].id))
+                .or_else(|| Some(MEMBER_CURSOR.to_owned()))
         };
         tracing::debug!(
             credits = handled,
@@ -317,6 +320,7 @@ impl ArtistCatalog {
                 next_after,
                 checks: Checks::Name,
                 reviews,
+                misses: answers.misses.into_iter().collect(),
             },
             examined,
         )
@@ -364,6 +368,11 @@ impl ArtistCatalog {
                 found
             }
         };
+        if let Some(ids) = &found
+            && names_several(&credit.name)
+        {
+            answers.misses.insert(credit.id.clone(), ids.is_empty());
+        }
         let Some(ids) = found.filter(|ids| !ids.is_empty()) else {
             answers.reviews.insert(credit.id.clone(), Vec::new());
             return Verdict::Uncertain;

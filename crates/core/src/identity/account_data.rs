@@ -44,6 +44,11 @@ pub(super) fn statements() -> Vec<String> {
         format!("INSERT INTO correction_erasure_scopes(kind,subject) SELECT 'recording',id FROM {RECORDINGS}"),
     ];
     plan.extend(owned(&["recording_lyric_identities"], "user_id"));
+    plan.push(delete_where(
+        "catalog_appearances",
+        "addition_id IN (SELECT id FROM album_additions WHERE user_id=?1)",
+    ));
+    plan.extend(owned(&["album_additions"], "user_id"));
     plan.extend(account_statements());
     plan.extend(recording_statements(RECORDINGS));
     plan.push(delete_where(
@@ -205,6 +210,7 @@ fn artwork_and_sources() -> Vec<String> {
             "source_preparation_receipts",
             "source_preparations",
             "community_reports",
+            "community_corrections",
             "community_reporters",
         ],
         "user_id",
@@ -224,6 +230,9 @@ fn personal_catalog() -> Vec<String> {
             "account_metadata_policies",
             "account_metadata_automation",
             "artist_matching_jobs",
+            "source_readiness_jobs",
+            "source_readiness_checks",
+            "account_source_readiness_preferences",
             "account_community_preferences",
             "account_history_preferences",
             "account_avatars",

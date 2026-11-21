@@ -1,18 +1,18 @@
 use super::Key;
 use crate::PlayerError;
 mod discovery;
+use crate::seam::Listener;
+use crate::seam::{self, Candidates, Grant};
 use discovery::{Discovery, Outcome};
-use hito_core::{
-    Actor, CandidatesEnd, Catalog, PlaybackAccess, PlaybackCandidates, PlaybackSource,
-};
-use std::{future::Future, pin::Pin};
+use hito_core::CandidatesEnd;
+use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::oneshot;
 use tokio::time::Instant;
 use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type RefreshResult = (Key, Uuid, Result<bool, (PlayerError, bool)>);
-type Read = Result<(PlaybackCandidates, Option<PlaybackSource>), PlayerError>;
+type Read = Result<(Box<dyn Candidates>, Option<Grant>), PlayerError>;
 #[derive(Debug)]
 pub(super) struct PassFailure {
     pub error: PlayerError,
@@ -23,7 +23,7 @@ pub(super) struct PassFailure {
 struct Demand {
     id: Uuid,
     key: Key,
-    actor: Actor,
+    actor: Listener,
     recording: String,
 }
 struct Refresh {
@@ -31,12 +31,11 @@ struct Refresh {
     done: Pending<RefreshResult>,
 }
 pub(super) struct Sources {
-    catalog: Catalog,
-    playback: PlaybackAccess,
+    access: Arc<dyn seam::Sources>,
     key: Option<Key>,
     demand: Option<Demand>,
-    candidates: Option<PlaybackCandidates>,
-    current: Option<PlaybackSource>,
+    candidates: Option<Box<dyn Candidates>>,
+    current: Option<Grant>,
     reading: Option<Pending<Read>>,
     refreshing: Option<Refresh>,
     discovering: Option<Discovery>,
@@ -49,16 +48,15 @@ pub(super) struct Sources {
     pass_retryable: bool,
 }
 impl Sources {
-    pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
-        Self::with_refresh(catalog, playback, true)
+    pub fn new(access: Arc<dyn seam::Sources>) -> Self {
+        Self::with_refresh(access, true)
     }
-    pub fn cached(catalog: Catalog, playback: PlaybackAccess) -> Self {
-        Self::with_refresh(catalog, playback, false)
+    pub fn cached(access: Arc<dyn seam::Sources>) -> Self {
+        Self::with_refresh(access, false)
     }
-    fn with_refresh(catalog: Catalog, playback: PlaybackAccess, refresh_allowed: bool) -> Self {
+    fn with_refresh(access: Arc<dyn seam::Sources>, refresh_allowed: bool) -> Self {
         Self {
-            catalog,
-            playback,
+            access,
             key: None,
             demand: None,
             candidates: None,
@@ -96,7 +94,7 @@ impl Sources {
         self.error = PlayerError::Playback;
         self.pass_retryable = true;
     }
-    pub fn current(&self) -> Option<&PlaybackSource> {
+    pub fn current(&self) -> Option<&Grant> {
         self.current.as_ref()
     }
     pub fn has_demand(&self) -> bool {
@@ -110,7 +108,7 @@ impl Sources {
     pub fn failure(&self) -> PlayerError {
         self.error
     }
-    pub fn prepare_request(&mut self, actor: &Actor, recording: &str) -> Option<Uuid> {
+    pub fn prepare_request(&mut self, actor: &Listener, recording: &str) -> Option<Uuid> {
         if self.demand.is_none() {
             let key = self.key?;
             self.demand = Some(Demand {
@@ -122,7 +120,7 @@ impl Sources {
         }
         self.demand.as_ref().map(|demand| demand.id)
     }
-    pub fn request(&mut self, actor: &Actor, recording: &str) -> bool {
+    pub fn request(&mut self, actor: &Listener, recording: &str) -> bool {
         self.prepare_request(actor, recording);
         self.start()
     }
@@ -157,16 +155,20 @@ impl Sources {
             }
             self.refreshed = true;
             self.needs_refresh = false;
-            let catalog = self.catalog.clone();
+            let access = self.access.clone();
             let demand_id = demand.id;
             let (cancel, cancelled) = oneshot::channel();
             self.refreshing = Some(Refresh {
                 cancel: Some(cancel),
                 done: Box::pin(async move {
-                    let result = catalog
-                        .refresh_playback_sources_until(&demand.actor, &demand.recording, async {
-                            let _ = cancelled.await;
-                        })
+                    let result = access
+                        .refresh_until(
+                            &demand.actor,
+                            &demand.recording,
+                            Box::pin(async {
+                                let _ = cancelled.await;
+                            }),
+                        )
                         .await
                         .map_err(|error| {
                             let retryable = matches!(
@@ -194,13 +196,13 @@ impl Sources {
         if self.refreshing.as_ref().is_some_and(|_| self.refreshed) {
             return false;
         }
-        let playback = self.playback.clone();
+        let access = self.access.clone();
         let candidates = self.candidates.take();
         self.reading = Some(Box::pin(async move {
             let mut candidates = match candidates {
                 Some(candidates) => candidates,
-                None => playback
-                    .playback_candidates(&demand.actor, &demand.recording)
+                None => access
+                    .candidates(&demand.actor, &demand.recording)
                     .await
                     .map_err(PlayerError::from)?,
             };
@@ -209,13 +211,13 @@ impl Sources {
         }));
         true
     }
-    pub async fn next(&mut self) -> Result<Option<PlaybackSource>, PassFailure> {
+    pub async fn next(&mut self) -> Result<Option<Grant>, PassFailure> {
         self.next_with_attempt(None).await
     }
     pub async fn next_with_attempt(
         &mut self,
         acquisition: Option<(u8, Instant)>,
-    ) -> Result<Option<PlaybackSource>, PassFailure> {
+    ) -> Result<Option<Grant>, PassFailure> {
         loop {
             tokio::select! {
                 biased;
@@ -297,7 +299,7 @@ impl Sources {
                     if self.refreshed {
                         if self.discovery_allowed
                             && self.error != PlayerError::OutputFormat
-                            && self.candidates.as_ref().and_then(PlaybackCandidates::ended)
+                            && self.candidates.as_ref().and_then(|candidates| candidates.ended())
                                 == Some(CandidatesEnd::Exhausted)
                         {
                             self.discovery_allowed = false;
@@ -306,7 +308,7 @@ impl Sources {
                                     (attempt, Some(started))
                                 });
                             self.discovering = Some(Discovery::start(
-                                self.catalog.clone(),
+                                self.access.clone(),
                                 self.demand.clone().unwrap(),
                                 attempt,
                                 started,
@@ -316,7 +318,7 @@ impl Sources {
                         self.exhausted = true;
                         tracing::debug!(event = "player_sources_exhausted", "Cached and refreshed sources exhausted");
                         let retryable = self.pass_retryable && self.error == PlayerError::Playback
-                            && !matches!(self.candidates.as_ref().and_then(PlaybackCandidates::ended), Some(CandidatesEnd::FallbackOff | CandidatesEnd::AttemptLimit));
+                            && !matches!(self.candidates.as_ref().and_then(|candidates| candidates.ended()), Some(CandidatesEnd::FallbackOff | CandidatesEnd::AttemptLimit));
                         return Err(PassFailure { error: self.error, retryable, cancelled: false });
                     }
                     self.needs_refresh = true;
@@ -377,14 +379,13 @@ mod tests {
             )
             .await
             .unwrap();
-        let mut sources =
-            Sources::cached(library.hito.catalog.clone(), library.hito.playback.clone());
+        let mut sources = Sources::cached(crate::seam::Seam::in_process(&library.hito).sources);
         sources.reset(Some(key()));
-        assert!(sources.request(&library.actor, &library.source.recording_id));
+        assert!(sources.request(&(&library.actor).into(), &library.source.recording_id));
         let grant = sources.next().await.unwrap().unwrap();
         assert_eq!(grant.source_id(), alternate.second);
         sources.failed(PlayerError::Playback, false);
-        assert!(sources.request(&library.actor, &library.source.recording_id));
+        assert!(sources.request(&(&library.actor).into(), &library.source.recording_id));
         assert!(sources.next().await.is_err());
         assert!(sources.current().is_none());
     }
@@ -392,7 +393,7 @@ mod tests {
     #[tokio::test]
     async fn terminal_candidate_failure_stays_terminal_in_either_provider_order() {
         let library = AudioLibrary::start().await;
-        let mut sources = Sources::new(library.hito.catalog.clone(), library.hito.playback.clone());
+        let mut sources = Sources::new(crate::seam::Seam::in_process(&library.hito).sources);
         sources.reset(Some(key()));
         sources.failed(PlayerError::Playback, false);
         sources.failed(PlayerError::Playback, true);

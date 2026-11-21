@@ -5,7 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -19,6 +19,7 @@ async fn administrator_erases_only_the_revoked_reporter_and_restart_preserves_pe
     let config = || Config {
         state_directory: fixture.path().join("private-revocation-state"),
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     };
     let service = bounded(Service::open(config())).await.unwrap();
     let app = router(service.clone());

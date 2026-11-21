@@ -11,7 +11,7 @@ use std::{
     io::Read,
     os::{fd::FromRawFd, unix::ffi::OsStrExt},
     path::Path,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use uuid::Uuid;
 
@@ -36,8 +36,11 @@ async fn removing_an_intent_before_audio_headers_prevents_a_late_owned_writer() 
         )
         .await
         .unwrap();
-    let downloads = fixture.hito.downloads.clone();
-    let started = Instant::now();
+    let downloads = fixture
+        .hito
+        .downloads
+        .clone()
+        .with_authority_interval(Duration::from_secs(3600));
     let worker = tokio::spawn(async move { downloads.run_next_job_until(pending()).await });
     tokio::time::timeout(Duration::from_secs(2), headers.entered())
         .await
@@ -51,10 +54,6 @@ async fn removing_an_intent_before_audio_headers_prevents_a_late_owned_writer() 
         .unwrap();
     assert_eq!(owned_file_count(&owned), 0);
     assert_eq!(created.drain(), 0);
-    assert!(
-        started.elapsed() < Duration::from_millis(200),
-        "the held-header removal must finish inside the cached authority window"
-    );
     headers.open();
     assert!(
         tokio::time::timeout(Duration::from_secs(2), worker)

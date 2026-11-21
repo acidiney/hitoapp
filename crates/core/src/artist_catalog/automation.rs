@@ -244,16 +244,31 @@ impl ArtistCatalog {
                 .await
                 .map(|receipt| (receipt.next_after, receipt.unavailable > 0, "genres", 0))
         } else if job.phase == "tags" {
-            self.match_artists_from_tags(
-                &actor,
-                MatchArtistsFromTags {
-                    request_id,
-                    after: job.cursor.clone(),
-                    limit: None,
-                },
-            )
-            .await
-            .map(|receipt| (receipt.next_after, false, "tags", receipt.matched))
+            let completed = match job.cursor {
+                None => self.complete_decided_credits(&actor).await,
+                Some(_) => Ok(0),
+            };
+            match completed {
+                Ok(completed) => self
+                    .match_artists_from_tags(
+                        &actor,
+                        MatchArtistsFromTags {
+                            request_id,
+                            after: job.cursor.clone(),
+                            limit: None,
+                        },
+                    )
+                    .await
+                    .map(|receipt| {
+                        (
+                            receipt.next_after,
+                            false,
+                            "tags",
+                            receipt.matched + completed,
+                        )
+                    }),
+                Err(error) => Err(error),
+            }
         } else {
             self.match_artists_from_provider_evidence(
                 &actor,

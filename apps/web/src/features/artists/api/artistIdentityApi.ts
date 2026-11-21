@@ -85,6 +85,31 @@ export const artistIdentityApi = {
       signal,
     );
   },
+  memberIdentity(account: string, artist: string, signal: AbortSignal) {
+    return json<Schema<"MemberArtistIdentity">>(
+      `/artists/${part(artist)}/member-artist-identity`,
+      account,
+      signal,
+      undefined,
+      "GET",
+      "artist_identity.member_read",
+    );
+  },
+  applyToMemberCredits(
+    account: string,
+    artist: string,
+    body: Schema<"ApplyArtistIdentityToCredit">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistIdentityCreditReceipt">>(
+      `/artists/${part(artist)}/member-artist-identity`,
+      account,
+      signal,
+      body,
+      "POST",
+      "artist_identity.apply_to_members",
+    );
+  },
   applyToCredit(
     account: string,
     artist: string,

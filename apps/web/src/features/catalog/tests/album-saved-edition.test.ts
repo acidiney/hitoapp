@@ -15,6 +15,7 @@ import {
   openFromAlbum,
   pickRelease,
   confirmEdition,
+  loadedTrackList,
 } from "../fixtures/albumEditionSteps";
 
 import {
@@ -117,9 +118,7 @@ test("a remembered edition opens its complete track list on load with no discogr
   expect(
     screen.queryByRole("button", { name: "Choose an edition" }),
   ).toBeNull();
-  const region = await screen.findByRole("region", {
-    name: "Album edition track list",
-  });
+  const region = await loadedTrackList();
   expect(within(region).getByText("Catalog only song")).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([savedRead]);
   expect(fetch.mock.calls[0][1]!.method).toBe("POST");
@@ -155,7 +154,7 @@ test("choosing an edition remembers it with the displayed revision and the next 
 test("forgetting the edition clears it and returns to an explicit choice", async () => {
   const fetch = serve();
   render(page(readyChoice));
-  await screen.findByRole("region", { name: "Album edition track list" });
+  await loadedTrackList();
   fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
   expect(JSON.parse(calls(fetch, clear)[0][1]!.body as string)).toEqual({
@@ -187,7 +186,7 @@ test("changing the edition opens the browser while the remembered one stays unti
       },
     }),
   );
-  await screen.findByRole("region", { name: "Album edition track list" });
+  await loadedTrackList();
   fireEvent.click(editionMenuItem("Change edition"));
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",

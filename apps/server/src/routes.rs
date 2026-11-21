@@ -11,6 +11,7 @@ use crate::{
 };
 use api::host_browser::{HostBrowser, HostBrowserAccess};
 use api::host_folders::{HostFolderAccess, HostFolders};
+use api::host_place::{HostPlace, HostPlaceAccess};
 use axum::{Extension, Router, middleware, routing::get};
 use hito_core::Services;
 use std::sync::Arc;
@@ -136,6 +137,7 @@ fn account_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
+        .routes(routes!(api::community::suggest_same_recording))
 }
 
 fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
@@ -149,7 +151,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
-        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::begin,
+            api::playback_leases::release_client
+        ))
         .routes(routes!(
             api::playback_leases::status,
             api::playback_leases::release
@@ -163,6 +168,9 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(browsing::release))
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
+        .routes(routes!(api::genres::list))
+        .routes(routes!(api::genres::detail))
+        .routes(routes!(api::genres::tracks))
         .routes(routes!(catalog::sources))
         .routes(routes!(api::recording_groups::copies))
         .routes(routes!(api::recording_groups::split))
@@ -184,6 +192,10 @@ fn library_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(
             source_preference::source_preferences,
             source_preference::update_source_preferences
+        ))
+        .routes(routes!(
+            source_preference::source_readiness_preference,
+            source_preference::update_source_readiness_preference
         ))
         .routes(routes!(
             source_preparation::create,
@@ -220,6 +232,10 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_identity::reset))
         .routes(routes!(api::artist_identity::member_reset))
         .routes(routes!(api::artist_identity::apply_to_credit))
+        .routes(routes!(
+            api::artist_identity::member_identity,
+            api::artist_identity::apply_to_member_credits
+        ))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))
         .routes(routes!(api::artist_matching::status))
@@ -251,6 +267,8 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::album_editions::track_list))
         .routes(routes!(api::album_editions::tagged_edition))
         .routes(routes!(api::album_editions::track_audio))
+        .routes(routes!(api::album_editions::add))
+        .routes(routes!(api::album_editions::undo))
         .routes(routes!(api::album_editions::saved_track_list))
         .routes(routes!(api::album_editions::library_level))
         .routes(routes!(api::album_editions::choose))
@@ -258,6 +276,7 @@ fn metadata_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_editions::list))
         .routes(routes!(api::artist_release_group::read))
         .routes(routes!(api::artist_editions::track_list))
+        .routes(routes!(api::artist_editions::add))
         .routes(routes!(api::artist_editions::track_audio))
         .routes(routes!(api::featured::shelf))
         .routes(routes!(api::featured::artwork))
@@ -299,6 +318,9 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(storage::folders, storage::connect))
         .routes(routes!(api::host_folders::offer))
         .routes(routes!(api::host_folders::choose))
+        .routes(routes!(api::host_place::offer))
+        .routes(routes!(api::host_place::change))
+        .routes(routes!(api::host_place::forget_me))
         .routes(routes!(storage::remove))
         .routes(routes!(storage::scan))
         .routes(routes!(storage::remove_missing_recordings))
@@ -308,6 +330,8 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(api::audiobooks::page))
         .routes(routes!(api::audiobooks::detail))
         .routes(routes!(api::audiobooks::playback))
+        .routes(routes!(api::audiobooks::check_chapters))
+        .routes(routes!(api::audiobooks::admission))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
@@ -322,7 +346,7 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(collection::delete_history))
 }
 
-fn player_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
+fn player_routes<S: Clone + Send + Sync + 'static>(router: OpenApiRouter<S>) -> OpenApiRouter<S> {
     router
         .routes(routes!(player::inspect))
         .routes(routes!(player::claim))
@@ -343,7 +367,7 @@ pub fn router(services: Services) -> Router {
 }
 
 pub fn router_with_config(services: Services, config: Config) -> Router {
-    application(services, config, None, None, None)
+    application(services, config, None, Hosts::default())
 }
 
 pub fn router_with_player(
@@ -351,7 +375,7 @@ pub fn router_with_player(
     config: Config,
     player: hito_playback::Player,
 ) -> Router {
-    application(services, config, Some(player), None, None)
+    application(services, config, Some(player), Hosts::default())
 }
 
 pub fn router_with_host(
@@ -360,17 +384,39 @@ pub fn router_with_host(
     player: Option<hito_playback::Player>,
     folders: Arc<dyn HostFolders>,
 ) -> Router {
-    application(services, config, player, Some(folders), None)
+    let hosts = Hosts {
+        folders: Some(folders),
+        ..Hosts::default()
+    };
+    application(services, config, player, hosts)
+}
+
+#[derive(Default)]
+pub struct Hosts {
+    pub folders: Option<Arc<dyn HostFolders>>,
+    pub browser: Option<Arc<dyn HostBrowser>>,
+    pub place: Option<Arc<dyn HostPlace>>,
 }
 
 pub fn router_with_hosts(
     services: Services,
     config: Config,
     player: Option<hito_playback::Player>,
-    folders: Option<Arc<dyn HostFolders>>,
-    browser: Option<Arc<dyn HostBrowser>>,
+    hosts: Hosts,
 ) -> Router {
-    application(services, config, player, folders, browser)
+    application(services, config, player, hosts)
+}
+
+pub fn native_player_router(
+    player: hito_playback::Player,
+    identity: player::identity::PlayerIdentity,
+) -> Router {
+    let (router, _) = player_routes(OpenApiRouter::<()>::new()).split_for_parts();
+    router
+        .layer(axum::extract::DefaultBodyLimit::max(262144))
+        .layer(Extension(player::Playback::new(Some(player))))
+        .layer(Extension(identity))
+        .layer(middleware::from_fn(telemetry::request))
 }
 
 pub fn loopback_return_router(services: Services, config: Config) -> Router {
@@ -387,8 +433,7 @@ fn application(
     services: Services,
     config: Config,
     player: Option<hito_playback::Player>,
-    folders: Option<Arc<dyn HostFolders>>,
-    browser: Option<Arc<dyn HostBrowser>>,
+    hosts: Hosts,
 ) -> Router {
     let (api, document) = api_routes().split_for_parts();
     Router::new()
@@ -430,8 +475,12 @@ fn application(
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))
         .layer(Extension(player::Playback::new(player)))
-        .layer(Extension(HostFolderAccess(folders)))
-        .layer(Extension(HostBrowserAccess(browser)))
+        .layer(Extension(player::identity::PlayerIdentity(Arc::new(
+            player::identity::AccountIdentity(services.clone()),
+        ))))
+        .layer(Extension(HostFolderAccess(hosts.folders)))
+        .layer(Extension(HostBrowserAccess(hosts.browser)))
+        .layer(Extension(HostPlaceAccess(hosts.place)))
         .layer(middleware::from_fn_with_state(
             security::Security::new(config),
             security::browser_security,

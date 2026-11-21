@@ -1,6 +1,6 @@
 # Docker operations
 
-The normal server is `hito-server-1`. Its health endpoint checks SQLite. Startup applies versioned SQLx migrations before accepting requests. The process exits if the database or built UI cannot be opened.
+The normal server is `hito-server-1`. Its health endpoint checks SQLite. It also reports the server's version and two API levels, its own and the lowest it accepts from the apps, so the phone and desktop apps can tell an incompatible server before anyone signs in. Startup applies versioned SQLx migrations before accepting requests. The process exits if the database or built UI cannot be opened.
 
 ```sh
 docker compose ps

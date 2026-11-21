@@ -303,6 +303,7 @@ fn assert_source(source: &Value, label: &str, can_prepare: bool) {
         keys,
         [
             "can_prepare",
+            "community_public",
             "device_id",
             "id",
             "label",

@@ -30,6 +30,7 @@ test("Now playing changes from No source to Ready when a source is resolved afte
               match_kind: "verified",
               ready: true,
               can_prepare: true,
+              community_public: false,
             },
           ]
         : [],
