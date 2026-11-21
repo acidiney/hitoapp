@@ -54,6 +54,8 @@ services:
       context: .
       dockerfile: docker/server.Dockerfile
       target: runtime
+      args:
+        HITO_SERVER_CACHE_ID: hito-e2e-${COMPOSE_PROJECT_NAME:-default}
     environment:
       HITO_PUBLIC_ORIGIN: http://localhost:8080
       HITO_STORAGE_MANIFEST: /music/storage.json
