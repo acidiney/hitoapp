@@ -82,7 +82,7 @@ Each track shows whether Hito can play it now.
 - **Ready · from your services** means a connected service can play it, but Hito has not checked which one yet.
 - **No source** or **Not ready** means Hito has no playable audio for this track yet. Playlists copied from other services often start this way while Hito finds sources.
 
-The queue skips tracks without a source. To find one, open the row menu and choose **Find audio**. For a track that plays the wrong audio, the same menu offers **Fix source**.
+The queue skips tracks without a source. On iPhone, Hito looks for the next track's audio about 30 seconds before the current track ends. If it finds none, it looks once more, then gets the track after it ready, so the queue moves straight on with "*track* has no source that plays right now." A track you choose yourself, with Next or a tap, is still searched for. To find a source, open the row menu and choose **Find audio**. For a track that plays the wrong audio, the same menu offers **Fix source**.
 
 ## When a source fails
 
