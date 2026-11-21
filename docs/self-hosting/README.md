@@ -146,8 +146,8 @@ Offering makes the addon available. Each person then connects their own account:
 
 Use it:
 
-- **Spotify:** open **Playlists**. In **Import a playlist**, make sure **Import a copy** is selected, paste a public playlist link and select **Import a copy**. The link must be public. Hito copies the track list, not audio. The new playlist shows, for example, "50 entries, 0 ready, 50 unavailable": tracks have no audio yet. Hito looks for audio through your other sources, such as YouTube, when you press play.
-- **YouTube:** open **Discover**. Under **Search your services**, select **YouTube**, type a track or artist and select **Search**. Use **Play** or **Add** on a result.
+- **Spotify:** open **Playlists** and select **Import from a link**. Paste a public playlist link, choose **Copy** under **How to add it** and select **Import a copy**. The link must be public. Hito copies the track list, not audio. The new playlist shows, for example, "0 ready · 50 not ready yet": tracks have no audio yet. Hito looks for audio through your other sources, such as YouTube, when you press play.
+- **YouTube:** open **Discover**. Under **Outside your library**, pick **YouTube**, type a track or artist in **Search music** and select **Search**. Play a result or add it to your library.
 
 Playing a track does not download a permanent copy.
 
