@@ -50,7 +50,7 @@ To browse by genre, open **Discover**. **Genres you own** lists the busiest genr
 
 ## Add a whole album
 
-An album page shows the full edition: tracks you own, and tracks you don't. If you own none of them, select **Add album**. If you own some, select **Add the other N**. On a phone, both are in the **More** menu.
+An album page shows the full edition: tracks you own, and tracks you don't. If you own none of them, select **Add album**. If you own some, select **Add the other N**. On a phone, both are in the **More actions** menu.
 
 Every missing track joins your library at once, filed under that album, even before Hito has found audio for it. Hito looks for audio when you play a track, or in the background if **Prepare sources in the background** is on.
 
@@ -94,7 +94,7 @@ Suggestions you turned down stay under **Dismissed suggestions**. Select **Resto
 ### Choose the artist yourself
 
 1. Open the track's **Track details** and go to the **Metadata** tab.
-2. Under **Linked artist**, select **Change artist**, or **Choose the artist** if none is linked.
+2. Under **Linked artist**, select **Change artist**.
 3. Select **Search artists**. Results show details such as the artist's type and country, so you can tell namesakes apart.
 4. Select **Review artist** on the right result, then **Use this artist**.
 5. Select **Choose this reviewed artist** to group the track under that artist.
