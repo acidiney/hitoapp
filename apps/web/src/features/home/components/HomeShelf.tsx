@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
+import ArtistPhoto from "../../artists/components/ArtistPhoto";
 import MediaCard from "../../../shared/ui/MediaCard";
 import type { ShelfCard } from "../model/homeShelves";
 
@@ -8,10 +9,18 @@ function ShelfCover({ card }: { card: ShelfCard }) {
   const { cover } = card;
   if (cover.kind === "artist")
     return (
-      <Artwork
-        recording={cover.recording}
-        fallback={{ id: cover.id, title: card.title, kind: "artist" }}
-      />
+      <ArtistPhoto
+        kind="credited-artist"
+        artist={cover.id}
+        identity={cover.id}
+        name={card.title}
+        enabled={cover.photo}
+      >
+        <Artwork
+          recording={cover.recording}
+          fallback={{ id: cover.id, title: card.title, kind: "artist" }}
+        />
+      </ArtistPhoto>
     );
   return (
     <Artwork

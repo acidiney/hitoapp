@@ -1,10 +1,10 @@
 use super::PageRequest;
-use crate::api::artist_identity_groups::ArtistIdentityGroupPage;
+use crate::api::browsing::ArtistPage;
 use crate::error::ApiResult;
 use crate::inertia::props::*;
-use hito_core::ArtistIdentityGroupQuery;
+use hito_core::Browse;
 
-const HOME_ARTISTS: i64 = 12;
+const HOME_ARTISTS: i64 = 20;
 
 pub(super) async fn home(request: PageRequest<'_>) -> ApiResult<PageProps> {
     let home = request
@@ -14,13 +14,13 @@ pub(super) async fn home(request: PageRequest<'_>) -> ApiResult<PageProps> {
         .await?;
     let artists = request
         .when("artists", async {
-            Ok(ArtistIdentityGroupPage(
+            Ok(ArtistPage(
                 request
                     .services
-                    .artist_catalog
-                    .artist_identity_groups(
+                    .catalog
+                    .artists(
                         request.actor,
-                        ArtistIdentityGroupQuery {
+                        Browse {
                             limit: Some(HOME_ARTISTS),
                             ..Default::default()
                         },

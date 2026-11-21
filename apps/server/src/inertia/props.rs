@@ -95,7 +95,7 @@ pub struct HomePageProps {
     pub home: Option<hito_core::Home>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
-    pub artists: Option<ArtistIdentityGroupPage>,
+    pub artists: Option<ArtistPage>,
 }
 
 #[derive(Serialize, ToSchema)]

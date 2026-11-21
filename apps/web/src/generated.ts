@@ -4805,7 +4805,7 @@ export interface components {
             title: string;
         };
         HomePageProps: components["schemas"]["SharedPageProps"] & {
-            artists: components["schemas"]["ArtistIdentityGroupPage"];
+            artists: components["schemas"]["ArtistPage"];
             home: components["schemas"]["Home"];
         };
         HostFolderChoice: {
