@@ -13,6 +13,14 @@ public enum StreamingQuality: String, CaseIterable, Sendable {
         }
     }
 
+    public var choice: String {
+        switch self {
+        case .original: "Original"
+        case .high: "High · AAC 256 kbit/s"
+        case .saver: "Data saver · AAC 128 kbit/s"
+        }
+    }
+
     static func key(_ account: String) -> String { "app.hito.streaming-quality.\(account)" }
 
     public static func preferred(defaults: UserDefaults = .standard, account: String) -> StreamingQuality {

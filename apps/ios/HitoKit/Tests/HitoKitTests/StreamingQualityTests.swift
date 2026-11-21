@@ -82,6 +82,7 @@ import Testing
 
     @Test func eachQualityHasTheSettingsLabel() {
         #expect(StreamingQuality.allCases.map(\.title) == ["Original", "High", "Data saver"])
+        #expect(StreamingQuality.allCases.map(\.choice) == ["Original", "High · AAC 256 kbit/s", "Data saver · AAC 128 kbit/s"])
         #expect(StreamingQuality(rawValue: "saver") == .saver)
     }
 

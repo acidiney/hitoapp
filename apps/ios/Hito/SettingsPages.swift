@@ -278,7 +278,7 @@ struct PlaybackSettingsView: View {
                 if let player = model.player {
                     let quality = streaming ?? StreamingQuality.preferred(account: player.account)
                     SettingsGroup(title: "Streaming") {
-                        SettingRow(title: "Streaming quality", detail: "High and Data saver convert on the server. Tracks that can't convert play at original quality.") {
+                        SettingRow(title: "Streaming quality", detail: "Applies when the next track opens. Remote sources keep their own quality.") {
                             Menu {
                                 ForEach(StreamingQuality.allCases, id: \.self) { choice in
                                     Button {
@@ -286,16 +286,21 @@ struct PlaybackSettingsView: View {
                                         streaming = choice
                                     } label: {
                                         if choice == quality {
-                                            Label(choice.title, systemImage: "checkmark")
+                                            Label(choice.choice, systemImage: "checkmark")
                                         } else {
-                                            Text(choice.title)
+                                            Text(choice.choice)
                                         }
                                     }
                                 }
                             } label: {
-                                Text(quality.title).font(Theme.small).foregroundStyle(Theme.text)
+                                HStack(spacing: 4) {
+                                    Text(quality.title)
+                                    Icon("chevron-down", size: 14)
+                                }
+                                .font(Theme.small)
+                                .foregroundStyle(Theme.text)
                             }
-                            .accessibilityLabel("Streaming quality, \(quality.title)")
+                            .accessibilityLabel("Streaming quality, \(quality.choice)")
                         }
                     }
                     SettingsGroup(title: "Lyrics") {
