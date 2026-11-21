@@ -5795,6 +5795,7 @@ export interface components {
             connection_name: string;
             /** Format: int64 */
             installation_revision: number;
+            reconnect_service_id?: string | null;
             resumable: boolean;
             /** Format: int64 */
             service_revision: number;

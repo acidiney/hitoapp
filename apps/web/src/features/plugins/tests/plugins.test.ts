@@ -213,6 +213,42 @@ test("an offered service opens its own connection dialog", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
+test("a link that names an offered service opens its connection dialog", async () => {
+  render(
+    createElement(ArtworkProvider, {
+      account: "bob",
+      children: createElement(PluginSettings, {
+        account: "bob",
+        admin: false,
+        connect: service.id,
+      }),
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: `Connect ${service.name}`,
+  });
+  expect(within(dialog).getByRole("button", { name: "Continue" })).toBeTruthy();
+});
+
+test("a link that names a service already connected or no longer offered opens the plugin list", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  render(
+    createElement(ArtworkProvider, {
+      account: "bob",
+      children: createElement(PluginSettings, {
+        account: "bob",
+        admin: false,
+        connect: "withdrawn-service",
+      }),
+    }),
+  );
+  await screen.findByRole("heading", { name: "Your connections" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
 test("the card does not repeat the section intro and no sentence floats between cards", async () => {
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     ...initial,

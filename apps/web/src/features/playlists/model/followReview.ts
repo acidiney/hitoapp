@@ -30,6 +30,16 @@ export function changeValue(values: string[]) {
         .join(", ");
 }
 
+export function removed(review: Review) {
+  return review.changes.some((change) => change.kind === "removed");
+}
+
+export function reconnectHref(review: Review) {
+  return review.reconnect_service_id
+    ? `/settings?section=plugins&connect=${encodeURIComponent(review.reconnect_service_id)}`
+    : "/settings?section=plugins";
+}
+
 export function reviewSentence(review: Review) {
   const name = review.connection_name;
   const generic = `The ${name} connection changed.`;

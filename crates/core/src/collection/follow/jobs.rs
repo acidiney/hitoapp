@@ -69,7 +69,8 @@ impl Collection {
         let owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM playlist_follows WHERE playlist_id = ? AND user_id = ? AND active = 1)")
             .bind(playlist).bind(actor.id()).fetch_one(&self.store.pool).await?;
         if owned {
-            self.resume_compatible_follows(Some(playlist)).await?;
+            self.resume_compatible_follows(approval::Scope::Playlist(playlist))
+                .await?;
         }
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;

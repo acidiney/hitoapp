@@ -117,6 +117,7 @@ impl Plugins {
             .bind(credential).bind(&service.id).bind(service.revision).fetch_optional(&mut *tx).await?
             .ok_or_else(|| Error::Conflict("This plugin service was withdrawn during connection".into()))?;
         let installed = installation(row)?;
+        crate::collection::carry_over_follows(&mut tx, actor.id(), &manifest.id).await?;
         tx.commit().await?;
         tracing::info!(
             installation_id = id,

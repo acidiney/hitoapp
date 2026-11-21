@@ -5,6 +5,8 @@ import Button from "../../../shared/ui/Button";
 import {
   changeLabel,
   changeValue,
+  reconnectHref,
+  removed,
   reviewSentence,
 } from "../model/followReview";
 
@@ -27,6 +29,7 @@ export default function PlaylistFollowResume({
 }: FollowResumeProps) {
   const paused = follow?.status === "paused";
   const review = paused ? (follow.review ?? null) : null;
+  const reconnect = review && removed(review) ? review : null;
   if (!paused && !hasAttempt && !error) return null;
   return (
     <section
@@ -56,6 +59,12 @@ export default function PlaylistFollowResume({
             </dl>
           </>
         )}
+        {reconnect && (
+          <p className="status-strip-note">
+            Connect {reconnect.connection_name} again and this playlist resumes
+            updating.
+          </p>
+        )}
         {paused && (
           <p className="status-strip-note">
             Your saved entries remain available.
@@ -78,10 +87,16 @@ export default function PlaylistFollowResume({
             Retry resume request
           </Button>
         )}
-        {paused && (
-          <Link className="button quiet" href="/settings?section=plugins">
-            Review connection
+        {reconnect ? (
+          <Link className="button primary" href={reconnectHref(reconnect)}>
+            Connect {reconnect.connection_name} again
           </Link>
+        ) : (
+          paused && (
+            <Link className="button quiet" href="/settings?section=plugins">
+              Review connection
+            </Link>
+          )
         )}
       </div>
     </section>

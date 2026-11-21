@@ -33369,6 +33369,12 @@
             "type": "integer",
             "format": "int64"
           },
+          "reconnect_service_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "resumable": {
             "type": "boolean"
           },
