@@ -218,18 +218,28 @@ public struct Artist: Decodable, Equatable, Hashable, Identifiable, Sendable {
     public let name: String
     public let trackCount: Int
     public let albumCount: Int
+    public let appearanceCount: Int?
 
-    public init(id: String, name: String, trackCount: Int, albumCount: Int) {
+    public init(id: String, name: String, trackCount: Int, albumCount: Int, appearanceCount: Int? = nil) {
         self.id = id
         self.name = name
         self.trackCount = trackCount
         self.albumCount = albumCount
+        self.appearanceCount = appearanceCount
+    }
+
+    public var countLabel: String {
+        func count(_ value: Int, _ one: String, _ many: String) -> String { "\(value) \(value == 1 ? one : many)" }
+        if trackCount > 0 { return count(trackCount, "track", "tracks") }
+        if albumCount > 0 { return count(albumCount, "album", "albums") }
+        return count(appearanceCount ?? 0, "appearance", "appearances")
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name
         case trackCount = "recording_count"
         case albumCount = "release_count"
+        case appearanceCount = "featured_recording_count"
     }
 }
 
