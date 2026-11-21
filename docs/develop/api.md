@@ -73,7 +73,7 @@ This is the server synchronization contract. A desktop cache and durable offline
 
 ## Plugin sign-in from a native app
 
-Current server behavior. The iOS app is not using it yet. A plugin that declares an OAuth 2 PKCE sign-in needs the provider to come back to Hito. The web app finishes the sign-in with its session cookie, and the desktop app with its loopback address. A native app signed in with a bearer token has neither, so it finishes the sign-in itself with two one-time secrets.
+Current behavior of the server and the iOS app. A plugin that declares an OAuth 2 PKCE sign-in needs the provider to come back to Hito. The web app finishes the sign-in with its session cookie, and the desktop app with its loopback address. A native app signed in with a bearer token has neither, so it finishes the sign-in itself with two one-time secrets.
 
 1. The app creates a random verifier of at least 43 URL-safe characters and keeps it in memory. It starts the sign-in with `POST /plugins/{id}/authorization` and `{"revision", "verifier_hash"}`, where `verifier_hash` is the unpadded base64url SHA-256 of the verifier. A bearer start without a verifier hash is refused with 422, and so is a cookie start with one.
 2. The app opens `authorization_url` in `ASWebAuthenticationSession` with the callback scheme `hito`.
@@ -100,7 +100,7 @@ sequenceDiagram
 
 The server exchanges the code only when both secrets match, the bearer session is the one that started the attempt and is still signed in and unlocked, and the attempt is unexpired and unused. The verifier proves who started the sign-in. The return secret proves that the approval came back to the same app. Without it, a member could send someone else the provider link and connect that person's provider account to their own Hito account. A wrong secret closes the attempt. A missing field is refused with 422 and leaves the attempt as it was. Another account or session gets 404, a signed-out session 401 and a locked one 423, and none of those use the attempt.
 
-`GET /plugins/{id}/authorization/{attempt}` reads `pending` until the provider returns, `returned` while the answer waits for the app, then `exchanging`, `completed` or `failed`. An app that was closed during sign-in can use it to decide whether to finish or start again. Attempts last ten minutes. The stored answer is deleted when the attempt completes, fails or is disconnected. An expired attempt is refused, and its stored answer is deleted by the completion call or by the expiry sweep that runs whenever a sign-in starts.
+`GET /plugins/{id}/authorization/{attempt}` reads `pending` until the provider returns, `returned` while the answer waits for the app, then `exchanging`, `completed` or `failed`. An app that was closed during sign-in can use it to decide whether to finish or start again. The iOS app keeps the attempt, its verifier and, once it arrives, the return secret in the Keychain on this device until the attempt ends, so it can finish a returned attempt after a restart. A server older than this flow answers a start with a verifier hash with 422, and the app then offers to connect on the web. Attempts last ten minutes. The stored answer is deleted when the attempt completes, fails or is disconnected. An expired attempt is refused, and its stored answer is deleted by the completion call or by the expiry sweep that runs whenever a sign-in starts.
 
 ## Plugin contract
 
