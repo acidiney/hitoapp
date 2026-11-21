@@ -54,6 +54,32 @@ pub(super) async fn call(
     )
 }
 
+pub(super) async fn browser_call(
+    app: &Router,
+    method: &str,
+    path: &str,
+    body: Value,
+    session: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("content-type", "application/json")
+        .header("x-hito-request", "1")
+        .header("cookie", format!("hito_session={session}"));
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
 pub(super) async fn admin(app: &Router) -> String {
     call(
         app,

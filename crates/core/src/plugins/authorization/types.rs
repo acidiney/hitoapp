@@ -1,5 +1,6 @@
 use crate::{Error, Result};
-use serde::Serialize;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 use utoipa::ToSchema;
 use zeroize::Zeroizing;
@@ -22,6 +23,7 @@ pub struct PluginAuthorizationStatus {
 #[serde(rename_all = "snake_case")]
 pub enum PluginAuthorizationState {
     Pending,
+    Returned,
     Exchanging,
     Completed,
     Failed,
@@ -66,7 +68,8 @@ impl ProviderAccess {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum PluginAuthorizationOutcome {
     Connected,
     Denied,
@@ -140,6 +143,7 @@ impl PluginAuthorizationCallback {
 pub(super) enum Delivery {
     Session,
     Loopback,
+    Native,
 }
 
 impl Delivery {
@@ -147,6 +151,7 @@ impl Delivery {
         match self {
             Self::Session => "session",
             Self::Loopback => "loopback",
+            Self::Native => "native",
         }
     }
 }
@@ -154,6 +159,7 @@ impl Delivery {
 pub struct PluginAuthorizationRedirect {
     url: Url,
     delivery: Delivery,
+    completion_hash: Option<[u8; 32]>,
 }
 
 impl PluginAuthorizationRedirect {
@@ -161,6 +167,26 @@ impl PluginAuthorizationRedirect {
         Ok(Self {
             url: parse_callback(callback)?,
             delivery: Delivery::Session,
+            completion_hash: None,
+        })
+    }
+
+    pub fn native(callback: &str, verifier_hash: &str) -> Result<Self> {
+        let url = parse_callback(callback)?;
+        let completion_hash = (verifier_hash.len() == 43)
+            .then(|| URL_SAFE_NO_PAD.decode(verifier_hash).ok())
+            .flatten()
+            .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+            .ok_or_else(|| {
+                Error::Invalid(
+                    "Send the verifier hash as the unpadded base64url SHA-256 of the app's verifier"
+                        .into(),
+                )
+            })?;
+        Ok(Self {
+            url,
+            delivery: Delivery::Native,
+            completion_hash: Some(completion_hash),
         })
     }
 
@@ -179,6 +205,7 @@ impl PluginAuthorizationRedirect {
         Ok(Self {
             url,
             delivery: Delivery::Loopback,
+            completion_hash: None,
         })
     }
 
@@ -188,6 +215,40 @@ impl PluginAuthorizationRedirect {
 
     pub(super) fn delivery(&self) -> Delivery {
         self.delivery
+    }
+
+    pub(super) fn completion_hash(&self) -> Option<&[u8]> {
+        self.completion_hash.as_ref().map(|hash| &hash[..])
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PluginAuthorizationCompletion {
+    #[schema(value_type = String)]
+    pub verifier: Zeroizing<String>,
+    #[schema(value_type = String)]
+    pub return_secret: Zeroizing<String>,
+}
+
+pub enum PluginAuthorizationReturn {
+    App(PluginAppReturn),
+    Closed(PluginAuthorizationOutcome),
+}
+
+pub struct PluginAppReturn(pub(super) Zeroizing<String>);
+
+impl PluginAppReturn {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for PluginAppReturn {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PluginAppReturn")
+            .finish_non_exhaustive()
     }
 }
 

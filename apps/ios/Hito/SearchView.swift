@@ -236,7 +236,7 @@ struct SearchView: View {
                             .clipShape(Circle())
                         VStack(alignment: .leading, spacing: 0) {
                             Text(artist.name).lineLimit(1)
-                            Text("\(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks")").font(Theme.small).foregroundStyle(Theme.quiet)
+                            Text(artist.countLabel).font(Theme.small).foregroundStyle(Theme.quiet)
                         }
                         Spacer(minLength: 8)
                         Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
@@ -408,7 +408,7 @@ struct TopResult: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Top result").font(Theme.label).foregroundStyle(Theme.focus)
                 Text(artist.name).font(Theme.result).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
-                Text("Artist · \(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks") in your library")
+                Text("Artist · \(artist.countLabel) in your library")
                     .font(Theme.small)
                     .foregroundStyle(Theme.quiet)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)

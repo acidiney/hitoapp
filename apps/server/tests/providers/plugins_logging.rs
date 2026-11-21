@@ -45,6 +45,26 @@ async fn post(app: &Router, path: &str, body: Value, token: Option<&str>) -> (St
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     (status, serde_json::from_slice(&bytes).unwrap())
 }
+async fn browser_post(app: &Router, path: &str, body: Value, session: &str) -> (StatusCode, Value) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(path)
+                .header("content-type", "application/json")
+                .header("x-hito-request", "1")
+                .header("cookie", format!("hito_session={session}"))
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, serde_json::from_slice(&bytes).unwrap())
+}
+
 #[tokio::test]
 async fn plugin_workflow_logs_outcomes_without_tokens_names_bodies_or_input_paths() {
     hito_testkit::logs::anchor_callsite_interest();
@@ -156,11 +176,11 @@ async fn authorization_logs_outcomes_without_session_pkce_or_private_configurati
             "/api/v1/plugins/{}/authorization",
             installation["id"].as_str().unwrap()
         );
-        let (status, attempt) = post(
+        let (status, attempt) = browser_post(
             &app,
             &begin_path,
             json!({"revision": installation["revision"]}),
-            Some(token),
+            token,
         )
         .await;
         assert_eq!(status, StatusCode::CREATED);

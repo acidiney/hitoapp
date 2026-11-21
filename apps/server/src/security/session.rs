@@ -32,6 +32,10 @@ pub fn token(headers: &HeaderMap) -> ApiResult<&str> {
         .ok_or(ApiError(Error::Unauthorized))
 }
 
+pub fn bearer(headers: &HeaderMap) -> bool {
+    headers.contains_key(header::AUTHORIZATION)
+}
+
 pub fn session_response(config: &Config, session: AuthSession, status: StatusCode) -> Response {
     let cookie = cookie(config, &session.token, SESSION_SECONDS as u32);
     (status, [(header::SET_COOKIE, cookie)], Json(session)).into_response()
