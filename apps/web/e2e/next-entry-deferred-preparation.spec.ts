@@ -3,7 +3,7 @@ import { providerFixture } from "./fixtures/provider";
 import type { Schema } from "../src/shared/schema";
 
 for (const pageState of ["visible", "hidden"] as const)
-  test(`a next track waiting for provider preparation is prepared while the current one plays and starts on the same element without a gap (${pageState} page)`, async ({
+  test(`a next track waiting for provider preparation is prepared while the current one plays and starts on its buffered element without a gap (${pageState} page)`, async ({
     page,
     baseURL,
   }) => {
@@ -111,7 +111,7 @@ for (const pageState of ["visible", "hidden"] as const)
         )
         .toBeGreaterThan(0.2);
       const first = await audio.evaluate((element: HTMLAudioElement) => {
-        element.dataset.testMarker = "persistent";
+        element.dataset.testMarker = "current";
         return element.getAttribute("src")!;
       });
 
@@ -152,17 +152,19 @@ for (const pageState of ["visible", "hidden"] as const)
       ).toEqual([]);
       expect(fixture.preparations.begin).toBe(1);
 
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const warm = document.querySelector<HTMLAudioElement>(
+              "audio[data-hito-preload]",
+            );
+            if (warm === null || warm.readyState < 3) return false;
+            warm.dataset.testMarker = "buffered";
+            return true;
+          }),
+        )
+        .toBe(true);
       if (pageState === "hidden") {
-        await expect
-          .poll(() =>
-            page.evaluate(() => {
-              const warm = document.querySelector<HTMLAudioElement>(
-                "audio[data-hito-preload]",
-              );
-              return warm !== null && warm.readyState >= 3;
-            }),
-          )
-          .toBe(true);
         await page.evaluate(() => {
           Object.defineProperty(document, "visibilityState", {
             configurable: true,
@@ -212,8 +214,8 @@ for (const pageState of ["visible", "hidden"] as const)
       expect(ended && resumed).toBeTruthy();
       expect(resumed!.at - ended!.at).toBeLessThan(1000);
       expect(resumed!.source).not.toBe(first);
-      expect(resumed!.marker).toBe("persistent");
-      expect(ended!.marker).toBe("persistent");
+      expect(resumed!.marker).toBe("buffered");
+      expect(ended!.marker).toBe("current");
       expect(
         await page.evaluate(
           () => document.querySelectorAll("audio[data-hito-player]").length,
@@ -226,7 +228,7 @@ for (const pageState of ["visible", "hidden"] as const)
           source: element.getAttribute("src"),
         })),
       ).toEqual({
-        marker: "persistent",
+        marker: "buffered",
         playing: true,
         source: resumed!.source,
       });

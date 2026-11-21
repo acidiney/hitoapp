@@ -179,10 +179,10 @@ test.each(["request", "acknowledgement body"] as const)(
         media.ready(next);
         media.end(first);
       });
-      expect(media.current()).toBe(first);
+      expect(media.current()).toBe(next);
       await act(async () => {
-        media.ready(first);
-        media.observePlaying(first);
+        media.ready(next);
+        media.observePlaying(next);
       });
       expect(player.queueSnapshot().currentIndex).toBe(1);
       expect(player.snapshot().playing).toBe(true);
@@ -219,7 +219,7 @@ test.each(["request", "acknowledgement body"] as const)(
       expect(document.querySelector('[role="status"]')).toBeNull();
       expect(player.snapshot().playing).toBe(true);
       expect(player.snapshot().error).toBe("");
-      act(() => media.advance(first, 1));
+      act(() => media.advance(next, 1));
       expect(player.snapshot().desiredPlaying).toBeUndefined();
       expect(vi.getTimerCount()).toBe(0);
       await act(async () => vi.advanceTimersByTimeAsync(30_000));

@@ -56,6 +56,8 @@ function BrowserAccountPlayback({
   const [{ audio, media, player, community }] = useState(() => {
     const audio = new Audio();
     const media = new Map<MediaPort, HTMLAudioElement>([[audio, audio]]);
+    const players = new WeakSet<HTMLAudioElement>([audio]);
+    let spare: HTMLAudioElement | null = null;
     let player: Playback;
     const community = new BrowserCommunityReporting(account, scope.capture);
     const progress = new BrowserProgress(
@@ -85,16 +87,30 @@ function BrowserAccountPlayback({
         progress.admit({ recording, position, speed, chapter }),
       {
         create: () => {
-          const next = new Audio();
+          const next = spare ?? new Audio();
+          spare = null;
           next.preload = "auto";
           next.dataset.hitoPreload = "";
           media.set(next, next);
           document.body.append(next);
           return next;
         },
+        promote: (current) => {
+          for (const element of media.values())
+            delete element.dataset.hitoPlayer;
+          const element = media.get(current);
+          if (!element) return;
+          delete element.dataset.hitoPreload;
+          element.dataset.hitoPlayer = "";
+          players.add(element);
+        },
         release: (current) => {
-          media.get(current)?.remove();
+          const element = media.get(current);
           media.delete(current);
+          element?.remove();
+          if (!element || !players.has(element)) return;
+          delete element.dataset.hitoPlayer;
+          spare = element;
         },
       },
       async (book, signal) => {

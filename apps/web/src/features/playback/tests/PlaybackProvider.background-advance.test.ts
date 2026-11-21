@@ -47,7 +47,7 @@ async function playFirstWithBufferedSuccessor() {
   return { media, system, requests, view, player, warm };
 }
 
-test("a locked page advances on the one playing element with play called inside the ended handler and no timers", async () => {
+test("a locked page advances on the buffered element with play called inside the ended handler and no timers", async () => {
   pageIs("hidden");
   const { media, system, requests, view, player, warm } =
     await playFirstWithBufferedSuccessor();
@@ -60,20 +60,20 @@ test("a locked page advances on the one playing element with play called inside 
 
     act(() => {
       media.end(player);
-      expect(player.getAttribute("src")).toBe(secondAudio);
-      expect(media.played.map((play) => play.source)).toEqual([
-        firstAudio,
-        secondAudio,
-      ]);
+      expect(media.played.at(-1)).toEqual({ media: warm, source: secondAudio });
       expect(view.player().snapshot().current?.id).toBe(otherRecording.id);
     });
 
-    expect(media.played.every((play) => play.media === player)).toBe(true);
-    expect(warm.paused).toBe(true);
-    expect(warm.isConnected).toBe(false);
+    expect(media.played.map((play) => play.media)).toEqual([player, warm]);
+    expect(media.loaded.filter((load) => load.source === secondAudio)).toEqual([
+      { media: warm, source: secondAudio },
+    ]);
+    expect(player.paused).toBe(true);
+    expect(player.isConnected).toBe(false);
     expect(document.querySelectorAll("audio[data-hito-player]")).toHaveLength(
       1,
     );
+    expect(document.querySelector("audio[data-hito-player]")).toBe(warm);
     expect(
       requests
         .slice(requestsBefore)
@@ -86,9 +86,8 @@ test("a locked page advances on the one playing element with play called inside 
     });
     expect(system.session.playbackState).toBe("playing");
     act(() => {
-      media.canPlay(player);
-      player.currentTime = 12;
-      player.dispatchEvent(new Event("timeupdate"));
+      warm.currentTime = 12;
+      warm.dispatchEvent(new Event("timeupdate"));
     });
     expect(system.session.position).toEqual({
       duration: 90,

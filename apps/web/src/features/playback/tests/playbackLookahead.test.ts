@@ -76,6 +76,7 @@ function mediaOwner(
       media.addEventListener("loadstart", () => loaded(media));
       return media;
     }),
+    promote: vi.fn(),
     release: (media) => {
       expect(media.paused).toBe(true);
       expect(media.src).toBe("");
@@ -172,8 +173,11 @@ test("a changed authorized source retires a buffered choice shortly before the e
     await transition;
 
     expect(pending.played).toEqual([]);
-    expect(replacement.played).toEqual([]);
-    expect(owned.has(replacement)).toBe(false);
+    expect(replacement.played).toEqual([path("current-choice")]);
+    expect(replacement.loads).toEqual([path("current-choice")]);
+    expect(initial.played).toEqual([path("first-audio")]);
+    expect(owned.has(replacement)).toBe(true);
+    expect(owned.has(initial)).toBe(false);
     expect(player.snapshot().current?.id).toBe("next");
     expect(player.snapshot().playing).toBe(true);
     expect(player.snapshot().error).toBe("");
@@ -366,6 +370,9 @@ test("removing a buffered next occurrence prepares its actual successor without 
       path("first-audio"),
       path("successor-audio"),
     ]);
+    expect(c.played).toEqual([path("successor-audio")]);
+    expect(c.loads).toEqual([path("successor-audio")]);
+    expect(owned.has(initial)).toBe(false);
     expect(b.played).toEqual([]);
     expect(player.snapshot().current?.id).toBe("successor");
     expect(player.snapshot().playing).toBe(true);
@@ -488,7 +495,7 @@ test("an exhausted next-entry attempt uses newly ready authorized audio at compl
   }
 });
 
-test("a failed seek right after the synchronous handoff recovers through authorized backup audio on the same element", async () => {
+test("a failed seek right after the synchronous handoff recovers through authorized backup audio on the element that now plays", async () => {
   class FailedSeekMedia extends Media {
     failedPositions: number[] = [];
     override get currentTime() {
@@ -506,12 +513,14 @@ test("a failed seek right after the synchronous handoff recovers through authori
     }
   }
   const initial = new FailedSeekMedia();
-  const buffered = deferred<Media>();
-  const { ports, owned, owner, unexpectedNetwork } = mediaOwner(
+  const buffered = deferred<FailedSeekMedia>();
+  const { owned, owner, unexpectedNetwork } = mediaOwner(
     initial,
     (media) => {
-      if (media.src === path("prepared-audio")) buffered.resolve(media);
+      if (media.src === path("prepared-audio"))
+        buffered.resolve(media as FailedSeekMedia);
     },
+    () => new FailedSeekMedia(),
   );
   const requests: {
     recording: string;
@@ -552,26 +561,20 @@ test("a failed seek right after the synchronous handoff recovers through authori
     initial.ended = true;
     initial.paused = true;
     transition = player.next(true);
-    expect(initial.played).toEqual([
-      path("first-audio"),
-      path("prepared-audio"),
-    ]);
+    expect(b.played).toEqual([path("prepared-audio")]);
     expect(player.snapshot().current?.id).toBe("next");
     player.seek(30);
     await transition;
     await flushTasks();
-    expect(initial.failedPositions).toEqual([30]);
+    expect(b.failedPositions).toEqual([30]);
     await vi.waitFor(() =>
-      expect(initial.played).toEqual([
-        path("first-audio"),
-        path("prepared-audio"),
-        path("backup-audio"),
-      ]),
+      expect(b.played).toEqual([path("prepared-audio"), path("backup-audio")]),
     );
-    initial.dispatchEvent(new Event("loadedmetadata"));
-    expect(initial.currentTime).toBe(30);
+    b.dispatchEvent(new Event("loadedmetadata"));
+    expect(b.currentTime).toBe(30);
     expect(player.positionSnapshot().position).toBe(30);
-    expect(b.played).toEqual([]);
+    expect(initial.played).toEqual([path("first-audio")]);
+    expect(owned.has(initial)).toBe(false);
     expect(player.snapshot().current?.id).toBe("next");
     expect(player.snapshot().playing).toBe(true);
     expect(player.snapshot().error).toBe("");

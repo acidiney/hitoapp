@@ -5,7 +5,7 @@ import {
   recording,
 } from "../fixtures/browserPreparationModes";
 
-test("shuffle cancels the canonical buffer and adopts the shuffled successor on natural completion", async () => {
+test("shuffle cancels the canonical buffer and plays the shuffled successor from its buffer on natural completion", async () => {
   vi.spyOn(Math, "random").mockReturnValue(0);
   const fixture = browserPreparationModes();
   const { player, initial } = fixture;
@@ -39,10 +39,11 @@ test("shuffle cancels the canonical buffer and adopts the shuffled successor on 
     prepared.ready();
     initial.complete();
 
-    expect(initial.src).toBe(audioPath("shuffled-audio"));
-    expect(initial.played.at(-1)).toBe(audioPath("shuffled-audio"));
-    expect(prepared.played).toEqual([]);
-    expect(fixture.released).toContain(prepared);
+    expect(fixture.playing()).toBe(prepared);
+    expect(prepared.played).toEqual([audioPath("shuffled-audio")]);
+    expect(prepared.loads).toEqual([audioPath("shuffled-audio")]);
+    expect(initial.played).toEqual([audioPath("first-audio")]);
+    expect(fixture.released).toContain(initial);
     expect(player.snapshot().current?.id).toBe("shuffled");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[2].id);
@@ -56,7 +57,7 @@ test("shuffle cancels the canonical buffer and adopts the shuffled successor on 
   }
 });
 
-test("repeat one prepares the current occurrence and adopts it when its audio naturally ends", async () => {
+test("repeat one prepares the current occurrence and plays it from its buffer when its audio naturally ends", async () => {
   const fixture = browserPreparationModes();
   const { player, initial } = fixture;
 
@@ -73,11 +74,12 @@ test("repeat one prepares the current occurrence and adopts it when its audio na
     prepared.ready();
     initial.complete();
 
-    expect(initial.src).toBe(audioPath("first-audio"));
-    expect(initial.played.at(-1)).toBe(audioPath("first-audio"));
-    expect(prepared.played).toEqual([]);
-    expect(fixture.released).toContain(prepared);
-    expect(initial.currentTime).toBe(0);
+    expect(fixture.playing()).toBe(prepared);
+    expect(prepared.played).toEqual([audioPath("first-audio")]);
+    expect(prepared.loads).toEqual([audioPath("first-audio")]);
+    expect(initial.played).toEqual([audioPath("first-audio")]);
+    expect(fixture.released).toContain(initial);
+    expect(prepared.currentTime).toBe(0);
     expect(player.snapshot().current?.id).toBe("first");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
@@ -96,7 +98,7 @@ test("repeat one prepares the current occurrence and adopts it when its audio na
   }
 });
 
-test("repeat all prepares the first occurrence and adopts it after the last audio naturally ends", async () => {
+test("repeat all prepares the first occurrence and plays it from its buffer after the last audio naturally ends", async () => {
   const fixture = browserPreparationModes();
   const { player, initial } = fixture;
 
@@ -114,10 +116,11 @@ test("repeat all prepares the first occurrence and adopts it after the last audi
     prepared.ready();
     initial.complete();
 
-    expect(initial.src).toBe(audioPath("first-audio"));
-    expect(initial.played.at(-1)).toBe(audioPath("first-audio"));
-    expect(prepared.played).toEqual([]);
-    expect(fixture.released).toContain(prepared);
+    expect(fixture.playing()).toBe(prepared);
+    expect(prepared.played).toEqual([audioPath("first-audio")]);
+    expect(prepared.loads).toEqual([audioPath("first-audio")]);
+    expect(initial.played).toEqual([audioPath("last-audio")]);
+    expect(fixture.released).toContain(initial);
     expect(player.snapshot().current?.id).toBe("first");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
@@ -133,7 +136,7 @@ test("repeat all prepares the first occurrence and adopts it after the last audi
   }
 });
 
-test("duplicate occurrences keep their IDs while adopting the same audio without repeating provider resolution", async () => {
+test("duplicate occurrences keep their IDs while playing the same buffered audio without repeating provider resolution", async () => {
   let available = false;
   const fixture = browserPreparationModes(async (id, options) => {
     if (id !== "same") throw new Error("Unexpected queue recording");
@@ -154,14 +157,11 @@ test("duplicate occurrences keep their IDs while adopting the same audio without
     prepared.ready();
     initial.complete();
 
-    expect(initial.src).toBe(audioPath("same-audio"));
-    expect(initial.played.at(-1)).toBe(audioPath("same-audio"));
-    expect(prepared.played).toEqual([]);
-    expect(fixture.released).toContain(prepared);
-    expect(initial.played).toEqual([
-      audioPath("same-audio"),
-      audioPath("same-audio"),
-    ]);
+    expect(fixture.playing()).toBe(prepared);
+    expect(prepared.played).toEqual([audioPath("same-audio")]);
+    expect(prepared.loads).toEqual([audioPath("same-audio")]);
+    expect(initial.played).toEqual([audioPath("same-audio")]);
+    expect(fixture.released).toContain(initial);
     expect(player.snapshot().current?.id).toBe("same");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[1].id);
