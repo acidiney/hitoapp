@@ -252,7 +252,81 @@ test("each kind of change is described in one plain sentence and a removed abili
     expect(
       panel.queryByRole("button", { name: "Resume updates" }) === null,
     ).toBe(review.resumable === false);
-    expect(panel.getByRole("link", { name: "Review connection" })).toBeTruthy();
+    expect(
+      panel.getByRole("link", {
+        name:
+          review.changes?.[0].kind === "removed"
+            ? "Connect Spotify again"
+            : "Review connection",
+      }),
+    ).toBeTruthy();
+    view.unmount();
+  }
+});
+
+test("a removed connection offers to connect the plugin again instead of a review", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  const props = followedPage();
+  const removed = {
+    resumable: false,
+    installation_revision: 0,
+    service_revision: 0,
+    changes: [
+      {
+        kind: "removed" as const,
+        before: ["Connected"],
+        after: ["Removed or replaced"],
+      },
+    ],
+  };
+  const cases: [string | null, string][] = [
+    ["offered-service", "/settings?section=plugins&connect=offered-service"],
+    [null, "/settings?section=plugins"],
+  ];
+  for (const [service, href] of cases) {
+    const paused = pausedFollow(props.detail.playlist.id, 3, {
+      ...removed,
+      reconnect_service_id: service,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((path: string) => {
+        if (path.endsWith("/follow"))
+          return Promise.resolve(Response.json(paused));
+        throw new Error("Unexpected request outside the removed review");
+      }),
+    );
+    const view = render(
+      createElement(
+        NoticeProvider,
+        null,
+        createElement(PlaybackProvider, {
+          account: props.user.id,
+          children: createElement(PlaylistPage, props),
+        }),
+      ),
+    );
+    await act(async () => {});
+    const panel = within(
+      screen.getByRole("region", { name: "Resume playlist updates" }),
+    );
+    expect(
+      panel.getByText("The Spotify connection was removed or replaced."),
+    ).toBeTruthy();
+    expect(
+      panel.getByText(
+        "Connect Spotify again and this playlist resumes updating.",
+      ),
+    ).toBeTruthy();
+    expect(
+      panel
+        .getByRole("link", { name: "Connect Spotify again" })
+        .getAttribute("href"),
+    ).toBe(href);
+    expect(panel.queryByRole("button", { name: "Resume updates" })).toBeNull();
+    expect(panel.queryByRole("link", { name: "Review connection" })).toBeNull();
     view.unmount();
   }
 });
