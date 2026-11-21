@@ -97,6 +97,8 @@ For access over a local network, publish the server port on the host's LAN addre
 
 Browsers with Web Crypto retain encrypted Inertia history. On local HTTP without `crypto.subtle`, browser history contains only a navigation marker and bounded scroll coordinates. Back and Forward fetch an authenticated page again while keeping the player mounted. Private page and form data are never written to unencrypted history. UUID creation uses cryptographic `getRandomValues` when `randomUUID` is unavailable.
 
+Current behavior, with an external dependency. Each open page keeps one long-lived server-sent event stream, `GET /api/v1/changes/events`, so changes made elsewhere show up without a reload. A page hidden for 30 seconds closes its stream. A reverse proxy has to pass that stream through without buffering it. If it buffers, those changes appear only when the page next loads its data.
+
 Cookie-authenticated mutations send `X-Hito-Request: 1`. API clients can use bearer tokens. Login/setup have per-client rate limits, bounded request bodies, a body-read timeout, and limited password-hashing concurrency. Do not trust arbitrary forwarded IP headers; the server uses its actual connection peer. Behind a reverse proxy, shared peer limits apply until trusted-proxy handling is implemented.
 
 Logs omit session tokens and request bodies. Compose enables structured JSON with bounded rotation. [Logging](../develop/logging.md) documents filters, browser logs, correlation, and redaction tests. Plugin installation and credential workflows have dedicated trace-redaction checks. Future capability operations and official provider adapters require their own verification before release.

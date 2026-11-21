@@ -60,7 +60,7 @@ An audiobook in Hito is a playlist you own, read as chapters. Each track in the 
 1. Add the audiobook's files to a music folder. See [Library](library.md).
 2. Create a playlist and add the files in chapter order. See [Playlists](playlists.md).
 3. Open **Library**, then **Audiobooks**.
-4. Select **Add audiobook from a playlist**, choose the playlist and confirm.
+4. Select **Add audiobook**, choose the **Playlist** and select **Add audiobook**.
 
 The book appears in Audiobooks. It keeps the playlist's name and order. A followed playlist cannot become an audiobook, but an editable copy of one can.
 
@@ -86,5 +86,3 @@ Bookmarks are private to your account. Select **Play bookmark** to jump to one, 
 ### Change the speed
 
 Use **Speed** in the player or in Now playing, from 0.5× to 2×. Hito remembers the speed with your progress, so **Continue** resumes at the same speed.
-
-Speed is not available in the desktop app yet. See [Apps](apps.md).

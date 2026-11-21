@@ -34,7 +34,7 @@ An administrator first offers the plugin to the server. After that, each person 
 
 The plugin now appears under **Your connections** with a short description and a status such as "Connected and answering".
 
-If nothing is listed under **Available on this server**, no plugin has been offered yet. An administrator can offer one from the **This server** tab. See [administration](administration.md). Starting plugin services on the server is covered in [self-hosting](../self-hosting/README.md).
+If the page says **Nothing offered here yet**, no plugin has been offered yet. An administrator can offer one from the **This server** tab. See [administration](administration.md). Starting plugin services on the server is covered in [self-hosting](../self-hosting/README.md).
 
 ## Plugins that ship with Hito
 
@@ -42,12 +42,12 @@ These are reference plugins. They are examples of what a plugin can do. None is 
 
 | Plugin | What it adds | What it needs |
 | --- | --- | --- |
-| Spotify public playlists | Copy or follow a public Spotify playlist. Titles, artists, albums and order only. It plays no audio. | Nothing. No Spotify account. |
+| Spotify public playlists | Copy or follow a public Spotify playlist: titles, artists, albums, order and covers. It plays no audio. | Nothing. No Spotify account. |
 | YouTube | Search, playback, track details and covers. | Nothing. See the limit below. |
 | LRCLIB | Lyrics. | A token from whoever runs the plugin. |
 | Jamendo | Search and play free-licensed music. | A Jamendo client ID that the server operator sets up once. |
-| ListenBrainz | A "Similar artists" section on artist pages. | Server setup only. No ListenBrainz account. |
-| Real-Debrid, All-Debrid, TorBox, Premiumize | Play files through a debrid account. | The operator's debrid account and a list of files to offer. |
+| ListenBrainz | A "Similar artists" section on artist pages. | A token from whoever runs the plugin. No ListenBrainz account. |
+| Real-Debrid, All-Debrid, TorBox, Premiumize | Play files through a debrid account. | The operator's debrid account, a list of files to offer, and a token from whoever runs the plugin. |
 | Folder | Serves a folder of music, or three demo tones, as a plugin source. Useful for testing. | Nothing. |
 
 Some known limits:
@@ -64,7 +64,7 @@ A track can have several sources: a file in your music folders, a copy saved on 
 2. In **Playback order**, use the up and down arrows to move **Local files**, **Saved copies** and each plugin.
 3. Select **Save playback order**.
 
-Local files and saved copies start at the top. A plugin you connect later goes to the bottom until you move it.
+Local files and saved copies start at the top. A plugin you connect later goes to the bottom until you move it. The same list is **Source order** in **Settings → Playback**.
 
 Leave **Try the next source if one fails** on to have Hito move to the next source when one doesn't open. It tries up to six sources for one play. Turn it off to stop at the first failure.
 
@@ -104,7 +104,7 @@ Preparing audio doesn't save a copy. To keep one on the server, use **Download**
 
 ## When a plugin changes
 
-A plugin can change what it offers after an update. When you open **Settings → Plugins**, a notice such as "New: album covers" appears on its card. The new capability stays off until you select **Review** and accept it. Nothing else changes in the meantime.
+A plugin can change what it offers after an update. When you open **Settings → Plugins**, its card says **Wants one more capability** and names it. The new capability stays off until you select **Review** and accept it. Nothing else changes in the meantime.
 
 To check a plugin yourself, select **Manage** on its card, then **Check connection**.
 

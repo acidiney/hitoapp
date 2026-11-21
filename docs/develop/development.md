@@ -96,7 +96,7 @@ make COMPOSE_PROJECT=hito-arch test-rust
 make COMPOSE_PROJECT=hito-arch COMPOSE_EXTRA='path/override.yaml:path/more.yaml' lint
 ```
 
-`COMPOSE_PROJECT` sets `COMPOSE_PROJECT_NAME`. Compose prefixes named volumes with the project name, so `rust-target`, `cargo-registry` and `node-modules` become separate per project. `COMPOSE_EXTRA` is a colon-separated list of Compose files. The Makefile appends it to `compose.yaml` and exports the result as `COMPOSE_FILE`, so it applies to every target. `COMPOSE_PROJECT` applies to every target except `make up` and `make down`, which always act on the running `hito` project.
+`COMPOSE_PROJECT` sets `COMPOSE_PROJECT_NAME`. Compose prefixes named volumes with the project name, so `rust-target`, `cargo-registry` and `node-modules` become separate per project. The isolated e2e server image also builds with its own Cargo cache per project, `hito-e2e-<project>`, or `hito-e2e-default` without one. The live `server` that `make up` builds keeps `hito-server-main`. `COMPOSE_EXTRA` is a colon-separated list of Compose files. The Makefile appends it to `compose.yaml` and exports the result as `COMPOSE_FILE`, so it applies to every target. `COMPOSE_PROJECT` applies to every target except `make up` and `make down`, which always act on the running `hito` project.
 
 ## Disk and CPU budget
 
