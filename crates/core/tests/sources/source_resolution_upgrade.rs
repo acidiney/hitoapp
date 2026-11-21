@@ -107,6 +107,12 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
                 collection_artwork_schema::source_artist_trigger_schema::definition(&name)
             }
             "current_download_authority" => declared_download_definition("VIEW", &name, ";"),
+            "retained_download_intents" => declared_definition(
+                include_str!("../../migrations/0105_automatic_copies.sql"),
+                "VIEW",
+                &name,
+                ";",
+            ),
             "download_intent_identity" => declared_download_definition("TRIGGER", &name, "END;"),
             "release_artist_insert" | "release_artist_update" => {
                 declared_release.get(&name).unwrap().clone()
@@ -415,7 +421,15 @@ fn quoted(value: &str) -> String {
 }
 
 fn declared_download_definition(kind: &str, name: &str, terminator: &str) -> String {
-    let migration = include_str!("../../migrations/0044_podcast_download_origins.sql");
+    declared_definition(
+        include_str!("../../migrations/0044_podcast_download_origins.sql"),
+        kind,
+        name,
+        terminator,
+    )
+}
+
+fn declared_definition(migration: &str, kind: &str, name: &str, terminator: &str) -> String {
     let declaration = format!("CREATE {kind} {name} ");
     let body = migration
         .split(&declaration)

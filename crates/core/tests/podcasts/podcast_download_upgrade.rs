@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_104().await;
+        let mut reference = collection_artwork_schema::reference_105().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED
@@ -559,6 +559,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::album_additions_schema::ADDED)
             .chain(collection_artwork_schema::credit_completion_schema::ADDED)
             .chain(collection_artwork_schema::credit_member_matches_schema::ADDED)
+            .chain(collection_artwork_schema::automatic_copies_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
@@ -581,6 +582,11 @@ impl RetainedState {
                 self.schema.contains_key(&key),
                 "the baseline must contain {kind} {name}"
             );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        for &(kind, name) in collection_artwork_schema::automatic_copies_schema::REPLACED {
+            let key = (kind.to_owned(), name.to_owned());
             self.schema
                 .insert(key.clone(), declared.get(&key).unwrap().clone());
         }

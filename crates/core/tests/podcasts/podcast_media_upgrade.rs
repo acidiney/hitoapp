@@ -590,6 +590,13 @@ impl RetainedState {
             }
         }
         reference.close().await.unwrap();
+        let mut reference = collection_artwork_schema::reference_105().await;
+        let declared = schema(&mut reference).await;
+        for &(_, name) in collection_artwork_schema::automatic_copies_schema::REPLACED {
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        reference.close().await.unwrap();
         let mut reference = collection_artwork_schema::reference_55().await;
         let declared = schema(&mut reference).await;
         assert!(
