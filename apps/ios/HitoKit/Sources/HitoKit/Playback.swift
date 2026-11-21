@@ -140,6 +140,15 @@ public struct Playback: Sendable {
         return try await prepare(recordingId, skipping: Set(others))
     }
 
+    public func renew(_ audio: AudioRequest) async throws -> AudioRequest {
+        do {
+            _ = try await api.get(["api", "v1", "playback", "leases", audio.leaseId], as: Lease.self)
+            return audio
+        } catch HitoAPI.Problem.refused(404) {
+            return try await prepare(audio.recordingId, source: audio.sourceId)
+        }
+    }
+
     public func release(_ leaseId: String) async {
         _ = try? await api.delete(["api", "v1", "playback", "leases", leaseId], as: Nothing.self)
     }

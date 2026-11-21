@@ -1,6 +1,7 @@
 import AVFoundation
 import HitoKit
 import MediaPlayer
+import Network
 import OSLog
 import UIKit
 
@@ -63,6 +64,12 @@ final class Player {
     private var warming: (task: Task<Void, Never>, id: UUID)?
     private var warmMissed: String?
     private static let warmLead: Double = 30
+    private(set) var stalls = StallWatch()
+    private var deadline: Task<Void, Never>?
+    private var engineStatus: NSKeyValueObservation?
+    private let network = NWPathMonitor()
+
+    var buffering: Bool { stalls.buffering }
 
     let account: String
 
@@ -95,7 +102,7 @@ final class Player {
         })
         observers.append(NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: nil, queue: .main) { [weak self] note in
             let item = (note.object as AnyObject?).map(ObjectIdentifier.init)
-            MainActor.assumeIsolated { self?.failed(item) }
+            MainActor.assumeIsolated { self?.stopped(item) }
         })
         observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             let shouldResume = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
@@ -105,6 +112,7 @@ final class Player {
         observers.append(NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.remember() }
         })
+        watchPlayback()
         connectRemote()
         refreshFallback()
     }
@@ -170,9 +178,11 @@ final class Player {
     func toggle() {
         switch state {
         case .playing:
-            engine.pause()
             state = .paused
+            engine.pause()
             settle()
+        case .paused where engine.currentItem == nil:
+            load(queue.current)
         case .paused:
             activate()
             engine.play()
@@ -416,6 +426,9 @@ final class Player {
                 guard let self, !Task.isCancelled else { return }
                 self.attach(audio)
             } catch is CancellationError {
+            } catch HitoAPI.Problem.noAnswer {
+                guard let self, !Task.isCancelled else { return }
+                self.unreachable()
             } catch let Playback.Problem.notFound(reason, retryable) {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.not_found")
@@ -475,7 +488,8 @@ final class Player {
     }
 
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
-        releaseLease()
+        if audio.leaseId != leaseId { releaseLease() }
+        if audio.sourceId != sourceId || audio.recordingId != heardId { stalls = StallWatch() }
         retrying = nil
         if heardId != audio.recordingId {
             heardId = audio.recordingId
@@ -516,7 +530,7 @@ final class Player {
         let identity = ObjectIdentifier(item)
         itemStatus = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
-            Task { @MainActor in self?.failed(identity) }
+            Task { @MainActor in self?.stopped(identity) }
         }
         activate()
         engine.replaceCurrentItem(with: item)
@@ -571,6 +585,164 @@ final class Player {
             self.start(track)
         }
         return true
+    }
+
+    private func watchPlayback() {
+        engineStatus = engine.observe(\.timeControlStatus) { [weak self] _, _ in
+            Task { @MainActor in self?.checkPlayback("engine") }
+        }
+        observers.append(NotificationCenter.default.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: nil, queue: .main) { [weak self] note in
+            let item = (note.object as AnyObject?).map(ObjectIdentifier.init)
+            MainActor.assumeIsolated {
+                guard let self, item == self.currentIdentity else { return }
+                self.log.info("player.stalled")
+                self.checkPlayback("stalled")
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: AVPlayerItem.newErrorLogEntryNotification, object: nil, queue: .main) { [weak self] note in
+            let item = (note.object as AnyObject?).map(ObjectIdentifier.init)
+            let entry = (note.object as? AVPlayerItem)?.errorLog()?.events.last
+            let status = entry?.errorStatusCode ?? 0
+            let domain = entry?.errorDomain ?? "unknown"
+            MainActor.assumeIsolated {
+                guard let self, item == self.currentIdentity else { return }
+                self.log.info("player.stream_error domain=\(domain, privacy: .public) status=\(status, privacy: .public)")
+                self.checkPlayback("stream_error")
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
+            let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
+            MainActor.assumeIsolated {
+                self?.log.info("player.route_changed reason=\(reason, privacy: .public)")
+                self?.checkPlayback("route")
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkPlayback("foreground") }
+        })
+        network.pathUpdateHandler = { [weak self] path in
+            let satisfied = path.status == .satisfied
+            Task { @MainActor in
+                self?.log.info("player.network_changed satisfied=\(satisfied, privacy: .public)")
+                self?.checkPlayback("network")
+            }
+        }
+        network.start(queue: .main)
+    }
+
+    private func checkPlayback(_ trigger: String) {
+        let now = ContinuousClock.now
+        let before = stalls.engine
+        stalls.observe(truth(), at: now)
+        if stalls.engine != before {
+            if engine.currentItem?.status == .readyToPlay { tick(engine.currentTime().seconds) }
+            log.info("player.engine_changed to=\(String(describing: self.stalls.engine), privacy: .public) trigger=\(trigger, privacy: .public) at_s=\(Int(self.position), privacy: .public)")
+            publish()
+        }
+        if let step = stalls.step(at: now) { return recover(step) }
+        scheduleDeadline()
+    }
+
+    private func truth() -> StallWatch.Engine {
+        guard state == .playing else { return .stopped }
+        switch engine.timeControlStatus {
+        case .playing:
+            return .playing
+        case .paused where engine.currentItem?.status == .readyToPlay:
+            log.info("player.paused_by_system")
+            state = .paused
+            settle()
+            return .stopped
+        default:
+            return .waiting
+        }
+    }
+
+    private func scheduleDeadline() {
+        deadline?.cancel()
+        guard let due = stalls.due else { return }
+        deadline = Task { [weak self] in
+            try? await Task.sleep(until: due, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            self?.checkPlayback("deadline")
+        }
+    }
+
+    private func stopped(_ item: ObjectIdentifier?) {
+        guard let item, item == currentIdentity else { return }
+        guard state == .playing else { return failed(item) }
+        log.info("player.item_failed")
+        let step = stalls.failed(at: .now)
+        publish()
+        scheduleDeadline()
+        recover(step)
+    }
+
+    private func recover(_ step: StallWatch.Step) {
+        switch step {
+        case .rebuild:
+            rebuild()
+        case .nextSource:
+            log.info("player.stall_next_source")
+            resumeAt = position
+            if let item = currentIdentity {
+                failed(item)
+            } else if let track = queue.current {
+                start(track)
+            }
+        case .giveUp:
+            log.info("player.stall_gave_up")
+            unreachable()
+        }
+    }
+
+    private func rebuild() {
+        guard let audio = playingAudio, audio.leaseId == leaseId else { return }
+        log.info("player.stall_rebuild at_s=\(Int(self.position), privacy: .public)")
+        let at = position
+        loading?.cancel()
+        loading = Task { [weak self, playback] in
+            let renewed: AudioRequest
+            do {
+                renewed = try await playback.renew(audio)
+            } catch is CancellationError {
+                return
+            } catch HitoAPI.Problem.noAnswer {
+                guard let self, !Task.isCancelled, self.leaseId == audio.leaseId else { return }
+                self.log.info("player.stall_server_unreachable")
+                self.stalls.rebuilt(.unreachable, at: .now)
+                return self.checkPlayback("rebuild")
+            } catch {
+                guard let self, !Task.isCancelled, self.leaseId == audio.leaseId else { return }
+                self.log.info("player.stall_rebuild_failed")
+                return self.recover(.nextSource)
+            }
+            guard let self, !Task.isCancelled, self.leaseId == audio.leaseId, self.state == .playing else { return }
+            if renewed.leaseId == audio.leaseId {
+                self.log.info("player.stall_rebuilt lease=kept")
+            } else {
+                self.log.info("player.stall_rebuilt lease=renewed")
+            }
+            self.stalls.rebuilt(.answered, at: .now)
+            self.resumeAt = at
+            self.attach(renewed)
+            self.checkPlayback("rebuilt")
+        }
+    }
+
+    private func unreachable() {
+        log.info("player.server_unreachable")
+        if let resumeAt {
+            position = resumeAt
+        } else if position > 0 {
+            resumeAt = position
+        }
+        retrying = nil
+        engine.replaceCurrentItem(with: nil)
+        state = .paused
+        notice = "Hito can't reach your server. Press play to try again."
+        checkPlayback("unreachable")
+        publish()
     }
 
     private func skip(_ track: Track, because reason: String) {
@@ -667,7 +839,7 @@ final class Player {
             MPMediaItemPropertyArtist: track.artist,
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
-            MPNowPlayingInfoPropertyPlaybackRate: state == .playing ? speed : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: stalls.rate(at: speed),
             MPNowPlayingInfoPropertyDefaultPlaybackRate: speed,
         ]
         if let album = track.album { info[MPMediaItemPropertyAlbumTitle] = album }

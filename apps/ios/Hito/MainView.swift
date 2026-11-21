@@ -268,7 +268,7 @@ struct PlayButton: View {
         Button(action: player.toggle) {
             ZStack {
                 Circle().fill(light ? Theme.text : Theme.accent)
-                if player.state == .loading {
+                if player.state == .loading || player.buffering {
                     ProgressView().tint(light ? Theme.stage : Theme.onAccent)
                 } else {
                     Icon(player.state == .playing ? "pause" : "play", size: glyph ?? 18)
@@ -278,7 +278,7 @@ struct PlayButton: View {
             .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(player.state == .playing ? "Pause" : player.state == .loading ? "Loading" : "Play")
+        .accessibilityLabel(player.buffering ? "Buffering, pause" : player.state == .playing ? "Pause" : player.state == .loading ? "Loading" : "Play")
     }
 }
 
@@ -293,6 +293,7 @@ extension Player {
 
     var subtitle: String {
         if retrying != nil { return searching }
+        if buffering { return "Buffering…" }
         if let notice { return notice }
         guard let track = current else { return "" }
         if state == .loading { return searching }

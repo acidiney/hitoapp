@@ -223,4 +223,38 @@ import Testing
         #expect(await miss(.json(200, #"{"outcome":"cancelled","sources":[]}"#)) == .notFound("The search was cancelled", retryable: false))
         #expect(await miss(.json(404, #"{"error":"Resource not found"}"#)) == .notFound("No service knows this track", retryable: false))
     }
+
+    @Test func aLeaseTheServerStillHoldsIsReusedForARebuild() async throws {
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
+            "POST /api/v1/playback/leases": .json(200, lease),
+            "GET /api/v1/playback/leases/6f0b7c1e-0000-4000-8000-000000000001": .json(200, lease),
+        ])
+        let audio = try await playback(fake).prepare("r1", source: "s2")
+        let renewed = try await playback(fake).renew(audio)
+        #expect(renewed == audio)
+        #expect(fake.requests.filter { $0.line == "POST /api/v1/playback/leases" }.count == 1)
+    }
+
+    @Test func anExpiredLeaseIsReplacedOnTheSameSource() async throws {
+        let fresh = #"{"id":"6f0b7c1e-0000-4000-8000-000000000002","expires_at":1900000000}"#
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
+            "POST /api/v1/playback/leases": .sequence([.json(200, lease), .json(200, fresh)]),
+            "GET /api/v1/playback/leases/6f0b7c1e-0000-4000-8000-000000000001": .json(404, #"{"error":"Resource not found"}"#),
+        ])
+        let audio = try await playback(fake).prepare("r1", source: "s2")
+        let renewed = try await playback(fake).renew(audio)
+        #expect(renewed.leaseId == "6f0b7c1e-0000-4000-8000-000000000002")
+        #expect(renewed.sourceId == "s2")
+        #expect(renewed.recordingId == "r1")
+        #expect(renewed.url.absoluteString.hasSuffix("/api/v1/playback/leases/6f0b7c1e-0000-4000-8000-000000000002/audio"))
+        #expect(fake.requests.last?.json == ["recording_id": "r1", "source_id": "s2"])
+    }
+
+    @Test func anUnreachableServerIsReportedWhenALeaseIsChecked() async throws {
+        let audio = AudioRequest(leaseId: "6f0b7c1e-0000-4000-8000-000000000001", recordingId: "r1", sourceId: "s2", sourceLabel: "YouTube", url: address.url(["api", "v1", "playback", "leases", "6f0b7c1e-0000-4000-8000-000000000001", "audio"]), headers: [:])
+        let fake = FakeServer(routes: [:], failures: ["http://192.168.1.20:8080": URLError(.cannotConnectToHost)])
+        await #expect(throws: HitoAPI.Problem.noAnswer) { try await playback(fake).renew(audio) }
+    }
 }
