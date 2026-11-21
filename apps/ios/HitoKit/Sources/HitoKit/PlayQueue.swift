@@ -34,6 +34,11 @@ public struct PlayQueue: Equatable, Sendable {
 
     public var played: [Track] { Array(list.prefix(position)) }
 
+    public var upcoming: [Track] {
+        guard repeatMode != .track else { return [] }
+        return queued + upNext + (repeatMode == .list ? played : [])
+    }
+
     @discardableResult
     public mutating func jump(to id: String) -> Track? {
         if let index = queued.firstIndex(where: { $0.id == id }) {

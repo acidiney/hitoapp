@@ -83,6 +83,20 @@ import Testing
         #expect(queue.following?.id == "c")
     }
 
+    @Test func upcomingTracksAreInTheOrderTheQueueAdvancesThrough() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 1, from: "Fixture Album")
+        queue.playNext(track("x"))
+        #expect(queue.upcoming.map(\.id) == ["x", "c", "d"])
+        queue.repeatMode = .list
+        #expect(queue.upcoming.map(\.id) == ["x", "c", "d", "a"])
+        var walked: [String] = []
+        for _ in queue.upcoming { walked.append(queue.advance()?.id ?? "") }
+        #expect(walked == ["x", "c", "d", "a"])
+        queue.repeatMode = .track
+        #expect(queue.upcoming.isEmpty)
+    }
+
     @Test func playedTracksAreTheOnesBeforeTheCurrentOne() {
         var queue = PlayQueue()
         queue.start(tracks, at: 2, from: "Fixture Album")
