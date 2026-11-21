@@ -40,6 +40,7 @@ final class Player {
     private var preflight: Task<Void, Never>?
     private var streamOffset: Double = 0
     private var streamQuality = StreamingQuality.original
+    private var staysPaused = false
 
     private let playback: Playback
     private let likes: Likes
@@ -207,6 +208,7 @@ final class Player {
         position = seconds
         if streamQuality != .original, let playingAudio, playingAudio.leaseId == leaseId {
             resumeAt = seconds
+            staysPaused = state == .paused
             engine.pause()
             stream(playingAudio, from: seconds)
             return
@@ -384,6 +386,7 @@ final class Player {
         playingAudio = nil
         streamOffset = 0
         streamQuality = .original
+        staysPaused = false
         guard let leaseId else { return }
         self.leaseId = nil
         Task { [playback] in await playback.release(leaseId) }
@@ -524,9 +527,14 @@ final class Player {
                 engine.seek(to: CMTime(seconds: resumeAt, preferredTimescale: 600))
             }
         }
-        engine.play()
-        state = .playing
-        log.info("player.started")
+        if staysPaused {
+            staysPaused = false
+            state = .paused
+        } else {
+            engine.play()
+            state = .playing
+            log.info("player.started")
+        }
         publish()
     }
 
