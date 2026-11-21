@@ -38,7 +38,7 @@ impl Vault {
         fingerprints.extend(last);
         let pending: Vec<Vec<u8>> = sqlx::query_scalar(
             "SELECT DISTINCT substr(pending_secret,1,33) FROM plugin_authorization_attempts INDEXED BY expired_plugin_authorization_attempts
-            WHERE expires_at > unixepoch() AND status IN ('pending','exchanging') LIMIT 2",
+            WHERE expires_at > unixepoch() AND status IN ('pending','returned','exchanging') LIMIT 2",
         )
         .fetch_all(&store.pool)
         .await?;
@@ -153,6 +153,35 @@ impl Vault {
             "hito.plugin.authorization.pending.v1|{account}|{installation}|{service}|{attempt}"
         );
         self.reveal_payload(&aad, envelope)
+    }
+
+    pub(super) fn seal_returned_code(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        attempt: &str,
+        code: &str,
+    ) -> Result<Vec<u8>> {
+        validate(code)?;
+        self.seal_payload(
+            &returned_context(account, installation, service, attempt),
+            code.as_bytes(),
+        )
+    }
+
+    pub(super) fn reveal_returned_code(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        attempt: &str,
+        envelope: &[u8],
+    ) -> Result<Zeroizing<String>> {
+        self.reveal_payload(
+            &returned_context(account, installation, service, attempt),
+            envelope,
+        )
     }
 
     pub(super) fn seal_connection(
@@ -328,6 +357,10 @@ fn connection_context(
     declaration: &str,
 ) -> String {
     format!("hito.plugin.connection.v1|{account}|{installation}|{service}|{declaration}")
+}
+
+fn returned_context(account: &str, installation: &str, service: &str, attempt: &str) -> String {
+    format!("hito.plugin.authorization.returned.v1|{account}|{installation}|{service}|{attempt}")
 }
 
 fn community_context(account: &str, service: &str, reporter: &str) -> String {

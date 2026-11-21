@@ -11634,7 +11634,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PluginRevision"
+                "$ref": "#/components/schemas/PluginAuthorizationStart"
               }
             }
           },
@@ -11751,6 +11751,100 @@
           {
             "session": []
           },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/{id}/authorization/{attempt}/completion": {
+      "post": {
+        "operationId": "complete_plugin_authorization",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginAuthorizationCompletion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginAuthorizationResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
           {
             "bearer": []
           }
@@ -33427,10 +33521,70 @@
           }
         }
       },
+      "PluginAuthorizationCompletion": {
+        "type": "object",
+        "required": [
+          "verifier",
+          "return_secret"
+        ],
+        "properties": {
+          "return_secret": {
+            "type": "string"
+          },
+          "verifier": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PluginAuthorizationOutcome": {
+        "type": "string",
+        "enum": [
+          "connected",
+          "denied",
+          "provider_error",
+          "exchange_failed",
+          "expired",
+          "changed",
+          "used",
+          "invalid"
+        ]
+      },
+      "PluginAuthorizationResult": {
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/PluginAuthorizationOutcome"
+          }
+        }
+      },
+      "PluginAuthorizationStart": {
+        "type": "object",
+        "required": [
+          "revision"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "verifier_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "PluginAuthorizationState": {
         "type": "string",
         "enum": [
           "pending",
+          "returned",
           "exchanging",
           "completed",
           "failed"

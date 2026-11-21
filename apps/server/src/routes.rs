@@ -94,6 +94,7 @@ fn plugin_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services> {
         .routes(routes!(plugins::clear_credential))
         .routes(routes!(plugin_authorization::begin))
         .routes(routes!(plugin_authorization::status))
+        .routes(routes!(plugin_authorization::complete))
         .routes(routes!(api::host_browser::launch))
         .routes(routes!(
             plugin_authorization::connection,

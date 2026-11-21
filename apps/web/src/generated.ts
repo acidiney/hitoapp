@@ -1876,6 +1876,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/{id}/authorization/{attempt}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete_plugin_authorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins/{id}/authorization/{attempt}/launch": {
         parameters: {
             query?: never;
@@ -5820,8 +5836,22 @@ export interface components {
             expires_at: number;
             id: string;
         };
+        PluginAuthorizationCompletion: {
+            return_secret: string;
+            verifier: string;
+        };
         /** @enum {string} */
-        PluginAuthorizationState: "pending" | "exchanging" | "completed" | "failed";
+        PluginAuthorizationOutcome: "connected" | "denied" | "provider_error" | "exchange_failed" | "expired" | "changed" | "used" | "invalid";
+        PluginAuthorizationResult: {
+            outcome: components["schemas"]["PluginAuthorizationOutcome"];
+        };
+        PluginAuthorizationStart: {
+            /** Format: int64 */
+            revision: number;
+            verifier_hash?: string | null;
+        };
+        /** @enum {string} */
+        PluginAuthorizationState: "pending" | "returned" | "exchanging" | "completed" | "failed";
         PluginAuthorizationStatus: {
             /** Format: int64 */
             expires_at: number;
@@ -15864,7 +15894,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PluginRevision"];
+                "application/json": components["schemas"]["PluginAuthorizationStart"];
             };
         };
         responses: {
@@ -15939,6 +15969,72 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    complete_plugin_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                attempt: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginAuthorizationCompletion"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginAuthorizationResult"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

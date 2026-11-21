@@ -20,8 +20,9 @@ use crate::secrets as vault;
 
 use crate::{Result, store::Store};
 pub use authorization::{
-    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
-    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginAppReturn, PluginAuthorization, PluginAuthorizationCallback,
+    PluginAuthorizationCompletion, PluginAuthorizationOutcome, PluginAuthorizationRedirect,
+    PluginAuthorizationReturn, PluginAuthorizationState, PluginAuthorizationStatus,
     PluginConnectionState, PluginConnectionStatus, ProviderAccess,
 };
 pub use configured::{ConfiguredOffer, ConfiguredPluginService};

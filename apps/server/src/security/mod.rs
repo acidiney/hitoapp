@@ -5,7 +5,7 @@ mod rate_limit;
 mod session;
 
 pub use client_label::label as client_label;
-pub use session::{cookie, session_response, token};
+pub use session::{bearer, cookie, session_response, token};
 
 use crate::{Config, error};
 use axum::{

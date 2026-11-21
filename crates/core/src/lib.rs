@@ -147,8 +147,9 @@ pub use playback_access::{
 pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
-    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
-    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginAppReturn, PluginAuthorization, PluginAuthorizationCallback,
+    PluginAuthorizationCompletion, PluginAuthorizationOutcome, PluginAuthorizationRedirect,
+    PluginAuthorizationReturn, PluginAuthorizationState, PluginAuthorizationStatus,
     PluginConnectionState, PluginConnectionStatus, PluginCredential, PluginDeclarationCheck,
     PluginHealth, PluginHealthState, PluginInstallation, PluginInstallationPreview, PluginRefresh,
     PluginService, PluginSettings, Plugins, PreviewPluginInstallation, ProviderAccess,

@@ -541,10 +541,7 @@ impl RetainedState {
         }
         self.schema.insert(
             "plugin_authorization_attempts".into(),
-            declared
-                .get("plugin_authorization_attempts")
-                .unwrap()
-                .clone(),
+            collection_artwork_schema::plugin_authorization_native_schema::table(),
         );
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()

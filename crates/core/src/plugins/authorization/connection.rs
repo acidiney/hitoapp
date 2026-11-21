@@ -250,8 +250,8 @@ impl Plugins {
                 .execute(&mut *tx)
                 .await?
                 .rows_affected();
-        let closed = sqlx::query("UPDATE plugin_authorization_attempts SET status = 'failed', pending_secret = zeroblob(74)
-            WHERE installation_id = ? AND user_id = ? AND status IN ('pending','exchanging')")
+        let closed = sqlx::query("UPDATE plugin_authorization_attempts SET status = 'failed', pending_secret = zeroblob(74), returned_code = NULL, return_hash = NULL
+            WHERE installation_id = ? AND user_id = ? AND status IN ('pending','returned','exchanging')")
             .bind(id).bind(actor.id()).execute(&mut *tx).await?.rows_affected();
         tx.commit().await?;
         tracing::info!(

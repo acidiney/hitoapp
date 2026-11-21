@@ -119,6 +119,37 @@ sequenceDiagram
 
 Library-member delivery currently reaches only the owner. Every source producer works on provider bindings, and provider bindings and provider recordings are only created in the actor's own personal provider library: adoption and playlist copies publish there, reviewed attachment and automatic resolution require the actor to own the recording's library, and preparation needs an existing binding. A personal library has exactly one member, its owner, and administrators cannot grant other accounts access to it. So no current workflow can deliver a shared `sources` notice to a second account, or leave one queued for a member whose library access is later removed. For that reason the stream re-checks the session before each notice but does not re-check library access. If provider sources are ever allowed in shared libraries, delivery must also re-check that the recipient can still read the recording. Lyrics, plugin health, artist identity, Cover Art Archive artwork, audiobook and progress changes do not publish notices yet.
 
+## Plugin sign-in from a native app
+
+Current server behavior. The iOS app is not using it yet. A plugin that declares an OAuth 2 PKCE sign-in needs the provider to come back to Hito. The web app finishes the sign-in with its session cookie, and the desktop app with its loopback address. A native app signed in with a bearer token has neither, so it finishes the sign-in itself with two one-time secrets.
+
+1. The app creates a random verifier of at least 43 URL-safe characters and keeps it in memory. It starts the sign-in with `POST /plugins/{id}/authorization` and `{"revision", "verifier_hash"}`, where `verifier_hash` is the unpadded base64url SHA-256 of the verifier. A bearer start without a verifier hash is refused with 422, and so is a cookie start with one.
+2. The app opens `authorization_url` in `ASWebAuthenticationSession` with the callback scheme `hito`.
+3. The provider sends the browser to the server's normal callback. The server keeps the provider's answer encrypted on the attempt and sends the browser to `hito://plugin-authorization/return?attempt=<id>&return=<secret>`. The address never carries the provider code, the state or the verifier. If the provider declines or the attempt can't continue, the browser shows a Hito page instead, and the attempt reads `failed`.
+4. The app checks that `attempt` is the attempt it started, then calls `POST /plugins/{id}/authorization/{attempt}/completion` with `{"verifier", "return_secret"}` and the same bearer session. The answer is `{"outcome"}`: `connected`, `denied`, `provider_error`, `exchange_failed`, `expired`, `changed`, `used` or `invalid`.
+
+```mermaid
+sequenceDiagram
+  participant App as Native app
+  participant Browser as Sign-in browser
+  participant Hito as Hito server
+  participant Provider
+  App->>Hito: Start with the verifier hash
+  Hito-->>App: Attempt and provider sign-in address
+  App->>Browser: Open the sign-in
+  Browser->>Provider: Sign in and approve
+  Provider->>Hito: Callback with code and state
+  Hito-->>Browser: hito:// return with the attempt and a return secret
+  Browser-->>App: Return handed only to the app that opened it
+  App->>Hito: Complete with the verifier and the return secret
+  Hito->>Provider: Exchange the code
+  Hito-->>App: Outcome
+```
+
+The server exchanges the code only when both secrets match, the bearer session is the one that started the attempt and is still signed in and unlocked, and the attempt is unexpired and unused. The verifier proves who started the sign-in. The return secret proves that the approval came back to the same app. Without it, a member could send someone else the provider link and connect that person's provider account to their own Hito account. A wrong secret closes the attempt. A missing field is refused with 422 and leaves the attempt as it was. Another account or session gets 404, a signed-out session 401 and a locked one 423, and none of those use the attempt.
+
+`GET /plugins/{id}/authorization/{attempt}` reads `pending` until the provider returns, `returned` while the answer waits for the app, then `exchanging`, `completed` or `failed`. An app that was closed during sign-in can use it to decide whether to finish or start again. Attempts last ten minutes. The stored answer is deleted when the attempt completes, fails or is disconnected. An expired attempt is refused, and its stored answer is deleted by the completion call or by the expiry sweep that runs whenever a sign-in starts.
+
 ## Plugin contract
 
 `hito-plugin-sdk` validates protocol version 1 manifests and the declared capability vocabulary. No plugin installation, plugin HTTP client, or provider service is implemented yet. The full language-neutral data specification and reference services remain release work. Unknown capabilities such as arbitrary code execution are rejected by manifest deserialization.

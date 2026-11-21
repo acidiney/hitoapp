@@ -228,6 +228,10 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if version >= 104 && expected.0 == "table" && expected.1 == "plugin_authorization_attempts"
+        {
+            expected.3 = Some(super::schema::plugin_authorization_native_schema::table());
+        }
         if expected.0 == "table" && expected.1 == "users" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(
