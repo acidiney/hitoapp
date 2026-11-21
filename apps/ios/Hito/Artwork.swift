@@ -108,31 +108,34 @@ struct Cover: View {
     @State private var image: UIImage?
 
     var body: some View {
-        ZStack {
-            Theme.tile
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                Icon(mark, size: min((size ?? 100) * 0.44, 44))
-                    .foregroundStyle(Theme.coverMark)
+        Theme.tile
+            .frame(width: size, height: size)
+            .frame(maxWidth: size == nil ? .infinity : nil)
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Icon(mark, size: min((size ?? 100) * 0.44, 44))
+                        .foregroundStyle(Theme.coverMark)
+                }
             }
-        }
-        .frame(width: size, height: size)
-        .frame(maxWidth: size == nil ? .infinity : nil)
-        .aspectRatio(1, contentMode: .fit)
-        .clipShape(round ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: radius)))
-        .accessibilityHidden(true)
-        .task(id: Retrieval(path: path, revision: subject.map { ArtworkRetries.shared.revisions[$0] ?? 0 } ?? 0)) {
-            guard let api = model.api else { return }
-            let request = api.request(path)
-            image = await ArtworkCache.shared.image(request)
-            guard image == nil, let subject, await ArtworkRetries.shared.fetched(subject, api: api) else { return }
-            await ArtworkCache.shared.forget(request)
-            image = await ArtworkCache.shared.image(request)
-        }
+            .clipShape(shape)
+            .contentShape(shape)
+            .accessibilityHidden(true)
+            .task(id: Retrieval(path: path, revision: subject.map { ArtworkRetries.shared.revisions[$0] ?? 0 } ?? 0)) {
+                guard let api = model.api else { return }
+                let request = api.request(path)
+                image = await ArtworkCache.shared.image(request)
+                guard image == nil, let subject, await ArtworkRetries.shared.fetched(subject, api: api) else { return }
+                await ArtworkCache.shared.forget(request)
+                image = await ArtworkCache.shared.image(request)
+            }
     }
 
     private var subject: ArtworkRetrieval.Subject? { ArtworkRetrieval.Subject(path: path) }
+
+    private var shape: AnyShape { round ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: radius)) }
 
     private struct Retrieval: Equatable {
         let path: [String]
