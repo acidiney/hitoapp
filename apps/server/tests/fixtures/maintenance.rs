@@ -414,8 +414,16 @@ impl Snapshot {
                     .extend(["approved_capabilities", "approved_credential"].map(str::to_owned));
             }
             if table.name == "plugin_authorization_attempts" {
-                expected.push("status".to_owned());
-                expected.push("delivery".to_owned());
+                expected.extend(
+                    [
+                        "status",
+                        "delivery",
+                        "completion_hash",
+                        "return_hash",
+                        "returned_code",
+                    ]
+                    .map(str::to_owned),
+                );
             }
             if table.name == "users" {
                 expected.push("display_name".to_owned());
@@ -622,13 +630,7 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
             });
         }
         if declared.0 == "table" && declared.1 == "plugin_authorization_attempts" {
-            declared.3 = declared.3.map(|ddl| {
-                ddl.replacen(
-                    "expires_at <= created_at + 600)\n)",
-                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')), delivery TEXT NOT NULL DEFAULT 'session' CHECK (delivery IN ('session','loopback')))",
-                    1,
-                )
-            });
+            declared.3 = Some(schema_history::plugin_authorization_native_schema::table());
         }
         if declared.0 == "table" && declared.1 == "users" {
             declared.3 = declared.3.map(|ddl| {

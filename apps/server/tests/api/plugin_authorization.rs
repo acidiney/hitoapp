@@ -1,5 +1,5 @@
 use super::provider_fixture::ProviderServer;
-use super::support::{admin, call, services};
+use super::support::{admin, browser_call, call, services};
 use axum::{
     Router,
     extract::Query,
@@ -23,12 +23,12 @@ async fn plugin_consent_attempt_is_durable_and_bound_to_the_original_session() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let (status, attempt) = call(
+    let (status, attempt) = browser_call(
         &app,
         "POST",
         &begin_path,
         json!({"revision": installation["revision"]}),
-        Some(&original_session),
+        &original_session,
     )
     .await;
     let after = SystemTime::now()
@@ -163,7 +163,7 @@ async fn pending_consent_limit_is_durable_shared_between_sessions_and_private_to
     let mut challenges = BTreeSet::new();
     for _ in 0..8 {
         let (status, attempt) =
-            call(&app, "POST", &begin_path, request.clone(), Some(&owner)).await;
+            browser_call(&app, "POST", &begin_path, request.clone(), &owner).await;
         assert_eq!(status, StatusCode::CREATED);
         assert!(attempt_ids.insert(attempt["id"].as_str().unwrap().to_owned()));
         let uri: Uri = attempt["authorization_url"]
@@ -176,7 +176,7 @@ async fn pending_consent_limit_is_durable_shared_between_sessions_and_private_to
         assert!(challenges.insert(query["code_challenge"].clone()));
     }
     assert_eq!(
-        call(&app, "POST", &begin_path, request.clone(), Some(&owner))
+        browser_call(&app, "POST", &begin_path, request.clone(), &owner)
             .await
             .0,
         StatusCode::CONFLICT
@@ -193,22 +193,16 @@ async fn pending_consent_limit_is_durable_shared_between_sessions_and_private_to
     let second_session = second_session["token"].as_str().unwrap();
     assert_ne!(second_session, owner);
     assert_eq!(
-        call(
-            &app,
-            "POST",
-            &begin_path,
-            request.clone(),
-            Some(second_session)
-        )
-        .await
-        .0,
+        browser_call(&app, "POST", &begin_path, request.clone(), second_session)
+            .await
+            .0,
         StatusCode::CONFLICT
     );
 
     drop(app);
     let reopened = configured_app(directory.path()).await;
     assert_eq!(
-        call(&reopened, "POST", &begin_path, request, Some(&owner))
+        browser_call(&reopened, "POST", &begin_path, request, &owner)
             .await
             .0,
         StatusCode::CONFLICT
@@ -275,12 +269,12 @@ async fn pending_consent_limit_is_durable_shared_between_sessions_and_private_to
         "/api/v1/plugins/{}/authorization",
         other_installation["id"].as_str().unwrap()
     );
-    let (status, other_attempt) = call(
+    let (status, other_attempt) = browser_call(
         &reopened,
         "POST",
         &other_begin_path,
         json!({"revision": other_installation["revision"]}),
-        Some(other_account),
+        other_account,
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);

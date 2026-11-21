@@ -1,5 +1,5 @@
 use super::provider_fixture::ProviderServer;
-use super::support::{admin, call, services};
+use super::support::{admin, browser_call, call, services};
 use axum::{Router, http::StatusCode};
 use futures_util::future::BoxFuture;
 use hito_server::{HostBrowser, HostOpen};
@@ -109,12 +109,12 @@ impl Fixture {
     }
 
     async fn begin(&self) -> Value {
-        let (status, attempt) = call(
+        let (status, attempt) = browser_call(
             &self.app,
             "POST",
             &self.base(),
             json!({"revision": self.installation["revision"]}),
-            Some(&self.token),
+            &self.token,
         )
         .await;
         assert_eq!(status, StatusCode::CREATED);

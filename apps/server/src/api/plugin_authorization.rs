@@ -1,7 +1,6 @@
 use super::{
     callback_page::{CallbackPage, Tone},
     host_browser::{HostBrowserAccess, HostReturn},
-    plugins::PluginRevision,
 };
 use crate::{
     Config,
@@ -16,11 +15,27 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hito_core::{
-    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
-    PluginAuthorizationRedirect, PluginAuthorizationStatus, PluginConnectionStatus, Services,
+    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationCompletion,
+    PluginAuthorizationOutcome, PluginAuthorizationRedirect, PluginAuthorizationReturn,
+    PluginAuthorizationStatus, PluginConnectionStatus, Services,
 };
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[utoipa::path(post, path = "/api/v1/plugins/{id}/authorization", operation_id = "begin_plugin_authorization", params(("id" = String, Path)), request_body = PluginRevision, security(("session" = []), ("bearer" = [])), responses(
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PluginAuthorizationStart {
+    pub revision: i64,
+    #[serde(default)]
+    pub verifier_hash: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PluginAuthorizationResult {
+    pub outcome: PluginAuthorizationOutcome,
+}
+
+#[utoipa::path(post, path = "/api/v1/plugins/{id}/authorization", operation_id = "begin_plugin_authorization", params(("id" = String, Path)), request_body = PluginAuthorizationStart, security(("session" = []), ("bearer" = [])), responses(
     (status = 201, body = PluginAuthorization), (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn begin(
@@ -29,14 +44,39 @@ pub async fn begin(
     Extension(config): Extension<Config>,
     Extension(host): Extension<HostBrowserAccess>,
     Path(id): Path<String>,
-    JsonBody(request): JsonBody<PluginRevision>,
+    headers: HeaderMap,
+    JsonBody(request): JsonBody<PluginAuthorizationStart>,
 ) -> ApiResult<(
     StatusCode,
     [(&'static str, &'static str); 1],
     Json<PluginAuthorization>,
 )> {
-    let redirect = match &host.0 {
-        Some(browser) => {
+    let bearer = crate::security::bearer(&headers);
+    let redirect = match (&host.0, request.verifier_hash.as_deref()) {
+        (Some(_), Some(_)) => {
+            return Err(hito_core::Error::Invalid(
+                "This Hito does not take sign-in returns from another app".into(),
+            )
+            .into());
+        }
+        (None, Some(verifier_hash)) if bearer => {
+            PluginAuthorizationRedirect::native(public_callback(&config)?.as_str(), verifier_hash)?
+        }
+        (None, Some(_)) => {
+            return Err(hito_core::Error::Invalid(
+                "Only the Hito app sends a completion verifier. Connect from Settings in this browser."
+                    .into(),
+            )
+            .into());
+        }
+        (None, None) if bearer => {
+            return Err(hito_core::Error::Invalid(
+                "Update the Hito app to connect this provider, or connect it from Settings on the web."
+                    .into(),
+            )
+            .into());
+        }
+        (Some(browser), None) => {
             services
                 .plugins
                 .check_authorization(&actor, &id, request.revision)
@@ -51,7 +91,7 @@ pub async fn begin(
                 }
             }
         }
-        None => public_redirect(&config)?,
+        (None, None) => public_redirect(&config)?,
     };
     let attempt = services
         .plugins
@@ -109,7 +149,33 @@ pub async fn disconnect(
     Ok((StatusCode::NO_CONTENT, [("cache-control", "no-store")]))
 }
 
+#[utoipa::path(post, path = "/api/v1/plugins/{id}/authorization/{attempt}/completion", operation_id = "complete_plugin_authorization", params(("id" = String, Path), ("attempt" = String, Path)), request_body = PluginAuthorizationCompletion, security(("bearer" = [])), responses(
+    (status = 200, body = PluginAuthorizationResult), (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse), (status = 503, body = ErrorResponse),
+))]
+pub async fn complete(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((id, attempt)): Path<(String, String)>,
+    JsonBody(request): JsonBody<PluginAuthorizationCompletion>,
+) -> ApiResult<(
+    [(&'static str, &'static str); 1],
+    Json<PluginAuthorizationResult>,
+)> {
+    let outcome = services
+        .plugins
+        .complete_native_authorization(&actor, &id, &attempt, request)
+        .await?;
+    Ok((
+        [("cache-control", "no-store")],
+        Json(PluginAuthorizationResult { outcome }),
+    ))
+}
+
 fn public_redirect(config: &Config) -> hito_core::Result<PluginAuthorizationRedirect> {
+    PluginAuthorizationRedirect::new(&public_callback(config)?)
+}
+
+fn public_callback(config: &Config) -> hito_core::Result<String> {
     let origin_uri: Uri = config.origin.parse().map_err(|_| invalid_origin())?;
     if origin_uri.scheme().is_none()
         || origin_uri.authority().is_none()
@@ -119,7 +185,7 @@ fn public_redirect(config: &Config) -> hito_core::Result<PluginAuthorizationRedi
         return Err(invalid_origin());
     }
     let origin = config.origin.strip_suffix('/').unwrap_or(&config.origin);
-    PluginAuthorizationRedirect::new(&format!("{origin}/api/v1/plugin-authorization/callback"))
+    Ok(format!("{origin}/api/v1/plugin-authorization/callback"))
 }
 
 fn invalid_origin() -> hito_core::Error {
@@ -136,6 +202,16 @@ pub async fn callback(
     RawQuery(query): RawQuery,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(parsed) = PluginAuthorizationCallback::parse(query.as_deref()) {
+        match services.plugins.return_native_authorization(&parsed).await {
+            Ok(None) => {}
+            Ok(Some(PluginAuthorizationReturn::App(app))) => return app_return(app.as_str()),
+            Ok(Some(PluginAuthorizationReturn::Closed(outcome))) => {
+                return outcome_page(outcome).without_return_link().into_response();
+            }
+            Err(error) => return crate::error::ApiError(error).into_response(),
+        }
+    }
     let retried = headers
         .get_all("cookie")
         .iter()
@@ -184,6 +260,30 @@ pub async fn callback(
         );
     }
     response
+}
+
+fn app_return(location: &str) -> Response {
+    let Ok(location) = axum::http::HeaderValue::from_str(location) else {
+        return crate::error::ApiError(hito_core::Error::Internal(
+            "The app return address is invalid".into(),
+        ))
+        .into_response();
+    };
+    (
+        StatusCode::SEE_OTHER,
+        [
+            (axum::http::header::LOCATION, location),
+            (
+                axum::http::header::CACHE_CONTROL,
+                axum::http::HeaderValue::from_static("no-store"),
+            ),
+            (
+                axum::http::header::REFERRER_POLICY,
+                axum::http::HeaderValue::from_static("no-referrer"),
+            ),
+        ],
+    )
+        .into_response()
 }
 
 async fn authenticated_callback(
