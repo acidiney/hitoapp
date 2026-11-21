@@ -89,7 +89,7 @@ fn high_resolution_pcm_is_not_quantized_to_sixteen_bits() {
 }
 
 #[test]
-fn opus_is_explicitly_unsupported_until_the_fallback_is_implemented() {
+fn the_native_decoder_reports_opus_as_unsupported() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("unsupported.opus");
     fixture(&path, "sine=frequency=440:sample_rate=48000", "libopus");

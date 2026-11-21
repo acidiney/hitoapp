@@ -94,7 +94,7 @@ To review or undo these, open **Settings → Accounts → Shared artist correcti
 
 ## See who is active
 
-**Settings → Accounts** lists each person with their role and when they were last active, for example "Member · Last active 5 minutes ago". The time can be a few minutes behind. You do not see their devices, playlists or history.
+**Settings → Accounts** lists each person with their role and when they were last active, for example "Member · active 5 minutes ago". The time can be a few minutes behind. You do not see their devices, playlists or history.
 
 ## Delete an account
 

@@ -1,6 +1,6 @@
 # Apps
 
-You can use Hito in three ways: in any browser, as a web app installed from the browser, or in the desktop app. The desktop app is still in development.
+You can use Hito in three ways: in any browser, as a web app installed from the browser, or in the desktop app. The desktop app is still in development. An iPhone app is also in development.
 
 ## Install Hito as a web app
 
@@ -34,7 +34,7 @@ The exact menu names change between browser versions.
 Everything you can do in the browser works in the installed web app: your library, playlists, Discover, podcasts, audiobooks, plugins and settings. Hito adjusts its layout for phones, with Now playing split into Lyrics, Up next and Source panels.
 
 - The current track shows in the system media controls and, where the phone allows it, on the lock screen. See [Listening](listening.md).
-- The web app needs a connection to your server to play music. If it cannot reach the server, it shows "Hito can't reach your server" with a **Retry** button. Your place is kept.
+- The web app needs a connection to your server to play music. If it cannot reach the server, it shows "Cannot reach Hito" with a **Try now** button. Your place is kept.
 - Downloads are saved on your server, not on the phone. Offline listening on the phone is not available in the web app.
 - Lock-screen behavior, background audio and track changes while the screen is off depend on the browser and phone. They have not been checked on every device.
 
@@ -64,11 +64,14 @@ Your sign-in for each server is kept in the computer's own password store: Keych
 ### What is not available yet
 
 - There are no installers or packages. Building it today needs the developer setup.
-- Shuffle, repeat, previous track and playback speed are not available in the desktop player yet.
-- Operating-system media controls and the lock screen do not show the desktop app's track yet.
+- **Streaming quality** is not offered in the desktop app's library on this computer. Its own files play at their original quality.
 - Offline downloads on all platforms are planned.
 
 The [roadmap](../roadmap.md) lists what the desktop app still needs before the first release, including signed installers for macOS, Windows and Linux.
+
+## The iPhone app
+
+The iPhone app connects to a Hito server and plays through it. It keeps no library on the phone. It is in development and is not in the App Store. Building it needs a Mac with Xcode; see [the iOS app](../develop/ios.md).
 
 ## Which one to use
 

@@ -79,7 +79,7 @@ Downloading saves copies of the audio on the Hito server. Saved copies keep play
 
 Some things to know:
 
-- Copies are saved on the server, not in your browser. The browser still needs a connection to the server to play them. The desktop app saves copies on that device instead.
+- Copies are saved on the server, not in your browser. The browser still needs a connection to the server to play them. In the desktop app's own library, copies are saved on this computer. When the desktop app uses a Hito server, copies are saved on that server.
 - Entries without a source wait. The section says how many are waiting for a source.
 - If the server runs out of disk space, Hito waits and tries again by itself.
 - If some entries fail, select **Retry failed downloads**.
