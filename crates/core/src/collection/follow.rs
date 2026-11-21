@@ -8,6 +8,7 @@ mod reconcile;
 mod resume;
 mod types;
 mod worker;
+pub(crate) use approval::carry_over_follows;
 pub(super) use persist::origin;
 pub(super) use resume::resume;
 

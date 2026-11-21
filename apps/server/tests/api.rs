@@ -189,6 +189,9 @@ mod playlist_follow_auto_resume;
 #[path = "api/playlist_follow_input.rs"]
 mod playlist_follow_input;
 
+#[path = "api/playlist_follow_reconnect.rs"]
+mod playlist_follow_reconnect;
+
 #[path = "api/playlist_follow_resume.rs"]
 mod playlist_follow_resume;
 

@@ -39,6 +39,7 @@ pub use audiobooks::{
     AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPagination, AudiobookPlayback,
     AudiobookPlaybackAdmission,
 };
+pub(crate) use follow::carry_over_follows;
 pub use follow::{
     FollowProviderPlaylist, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
     PlaylistFollowRefresh, PlaylistFollowStatus, RefreshFollowedPlaylist,
