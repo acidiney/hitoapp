@@ -8,6 +8,7 @@ import {
   sharedCredit,
 } from "./fixtures/credit-member-provider";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
+import { networkQuiet } from "./fixtures/settled";
 
 const SHOTS = "test-results/credit-member-choice";
 const sizes = [
@@ -237,7 +238,7 @@ test("credited artists stay unread until opened, keep a per-member choice across
     const disclosure = await openCreditedArtists(page, fixture.recordingId);
     await expect(disclosure).toBeVisible();
     await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-    await page.waitForLoadState("networkidle");
+    await networkQuiet(page);
     expect(memberRequests).toEqual([]);
 
     await disclosure.click();

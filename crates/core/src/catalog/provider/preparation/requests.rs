@@ -2,7 +2,9 @@ use super::{
     Catalog, PrepareSource, SourcePreparationReceipt, SourcePreparationStatus, authority,
     types::{StatusRow, identity},
 };
-use crate::{Actor, Error, Result, identity::recording_access, plugins::PreparationConnection};
+use crate::{
+    Actor, ChangeNotice, Error, Result, identity::recording_access, plugins::PreparationConnection,
+};
 use sha2::{Digest, Sha256};
 use sqlx::SqliteConnection;
 use std::time::Instant;
@@ -88,6 +90,14 @@ impl Catalog {
             source_id: source.into(),
         };
         tx.commit().await?;
+        if outcome == "queued" {
+            self.changes.publish(
+                actor.id(),
+                [ChangeNotice::Sources {
+                    recording_id: recording.to_owned(),
+                }],
+            );
+        }
         tracing::info!(
             event = "source_preparation_requested",
             preparation_id = preparation,

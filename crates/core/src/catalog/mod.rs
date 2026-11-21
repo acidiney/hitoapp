@@ -94,6 +94,7 @@ pub use types::{
 
 #[derive(Clone)]
 pub struct Catalog {
+    pub(crate) changes: crate::changes::ChangeHub,
     pub(crate) community: crate::Community,
     pub(crate) store: Store,
     pub(crate) plugins: crate::Plugins,

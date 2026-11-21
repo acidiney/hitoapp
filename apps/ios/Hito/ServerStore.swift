@@ -17,6 +17,7 @@ struct ServerStore {
     private let recentKey = "servers.recent"
     private let acceptedKey = "servers.unencrypted.accepted"
     private let service = "app.hito.session"
+    private let signInService = "app.hito.plugin-sign-in"
 
     var recent: [RecentServer] {
         defaults.data(forKey: recentKey).flatMap { try? JSONDecoder().decode([RecentServer].self, from: $0) } ?? []
@@ -90,6 +91,31 @@ struct ServerStore {
 
     func forgetToken(for address: ServerAddress) {
         SecItemDelete(base(address) as CFDictionary)
+        forgetSignIn(on: address)
+    }
+
+    func pendingSignIn(on address: ServerAddress) -> PluginSignIn.Attempt? {
+        var query = signIn(address)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else {
+            return nil
+        }
+        return try? JSONDecoder().decode(PluginSignIn.Attempt.self, from: data)
+    }
+
+    func keep(_ attempt: PluginSignIn.Attempt, on address: ServerAddress) {
+        forgetSignIn(on: address)
+        guard let data = try? JSONEncoder().encode(attempt) else { return }
+        var query = signIn(address)
+        query[kSecValueData as String] = data
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    func forgetSignIn(on address: ServerAddress) {
+        SecItemDelete(signIn(address) as CFDictionary)
     }
 
     private var acceptedUnencrypted: Set<String> {
@@ -98,6 +124,14 @@ struct ServerStore {
 
     private func save(_ list: [RecentServer]) {
         if let data = try? JSONEncoder().encode(list) { defaults.set(data, forKey: recentKey) }
+    }
+
+    private func signIn(_ address: ServerAddress) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: signInService,
+            kSecAttrAccount as String: address.origin.absoluteString,
+        ]
     }
 
     private func base(_ address: ServerAddress) -> [String: Any] {

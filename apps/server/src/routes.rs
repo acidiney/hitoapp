@@ -339,6 +339,7 @@ fn collection_routes(router: OpenApiRouter<Services>) -> OpenApiRouter<Services>
         .routes(routes!(playlist_follow::playlist_follow))
         .routes(routes!(playlist_follow::refresh_followed_playlist))
         .routes(routes!(collection::sync, collection::sync_events))
+        .routes(routes!(api::changes::events))
         .routes(routes!(collection::activity))
         .routes(routes!(
             collection::history_preference,

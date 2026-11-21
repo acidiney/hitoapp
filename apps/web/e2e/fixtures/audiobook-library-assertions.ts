@@ -4,6 +4,7 @@ import type { Schema } from "../../src/shared/schema";
 import type { LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
 import type { LibraryEvidence } from "./audiobook-library-evidence";
+import { networkQuiet } from "./settled";
 
 type Snapshot = Awaited<ReturnType<LibraryFixture["snapshot"]>>;
 export function unchanged(before: unknown, after: unknown) {
@@ -41,7 +42,7 @@ export async function noListening(
   evidence: LibraryEvidence,
   recovery: boolean,
 ) {
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   await delivery.finish();
   await expect
     .poll(

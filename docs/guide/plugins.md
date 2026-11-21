@@ -113,6 +113,7 @@ To check a plugin yourself, select **Manage** on its card, then **Check connecti
 Some plugins use your account on another service. Their card has an **Account sign-in** line.
 
 - **Connect** opens the service's sign-in page in a new tab. Finish there. The Plugins page updates by itself.
+- In the iPhone app, **Connect** opens the service's sign-in in a sheet inside the app. Finish there and the app connects the account. If you close the sheet, nothing is connected. If your server is older than the app, the app shows **Connect on the web**, which opens Plugins in Settings on your server.
 - **Sign in again needed** means the service no longer accepts the saved sign-in. Select **Reconnect** and sign in again.
 - **Disconnect** deletes the saved sign-in from Hito. To revoke Hito's access on the service itself, do that on the service's own site.
 

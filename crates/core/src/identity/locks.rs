@@ -27,6 +27,7 @@ impl Identity {
             return Err(Error::Invalid("Set a PIN before locking a session".into()));
         }
         self.mark_locked(&actor.session_hash).await?;
+        self.changes.sessions_changed(actor.id());
         tracing::info!(
             event = "session_locked",
             reason = "manual",
@@ -55,6 +56,7 @@ impl Identity {
         if failures >= MAX_WRONG_PINS {
             self.end_session(&mut tx, actor).await?;
             tx.commit().await?;
+            self.changes.sessions_changed(actor.id());
             return Err(Error::Unauthorized);
         }
         sqlx::query("UPDATE session_locks SET failures = failures + 1 WHERE token_hash = ?")
@@ -79,6 +81,7 @@ impl Identity {
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
             self.end_session(&mut tx, actor).await?;
             tx.commit().await?;
+            self.changes.sessions_changed(actor.id());
             return Err(Error::Unauthorized);
         }
         tracing::info!(
@@ -110,6 +113,7 @@ impl Identity {
         }
         if idle_minutes > 0 && quiet_seconds > idle_minutes * 60 {
             self.mark_locked(session_hash).await?;
+            self.changes.sessions_changed(account);
             tracing::info!(event = "session_locked", reason = "idle", "Session locked");
             return Ok(true);
         }
