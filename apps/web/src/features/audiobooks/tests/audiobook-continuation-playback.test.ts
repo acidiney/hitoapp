@@ -199,11 +199,11 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     await waitFor(() => {
       expect(player.queueSnapshot().currentIndex).toBe(1);
       expect(player.snapshot().playing).toBe(true);
-      expect(media.current()).toBe(firstAudio);
+      expect(media.current()).toBe(middleAudio);
     });
     await act(async () => {
-      media.ready(firstAudio);
-      media.observePlaying(firstAudio);
+      media.ready(middleAudio);
+      media.observePlaying(middleAudio);
     });
     expect(submitted).toHaveLength(1);
 
@@ -219,16 +219,16 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     const lastAudio = media.prepared(sourceA.id)!;
     await act(async () => {
       media.ready(lastAudio);
-      media.end(firstAudio);
+      media.end(middleAudio);
     });
     await waitFor(() => {
       expect(player.queueSnapshot().currentIndex).toBe(2);
       expect(player.snapshot().playing).toBe(true);
-      expect(media.current()).toBe(firstAudio);
+      expect(media.current()).toBe(lastAudio);
     });
     await act(async () => {
-      media.ready(firstAudio);
-      media.observePlaying(firstAudio);
+      media.ready(lastAudio);
+      media.observePlaying(lastAudio);
     });
     await waitFor(() => expect(progress()).toHaveLength(5));
     expect(submitted[4].batch.operations.map(({ action }) => action)).toEqual(
@@ -279,8 +279,6 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     ).toEqual([
       chapterAudioPath(sourceA.id),
       chapterAudioPath(sourceB.id),
-      chapterAudioPath(sourceB.id),
-      chapterAudioPath(sourceA.id),
       chapterAudioPath(sourceA.id),
     ]);
     expect(media.played.map(({ source }) => source)).toEqual([
@@ -288,7 +286,11 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
       chapterAudioPath(sourceB.id),
       chapterAudioPath(sourceA.id),
     ]);
-    expect(new Set(media.played.map(({ media: audio }) => audio)).size).toBe(1);
+    expect(media.played.map(({ media: audio }) => audio)).toEqual([
+      firstAudio,
+      middleAudio,
+      lastAudio,
+    ]);
   } finally {
     await act(async () => {
       releaseFirst?.();

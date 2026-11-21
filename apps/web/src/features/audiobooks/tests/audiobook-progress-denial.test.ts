@@ -131,7 +131,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
     await act(async () => media.ready(prepared));
     await act(async () => player.selectEntry(queue.entries[1].id));
     const second = media.current();
-    expect(second).toBe(first);
+    expect(second).toBe(prepared);
     await act(async () => {
       media.ready(second);
       media.observePlaying(second);

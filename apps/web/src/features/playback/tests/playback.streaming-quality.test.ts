@@ -165,7 +165,7 @@ test("the latest seek to zero stays visible while an earlier converted seek fini
   player.retire();
 });
 
-test("changing browser quality replaces the next-entry preload and adopts that choice without interrupting current audio", async () => {
+test("changing browser quality replaces the next-entry preload and plays that choice from its buffer without interrupting current audio", async () => {
   setStreamingQuality("high");
   vi.stubGlobal(
     "fetch",
@@ -183,6 +183,7 @@ test("changing browser quality replaces the next-entry preload and adopts that c
       prepared.push(next);
       return next;
     },
+    promote: vi.fn(),
     release: (media) => {
       released.push(media);
     },
@@ -206,9 +207,10 @@ test("changing browser quality replaces the next-entry preload and adopts that c
   prepared[1].ready();
   media.ended = true;
   media.dispatchEvent(new Event("ended"));
-  await vi.waitFor(() =>
-    expect(media.src).toContain("/next-source/audio?quality=saver"),
-  );
+  await vi.waitFor(() => expect(prepared[1].paused).toBe(false));
+  expect(prepared[1].src).toContain("/next-source/audio?quality=saver");
+  expect(released).toContain(media);
+  expect(media.src).toBe("");
   expect(player.snapshot().current?.id).toBe("next");
   expect(
     resolve.mock.calls.every(([, options]) => options.purpose === "cached"),

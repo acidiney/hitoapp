@@ -64,6 +64,7 @@ export class BrowserLookahead {
         revision: this.revision,
         entry,
         recording: recording.id,
+        duration: recording.duration_ms / 1000,
       },
       this.resolve,
       this.owner,

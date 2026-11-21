@@ -106,6 +106,7 @@ export class Playback implements Player {
   private progress: BrowserProgressGuard;
   private audiobook: BrowserAudiobookRun;
   private media: BrowserStream;
+  private standby: BrowserStream | null = null;
   private stopQuality: () => void = () => {};
   private feed = new QueueFeed(
     () => this.store.setPending(this.feed.pending),
@@ -208,20 +209,7 @@ export class Playback implements Player {
   private listenMedia() {
     const media = this.media;
     this.stopListening = listenToMedia(media, () => this.media === media, {
-      loadedMetadata: () => {
-        this.observation.metadata();
-        this.entryEnded = false;
-        log.debug("playback.metadata", {
-          recording_id: this.state.current?.id,
-        });
-        this.update({ duration: this.reconcile(media).seconds });
-        this.applySpeed(this.state.speed);
-        if (this.pendingSeek !== null) {
-          const position = this.pendingSeek;
-          this.pendingSeek = null;
-          this.seek(position);
-        }
-      },
+      loadedMetadata: () => this.metadataLoaded(media),
       durationChange: () => this.durationChanged?.(),
       timeUpdate: () => {
         this.community?.observe();
@@ -248,6 +236,7 @@ export class Playback implements Player {
         if (this.activeSource) this.endGuard.observe(media, this.serverBound);
       },
       play: () => {
+        this.releaseStandby();
         if (!this.activeSource || this.blockedUnheard) {
           log.debug("playback.released_play_ignored", {
             recording_id: this.state.current?.id,
@@ -314,6 +303,63 @@ export class Playback implements Player {
       canPlay: () => this.community?.observe(),
       interrupted: () => this.community?.reset(),
     });
+  }
+
+  private metadataLoaded(media: MediaPort) {
+    this.observation.metadata();
+    this.entryEnded = false;
+    log.debug("playback.metadata", {
+      recording_id: this.state.current?.id,
+    });
+    this.update({ duration: this.reconcile(media).seconds });
+    this.applySpeed(this.state.speed);
+    if (this.pendingSeek !== null) {
+      const position = this.pendingSeek;
+      this.pendingSeek = null;
+      this.seek(position);
+    }
+  }
+
+  private useMedia(media: BrowserStream) {
+    media.volume = this.media.volume;
+    this.stopListening();
+    this.media = media;
+    this.mediaOwner?.promote(media.original);
+    this.listenMedia();
+    this.applySpeed(this.state.speed);
+  }
+
+  private releaseStream(media: BrowserStream) {
+    media.pause();
+    media.removeAttribute("src");
+    media.load();
+    media.close();
+    this.mediaOwner?.release(media.original);
+  }
+
+  private releaseStandby() {
+    const standby = this.standby;
+    this.standby = null;
+    if (standby) this.releaseStream(standby);
+  }
+
+  private returnToStandby() {
+    const standby = this.standby;
+    const source = this.activeSource;
+    const entry = this.openingEntry;
+    if (!standby || !source || !entry) return false;
+    this.standby = null;
+    const refused = this.media;
+    this.useMedia(standby);
+    this.releaseStream(refused);
+    log.info("playback.next_preparation_refused", {
+      recording_id: entry.recording.id,
+      source_id: source.id,
+    });
+    this.openSourceAudio(source, 0);
+    this.observeSource(entry, source);
+    void this.playSource(this.generation, ++this.sourceAttempt);
+    return true;
   }
 
   private reconcile(media: MediaPort) {
@@ -624,6 +670,7 @@ export class Playback implements Player {
     this.community?.retire();
     this.endGuard.cancel();
     this.serverBound = null;
+    this.releaseStandby();
     if (continuation) {
       this.feed.cancel();
       this.media.pause();
@@ -707,9 +754,15 @@ export class Playback implements Player {
           });
           this.acquisition?.finalPass();
         }
-        if (buffered && prepared.transfer()) {
+        const transferred = buffered ? prepared.transfer() : null;
+        if (buffered && transferred) {
           if (buffered.source) {
-            this.startPrepared(occurrence, buffered.source, prepared.id);
+            this.startPrepared(
+              occurrence,
+              buffered.source,
+              prepared.id,
+              transferred.media,
+            );
             await this.playSource(generation, ++this.sourceAttempt);
             return;
           }
@@ -896,15 +949,28 @@ export class Playback implements Player {
     occurrence: PlaybackOccurrence,
     source: Source,
     operation: string,
+    buffered: BrowserStream | null,
   ) {
-    this.openSourceAudio(source, 0);
+    const reused = buffered !== null && this.pendingSeek === null;
+    if (reused) {
+      const previous = this.media;
+      this.useMedia(buffered);
+      this.standby = previous;
+      this.heardAfter = 0;
+    } else {
+      if (buffered) this.releaseStream(buffered);
+      this.openSourceAudio(source, 0);
+    }
     this.activeSource = { ...source };
     this.observeSource(occurrence, source);
     this.entryEnded = false;
+    if (reused && (this.media.readyState ?? 0) >= 1)
+      this.metadataLoaded(this.media);
     log.debug("playback.next_preparation_adopted", {
       recording_id: occurrence.recording.id,
       operation_id: operation,
       source_id: source.id,
+      reason: reused ? "buffered_element" : "reloaded",
     });
   }
 
@@ -997,6 +1063,7 @@ export class Playback implements Player {
       if (generation !== this.generation || attempt !== this.sourceAttempt)
         return;
       if (error instanceof Error && error.name === "NotAllowedError") {
+        if (this.returnToStandby()) return;
         if (this.state.desiredPlaying === true) this.stopIntendedPlayback();
         this.update({ loading: false, error: "Press play to start audio." });
       } else {
@@ -1280,6 +1347,7 @@ export class Playback implements Player {
     this.blockedUnheard = false;
     this.sources?.close();
     this.sources = null;
+    this.releaseStandby();
     this.media.pause();
     this.activeSource = null;
     this.media.removeAttribute("src");

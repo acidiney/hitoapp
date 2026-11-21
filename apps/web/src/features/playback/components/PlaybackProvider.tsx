@@ -92,6 +92,14 @@ function BrowserAccountPlayback({
           document.body.append(next);
           return next;
         },
+        promote: (current) => {
+          for (const element of media.values())
+            delete element.dataset.hitoPlayer;
+          const element = media.get(current);
+          if (!element) return;
+          delete element.dataset.hitoPreload;
+          element.dataset.hitoPlayer = "";
+        },
         release: (current) => {
           media.get(current)?.remove();
           media.delete(current);

@@ -167,13 +167,12 @@ test("a next entry waiting for provider preparation is prepared and buffered dur
       await adopted.promise;
     });
     stop();
-    expect(media.played.map((play) => play.media)).toEqual([current, current]);
+    expect(media.played.map((play) => play.media)).toEqual([current, buffered]);
     expect(
-      media.loaded.filter(
-        (load) =>
-          load.media === current && load.source === audioPath(nextSource.id),
-      ),
-    ).toHaveLength(1);
+      media.loaded.filter((load) => load.source === audioPath(nextSource.id)),
+    ).toEqual([{ media: buffered, source: audioPath(nextSource.id) }]);
+    expect(document.querySelector("audio[data-hito-player]")).toBe(buffered);
+    expect(current.isConnected).toBe(false);
     expect(
       requests
         .slice(checks)

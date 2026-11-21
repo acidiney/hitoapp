@@ -32,8 +32,10 @@ class Media extends EventTarget implements MediaPort {
   volume = 1;
   paused = true;
   ended = false;
+  readyState = 0;
   loads: string[] = [];
   played: string[] = [];
+  refusal: Error | null = null;
   private started = deferred<void>();
   readonly playing = this.started.promise;
 
@@ -43,6 +45,7 @@ class Media extends EventTarget implements MediaPort {
 
   async play() {
     this.played.push(this.src);
+    if (this.refusal) throw this.refusal;
     this.paused = false;
     this.ended = false;
     this.dispatchEvent(new Event("play"));
@@ -58,6 +61,7 @@ class Media extends EventTarget implements MediaPort {
     this.loads.push(this.src);
     this.currentTime = 0;
     this.ended = false;
+    this.readyState = 0;
     this.dispatchEvent(new Event("loadstart"));
     this.loaded(this);
   }
@@ -67,6 +71,7 @@ class Media extends EventTarget implements MediaPort {
   }
 
   ready() {
+    this.readyState = 4;
     this.dispatchEvent(new Event("loadedmetadata"));
     this.dispatchEvent(new Event("canplay"));
   }
@@ -93,6 +98,7 @@ export function browserPreparationModes(
     signal: AbortSignal;
   }[] = [];
   let peakOwned = 1;
+  let current: MediaPort = initial;
   const unexpectedNetwork = vi.fn(async () => {
     throw new Error("Playback must not create downloads or other HTTP work");
   });
@@ -110,7 +116,12 @@ export function browserPreparationModes(
       expect(owned.size).toBeLessThanOrEqual(2);
       return media;
     },
+    promote: (media) => {
+      expect(owned.has(media)).toBe(true);
+      current = media;
+    },
     release: (media) => {
+      expect(media).not.toBe(current);
       expect(media.paused).toBe(true);
       expect(media.src).toBe("");
       expect(owned.delete(media)).toBe(true);
@@ -134,6 +145,7 @@ export function browserPreparationModes(
   return {
     player,
     initial,
+    playing: () => current as Media,
     owned,
     released,
     requests,
@@ -141,7 +153,7 @@ export function browserPreparationModes(
       const path = audioPath(source);
       const loaded = ports.find(
         (media) =>
-          media !== initial && media.src === path && !media.played.length,
+          media !== current && media.src === path && !media.played.length,
       );
       if (loaded) return loaded;
       const pending = deferred<Media>();
@@ -153,12 +165,12 @@ export function browserPreparationModes(
       await flushTasks();
       expect(requests.every(({ signal }) => signal.aborted)).toBe(true);
       expect(peakOwned).toBeLessThanOrEqual(2);
-      expect([...owned]).toEqual([initial]);
+      expect([...owned]).toEqual([current]);
       expect(ports.every((media) => media.paused && media.src === "")).toBe(
         true,
       );
       expect(new Set(released)).toEqual(
-        new Set(ports.filter((media) => media !== initial)),
+        new Set(ports.filter((media) => media !== current)),
       );
       expect(unexpectedNetwork).not.toHaveBeenCalled();
     },
