@@ -21,18 +21,12 @@ test("the artist shelf draws the artist cover as a round photo", () => {
   );
   const cards = artistShelf([
     {
-      id: "g1",
-      provider: { kind: "builtin_musicbrainz" },
-      provider_artist_id: "mb",
-      name: {
-        artist_id: "a",
-        association_id: "b",
-        recording_id: "r1",
-        value: "Slipknot",
-      },
-      library_count: 1,
+      id: "a1",
+      library_id: "library",
+      name: "Slipknot",
       recording_count: 3,
       release_count: 1,
+      artwork_recording_id: "r1",
     },
   ]);
   const { container } = render(

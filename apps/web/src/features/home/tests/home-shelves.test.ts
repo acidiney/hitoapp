@@ -42,30 +42,42 @@ test("recently added albums keep the server's order and ids are encoded", () => 
   expect(cards.map((card) => card.subtitle)).toEqual(["Fresh", ""]);
 });
 
-test("chosen artists show their cover recording and track count", () => {
-  const items: Schema<"ArtistIdentityGroup">[] = [
-    {
-      id: "group/1",
-      provider: { kind: "builtin_musicbrainz" },
-      provider_artist_id: "mb",
-      name: {
-        artist_id: "a",
-        association_id: "x",
-        recording_id: "rec-1",
-        value: "Slipknot",
-      },
-      library_count: 1,
-      recording_count: 1,
-      release_count: 1,
-    },
-  ];
-  const [card] = artistShelf(items);
-  expect(card.href).toBe("/artist-groups/group%2F1");
-  expect(card.title).toBe("Slipknot");
+const artist = (
+  id: string,
+  tracks: number,
+  albums: number,
+  featured?: number,
+): Schema<"Artist"> => ({
+  id,
+  library_id: "library",
+  name: `Artist ${id}`,
+  recording_count: tracks,
+  release_count: albums,
+  featured_recording_count: featured,
+  artwork_recording_id: `rec-${id}`,
+  provider_photo: id === "a/1",
+});
+
+test("library artists open the artist page with their cover recording and track count", () => {
+  const [card] = artistShelf([artist("a/1", 1, 1)]);
+  expect(card.href).toBe("/artists/a%2F1");
+  expect(card.title).toBe("Artist a/1");
   expect(card.subtitle).toBe("1 track");
   expect(card.cover).toEqual({
     kind: "artist",
-    id: "group/1",
-    recording: "rec-1",
+    id: "a/1",
+    recording: "rec-a/1",
+    photo: true,
   });
+});
+
+test("an artist without tracks of its own shows its album count, never zero tracks", () => {
+  expect(
+    artistShelf([
+      artist("tracks", 12, 2),
+      artist("albums", 0, 3),
+      artist("album", 0, 1),
+      artist("guest", 0, 0, 2),
+    ]).map((card) => card.subtitle),
+  ).toEqual(["12 tracks", "3 albums", "1 album", "2 appearances"]);
 });
