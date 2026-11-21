@@ -56,6 +56,7 @@ export function queueMediaOwner(initial: QueueMedia) {
       owned.add(media);
       return media;
     }),
+    promote: vi.fn(),
     release: (media) => {
       owned.delete(media);
     },

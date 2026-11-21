@@ -62,7 +62,7 @@ final class Player {
     private var artworkTask: Task<Void, Never>?
     private var warm: (trackId: String, audio: AudioRequest)?
     private var warming: (task: Task<Void, Never>, id: UUID)?
-    private var warmMissed: String?
+    private var lookahead = Lookahead()
     private static let warmLead: Double = 30
     private(set) var stalls = StallWatch()
     private var deadline: Task<Void, Never>?
@@ -201,7 +201,7 @@ final class Player {
 
     func next() {
         resumeAt = nil
-        guard let track = queue.advance() else { return }
+        guard let track = moveOn(.chosen).next else { return }
         load(track)
     }
 
@@ -403,6 +403,7 @@ final class Player {
     }
 
     private func start(_ track: Track) {
+        lookahead = Lookahead()
         if let warm, warm.trackId == track.id, tried.isEmpty {
             self.warm = nil
             log.info("player.prewarm_used")
@@ -455,36 +456,59 @@ final class Player {
     private func dropWarm() {
         warming?.task.cancel()
         warming = nil
-        warmMissed = nil
         guard let warm else { return }
         self.warm = nil
         Task { [playback] in await playback.release(warm.audio.leaseId) }
     }
 
+    private var lookaheadTarget: String? { lookahead.target(queue.upcoming.map(\.id)) }
+
     private func prewarm(remaining: Double) {
-        if let warm, warm.trackId != queue.following?.id { dropWarm() }
+        let target = lookaheadTarget
+        if let warm, warm.trackId != target { dropWarm() }
         guard state == .playing, remaining <= Self.warmLead, warming == nil, warm == nil,
-              let next = queue.following, next.id != queue.current?.id, warmMissed != next.id else { return }
+              let target, target != queue.current?.id else { return }
         let id = UUID()
         let task = Task { [weak self, playback] in
-            let audio = try? await playback.acquire(next.id)
-            guard let self, self.warming?.id == id else {
-                if let audio { Task { await playback.release(audio.leaseId) } }
+            while true {
+                let audio: AudioRequest
+                do {
+                    audio = try await playback.acquire(target)
+                } catch {
+                    guard let self, self.warming?.id == id, !Task.isCancelled else { return }
+                    guard let wait = self.lookahead.missed(target, Lookahead.Miss(error)) else {
+                        self.warming = nil
+                        self.log.info("player.prewarm_missed")
+                        return
+                    }
+                    self.log.info("player.prewarm_retry")
+                    try? await Task.sleep(for: .seconds(wait))
+                    continue
+                }
+                guard let self, self.warming?.id == id else {
+                    Task { await playback.release(audio.leaseId) }
+                    return
+                }
+                self.warming = nil
+                guard !Task.isCancelled, self.lookaheadTarget == target else {
+                    Task { await playback.release(audio.leaseId) }
+                    return
+                }
+                self.lookahead.found(target)
+                self.warm = (target, audio)
+                self.log.info("player.prewarmed")
                 return
             }
-            self.warming = nil
-            guard let audio else {
-                self.warmMissed = next.id
-                return
-            }
-            guard !Task.isCancelled, self.queue.following?.id == next.id else {
-                Task { await playback.release(audio.leaseId) }
-                return
-            }
-            self.warm = (next.id, audio)
-            self.log.info("player.prewarmed")
         }
         warming = (task, id)
+    }
+
+    private func moveOn(_ move: Lookahead.Move) -> (next: Track?, passed: [Track]) {
+        let upcoming = queue.upcoming
+        let passing = lookahead.passing(upcoming.map(\.id), on: move)
+        guard passing < upcoming.count || passing == 0 else { return (nil, upcoming) }
+        for _ in 0..<passing { queue.advance() }
+        return (queue.advance(), Array(upcoming.prefix(passing)))
     }
 
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
@@ -763,13 +787,17 @@ final class Player {
 
     private func ended(_ item: ObjectIdentifier?) {
         guard let item, item == currentIdentity else { return }
-        if let following = queue.advance() {
+        let move = moveOn(.ended)
+        if let following = move.next {
             load(following)
         } else {
             engine.pause()
             state = .paused
             seek(to: 0)
         }
+        guard !move.passed.isEmpty else { return }
+        log.info("player.boundary_passed count=\(move.passed.count, privacy: .public)")
+        notice = Lookahead.notice(move.passed.map(\.title))
     }
 
     private func interrupted(ended: Bool, resume: Bool) {

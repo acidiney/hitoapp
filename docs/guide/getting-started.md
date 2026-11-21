@@ -52,7 +52,7 @@ If nothing is available, the server offers no plugins yet. As the administrator,
 
 Music keeps playing while you move around the app. [Listening](listening.md) covers the player, the queue and lyrics.
 
-When the library is empty, **Home** shows shortcuts: **Choose a music folder**, **Import a playlist** and **Connect a service**.
+When the library is empty, **Home** shows shortcuts: **Choose a music folder**, **Import a playlist** and **Connect a service**. Members see only the last two.
 
 ## Install Hito on your phone
 

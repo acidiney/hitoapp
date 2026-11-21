@@ -19,6 +19,7 @@ const BOUNDARY_WAIT_MS = 10_000;
 
 export type BrowserMediaOwner = {
   create(): MediaPort;
+  promote(media: MediaPort): void;
   release(media: MediaPort): void;
 };
 
@@ -32,6 +33,7 @@ export type PreparationTarget = {
   revision: number;
   entry: string;
   recording: string;
+  duration: number;
 };
 
 export type Prepared = {
@@ -121,7 +123,7 @@ export class BrowserPreparation {
         this.timer = setTimeout(() => finish("timeout"), ACQUISITION_MS);
         media.addEventListener("canplay", readyEvent, { once: true });
         media.addEventListener("error", failedEvent, { once: true });
-        media.openSource(source.id, 0, 0);
+        media.openSource(source.id, 0, this.target.duration);
       });
       if (this.closed) return null;
       if (this.transferred) return this.found;
@@ -246,12 +248,14 @@ export class BrowserPreparation {
   }
 
   transfer() {
-    if (this.closed) return false;
+    if (this.closed) return null;
     this.transferred = true;
     clearTimeout(this.timer);
     this.cancelBuffer?.();
-    this.releaseMedia();
-    return true;
+    const media = this.found?.source ? this.media : null;
+    if (!media) this.releaseMedia();
+    this.media = null;
+    return { media };
   }
 
   close(reason: "superseded" | "deadline" = "superseded") {

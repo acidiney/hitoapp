@@ -66,6 +66,7 @@ export async function providerFixture(
     cookie?: string;
     source: string | null;
     range?: string;
+    at: number;
   }[] = [];
   const server = createServer(async (request, response) => {
     const url = new URL(request.url!, "http://fixture.invalid");
@@ -79,6 +80,7 @@ export async function providerFixture(
         cookie: request.headers.cookie,
         source: url.searchParams.get("source_id"),
         range: request.headers.range,
+        at: Date.now(),
       });
       const sourceId = url.searchParams.get("source_id") ?? "";
       const failure = failures.get(sourceId);

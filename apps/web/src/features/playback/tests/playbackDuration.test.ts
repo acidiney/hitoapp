@@ -210,6 +210,7 @@ test("prepared media owns duration revisions after handoff and retired media sta
       created();
       return prepared;
     },
+    promote: vi.fn(),
     release: vi.fn(),
   };
   const player = new Playback(
@@ -224,19 +225,19 @@ test("prepared media owns duration revisions after handoff and retired media sta
   prepared.metadata();
   prepared.dispatchEvent(new Event("canplay"));
   await player.next();
-  expect(owner.release).toHaveBeenCalledWith(prepared);
-  initial.duration = 220;
-  initial.metadata();
+  expect(owner.promote).toHaveBeenCalledWith(prepared);
+  expect(owner.release).toHaveBeenCalledWith(initial);
   const current = player.positionSnapshot();
+  expect(current).toEqual({ position: 0, duration: 220 });
   const positions = vi.fn();
   player.subscribePosition(positions);
 
-  prepared.duration = 999;
-  prepared.dispatchEvent(new Event("durationchange"));
+  initial.duration = 999;
+  initial.dispatchEvent(new Event("durationchange"));
   expect(player.positionSnapshot()).toBe(current);
   expect(positions).not.toHaveBeenCalled();
-  initial.duration = 180;
-  initial.dispatchEvent(new Event("durationchange"));
+  prepared.duration = 180;
+  prepared.dispatchEvent(new Event("durationchange"));
   expect(player.positionSnapshot()).toEqual({ position: 0, duration: 180 });
   expect(positions).toHaveBeenCalledTimes(1);
   expect(player.snapshot().current?.id).toBe("next");

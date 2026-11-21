@@ -7,7 +7,7 @@ Most of these settings are in **Settings → Profile** and **Settings → Privac
 ## Change your password
 
 1. Open **Settings → Profile**.
-2. Under **Change password**, select **Change password**.
+2. Under **Password**, select **Change password**.
 3. Enter your **Current password**.
 4. Enter the **New password** twice. It needs at least 12 characters.
 5. Select **Change password**.
@@ -41,7 +41,7 @@ Your display name is shown in place of your username in the menu, on Home and in
 
 1. Open **Settings → Profile**.
 2. Under **Display name**, type a name of up to 64 characters.
-3. Select **Save display name**.
+3. Select **Save**.
 
 Clear the field and save to go back to your username.
 
@@ -71,7 +71,7 @@ The lock applies to one device at a time. Other devices stay as they are.
 
 ## Lock automatically when idle
 
-Under **Screen lock**, set **Lock when idle** to **5 minutes**, **15 minutes** or **1 hour**. The default is **Never**. Only your own keyboard, mouse or touch counts as activity, so Hito still locks while music plays in the background.
+Once you have a PIN, **Screen lock** shows **Lock when idle**. Set it to **5 minutes**, **15 minutes** or **1 hour**, then enter your password to confirm. The default is **Never**. Only your own keyboard, mouse or touch counts as activity, so Hito still locks while music plays in the background.
 
 ## Change or remove your PIN
 

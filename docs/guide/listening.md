@@ -32,7 +32,7 @@ If nothing is playing, both start the track straight away.
 
 ## Reorder the queue
 
-Open the queue with **Open queue** or the Q key. It shows **Now playing**, then **Up next**. Tracks you already heard sit under **Played**.
+Open the queue with **Open queue** or the Q key. It shows **Now playing**, then the tracks you already heard under **Played**, then **Up next**.
 
 - Drag a row by its handle to move it.
 - Or open the row menu and choose **Move up** or **Move down**.
@@ -55,7 +55,7 @@ Select **Open now playing** in the player, or press N. On a phone, Now playing h
 
 Lyrics need a lyrics plugin, such as LRCLIB. Without one, the panel shows "No lyrics plugin" and a link to connect one. See [Plugins](plugins.md).
 
-- By default Hito looks up lyrics only when you select **Load lyrics**. To look them up for every track, turn on **Load lyrics automatically** in Settings, Privacy.
+- By default Hito looks up lyrics only when you select **Load lyrics**. To look them up for every track, turn on **Load lyrics automatically** in **Settings → Privacy & lock**.
 - Synced lyrics follow the song. The current line is highlighted. Select any line to jump to that point in the song.
 - If you scroll by hand, following pauses. Select **Back to current line** to resume.
 - Lyrics without timing show as plain text, marked "Not synced".
@@ -73,26 +73,38 @@ The **Source** panel shows where the current track is playing from: a music fold
 
 **Speed** in the Source panel, and the speed menu in the player, change playback speed from 0.5× to 2×.
 
-## Understand Ready and Not ready
+## Choose the streaming quality
+
+Open **Settings → Playback** and pick a **Streaming quality**:
+
+- **Original** plays the file as it is. This is the default.
+- **High · AAC 256 kbit/s** converts the audio to AAC at 256 kbit/s.
+- **Data saver · AAC 128 kbit/s** converts it at 128 kbit/s.
+
+The choice applies when the next track opens. Hito converts the files on your server: tracks in your music folders and saved copies. A file that is already at or below the chosen bitrate, such as a 96 kbit/s MP3 on Data saver, plays as it is. Tracks from a music service keep the quality the service sends.
+
+The browser keeps the choice for that browser only. The iPhone app keeps it for each account on that phone, and shows "This track plays at original quality" when a track can't be converted. The desktop app's own library doesn't offer this setting.
+
+## Understand Ready and No source
 
 Each track shows whether Hito can play it now.
 
 - **Ready · Local** means the audio is in one of your music folders.
 - **Ready · from YouTube**, or another service name, means a connected plugin can play it.
 - **Ready · from your services** means a connected service can play it, but Hito has not checked which one yet.
-- **No source** or **Not ready** means Hito has no playable audio for this track yet. Playlists copied from other services often start this way while Hito finds sources.
+- **No source** means Hito has no playable audio for this track yet. Playlists copied from other services often start this way while Hito finds sources. A playlist counts these tracks as not ready.
 
-The queue skips tracks without a source. To find one, open the row menu and choose **Find audio**. For a track that plays the wrong audio, the same menu offers **Fix source**.
+The queue skips tracks without a source. In the iPhone app, Hito looks for the next track's audio about 30 seconds before the current track ends. If it finds none, it looks once more, then gets the track after it ready, so the queue moves straight on with "*track* has no source that plays right now." A track you choose yourself, with Next or a tap, is still searched for. To find a source, open the row menu and choose **Find audio**. If a track has a source but plays the wrong audio, the same menu item reads **Fix source**.
 
 ## When a source fails
 
 A track can have several sources. Hito tries them in your source order, set in Settings, Playback, **Source order**. Local files and saved copies come first unless you move them.
 
-If a source fails to open, Hito moves to the next ready source. On desktop, when a service is briefly unavailable, Hito looks for audio for the track again, up to three tries within about 15 seconds, before it skips the track. A service that refuses the request is not tried again. In the browser, Hito checks the services once more for new audio, then skips the track. You may see "An audio service is unavailable. Select the track again to retry."
+If a source fails to open, Hito moves to the next ready source. When a service is briefly unavailable, Hito looks for audio for the track again, up to three tries within about 15 seconds, before it skips the track. A service that refuses the request is not tried again. In the browser you may then see "An audio service is unavailable. Select the track again to retry."
 
 To stop after the first failure instead, turn off **Try the next source if one fails** in the same settings.
 
-On iPhone, when a playing track stops receiving audio, Hito shows **Buffering…** and the lock screen clock stops. After 15 seconds, Hito reopens the track where it stopped. If that doesn't help, it moves to the next source, then to the next track. If your server can't be reached, Hito keeps trying for about two minutes, then pauses with "Hito can't reach your server. Press play to try again." Play picks up where the track stopped.
+In the iPhone app, when a playing track stops receiving audio, Hito shows **Buffering…** and the lock screen clock stops. After 15 seconds, Hito reopens the track where it stopped. If that doesn't help, it moves to the next source, then to the next track. If your server can't be reached, Hito keeps trying for about two minutes, then pauses with "Hito can't reach your server. Press play to try again." Play picks up where the track stopped.
 
 While you're not listening, Hito also prepares your library in the background. One track at a time, it finds audio for tracks that have none, and checks links that services let expire. It applies only a match it is sure of, and it never changes a source you chose. It waits at least two minutes between requests to a service, and it stops while the account is playing. In the desktop app it also waits while the computer runs on battery or uses a metered network, such as a phone hotspot or macOS Low Data Mode, and carries on once both clear. To turn this off, open Settings, Playback, **Background preparation** and turn off **Prepare sources in the background**. A track it isn't sure of keeps waiting for you; there is no review list for those yet.
 
@@ -103,7 +115,7 @@ A track that plays from a music service can be saved as a copy on your Hito serv
 1. Open the track's page and go to its **Sources** tab. **Download** in Now playing takes you there too.
 2. Select **Download**. The page shows progress, then **Saved on this server**.
 
-A saved copy plays without contacting the music service. It lives on the server, so the browser still needs a connection to it. To delete it, select **Remove download**.
+A saved copy plays without contacting the music service. It lives on the server, so the browser still needs a connection to it. In the desktop app's own library, the copy is kept on this computer and the page says **Saved on this device**. To delete it, select **Remove download**.
 
 If the server runs out of disk space, the page says so and Hito tries again later. If a download fails, remove it and select **Download** again.
 

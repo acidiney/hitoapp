@@ -203,7 +203,7 @@ test("an account remount aborts next-source acquisition and ignores its late res
   ).toHaveLength(0);
 });
 
-test("an adopted next buffer is released on account change and late media and progress cannot affect the fresh account", async () => {
+test("the buffered next element plays at the boundary, is released on account change and late media and progress cannot affect the fresh account", async () => {
   const media = browserPreparationMedia();
   const progress = deferred<Request>();
   const acknowledgement = deferred<Response>();
@@ -257,24 +257,24 @@ test("an adopted next buffer is released on account change and late media and pr
     });
     unsubscribe();
     const following = await media.loadedSource(afterSource.id);
-    expect(document.querySelector("audio[data-hito-player]")).toBe(initial);
+    expect(document.querySelectorAll("audio[data-hito-player]")).toHaveLength(
+      1,
+    );
+    expect(document.querySelector("audio[data-hito-player]")).toBe(buffered);
+    expect(buffered.hasAttribute("data-hito-preload")).toBe(false);
     expect(document.querySelector("audio[data-hito-preload]")).toBe(following);
-    expect(initial.getAttribute("src")).toBe(audioPath(nextSource.id));
-    expect(buffered.isConnected).toBe(false);
-    expect(buffered.paused).toBe(true);
-    expect(buffered.getAttribute("src")).toBeNull();
-    expect(media.played.map((play) => play.media)).toEqual([initial, initial]);
+    expect(buffered.getAttribute("src")).toBe(audioPath(nextSource.id));
+    expect(following).toBe(initial);
+    expect(initial.paused).toBe(true);
+    expect(media.played.map((play) => play.media)).toEqual([initial, buffered]);
     expect(
-      media.loaded.filter(
-        (load) =>
-          load.media === initial && load.source === audioPath(nextSource.id),
-      ),
-    ).toHaveLength(1);
+      media.loaded.filter((load) => load.source === audioPath(nextSource.id)),
+    ).toEqual([{ media: buffered, source: audioPath(nextSource.id) }]);
     expect(alice.queueSnapshot().currentEntry).toBe(entries[1].id);
     expect((await alice.queuePage(0, 10)).entries).toEqual(entries);
     act(() => {
-      initial.currentTime = 11;
-      initial.dispatchEvent(new Event("timeupdate"));
+      buffered.currentTime = 11;
+      buffered.dispatchEvent(new Event("timeupdate"));
     });
     const pendingProgress = await progress.promise;
     expect(pendingProgress.signal.aborted).toBe(false);
@@ -310,7 +310,7 @@ test("an adopted next buffer is released on account change and late media and pr
     );
     rerender(view("bob"));
     const bob = players.get("bob")!;
-    const oldMedia = [initial, buffered, following];
+    const oldMedia = [initial, buffered];
     for (const audio of oldMedia) {
       expect(audio.isConnected).toBe(false);
       expect(audio.paused).toBe(true);
@@ -374,8 +374,8 @@ test("an adopted next buffer is released on account change and late media and pr
         speed: 1,
       },
     ]);
-    expect(media.created).toHaveLength(4);
-    expect(media.played.map((play) => play.media)).toEqual([initial, initial]);
+    expect(media.created).toHaveLength(3);
+    expect(media.played.map((play) => play.media)).toEqual([initial, buffered]);
     expect(screen.queryByText("Old account progress failed")).toBeNull();
     await expectEmptyAccount(bob);
     expect(media.peakOwned()).toBe(2);
@@ -390,6 +390,56 @@ test("an adopted next buffer is released on account change and late media and pr
     ).toBe(true);
   } finally {
     acknowledgement.resolve(Response.json({ acknowledged: [] }));
+    unmount();
+    media.close();
+  }
+  expect(
+    document.querySelectorAll("audio, [data-hito-player], [data-hito-preload]"),
+  ).toHaveLength(0);
+});
+
+test("the element that played the ended track buffers the following track", async () => {
+  const media = browserPreparationMedia();
+  const ready = new Map([
+    [cachedSourcesPath(first), firstSource],
+    [cachedSourcesPath(next), nextSource],
+    [cachedSourcesPath(after), afterSource],
+  ]);
+  httpBoundary((request) => {
+    const audio = ready.get(request.path);
+    if (audio && request.method === "GET") return Response.json([audio]);
+    if (request.path === "/api/v1/sync" && request.method === "POST")
+      return Response.json({
+        acknowledged: (request.body as Schema<"SyncBatch">).operations.map(
+          (operation) => operation.id,
+        ),
+      });
+    throw new Error("Preparation must not request downloads or mutations");
+  });
+  const { players, unmount } = renderAccount();
+  try {
+    const alice = players.get("alice")!;
+    await act(async () => {
+      await alice.playQueue([first, next, after]);
+    });
+    const initial = media.created[0];
+    const buffered = await media.loadedSource(nextSource.id);
+    await act(async () => {
+      media.canPlay(buffered);
+      media.end(initial);
+    });
+    const following = await media.loadedSource(afterSource.id);
+
+    expect(following).toBe(initial);
+    expect(media.created).toEqual([initial, buffered]);
+    expect(initial.isConnected).toBe(true);
+    expect(initial.paused).toBe(true);
+    expect(initial.hasAttribute("data-hito-preload")).toBe(true);
+    expect(initial.hasAttribute("data-hito-player")).toBe(false);
+    expect(document.querySelector("audio[data-hito-player]")).toBe(buffered);
+    expect(document.querySelectorAll("audio")).toHaveLength(2);
+    expect(media.played.map((play) => play.media)).toEqual([initial, buffered]);
+  } finally {
     unmount();
     media.close();
   }
