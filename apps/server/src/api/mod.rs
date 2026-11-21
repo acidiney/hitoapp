@@ -24,9 +24,11 @@ pub mod collection_artwork;
 pub mod community;
 pub mod downloads;
 pub mod featured;
+pub mod genres;
 pub mod home;
 pub mod host_browser;
 pub mod host_folders;
+pub mod host_place;
 pub mod identity;
 pub mod jobs;
 pub mod loopback_return;
@@ -57,9 +59,15 @@ use serde::Serialize;
 use std::sync::Arc;
 use utoipa::{ToSchema, openapi::OpenApi};
 
+pub const API_LEVEL: u32 = 1;
+pub const MIN_CLIENT_API_LEVEL: u32 = 1;
+
 #[derive(Serialize, ToSchema)]
 pub struct Health {
     pub ready: bool,
+    pub version: String,
+    pub api_level: u32,
+    pub min_client_api_level: u32,
 }
 
 #[utoipa::path(get, path = "/health", responses(
@@ -72,7 +80,15 @@ pub async fn health(State(services): State<Services>) -> (StatusCode, Json<Healt
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     };
-    (status, Json(Health { ready }))
+    (
+        status,
+        Json(Health {
+            ready,
+            version: env!("CARGO_PKG_VERSION").into(),
+            api_level: API_LEVEL,
+            min_client_api_level: MIN_CLIENT_API_LEVEL,
+        }),
+    )
 }
 
 #[utoipa::path(get, path = "/api/v1/openapi.json", responses(

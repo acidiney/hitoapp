@@ -40,20 +40,32 @@ Everything you can do in the browser works in the installed web app: your librar
 
 ## The desktop app
 
-The desktop app runs Hito on your computer without a server. It is in development and has no installers yet.
+The desktop app opens either its own library on your computer or a Hito server. It is in development and has no installers yet.
+
+### Choosing where your music is
+
+The first time it opens, the app asks **Where is your music?**
+
+- **On this computer** starts a private library on this computer for your own folders. Other devices can't reach it.
+- **On a Hito server** asks for the server's address, the one you open in a browser. You can leave out `http://` or `https://`. If the server uses plain http, the app warns once that the connection is not encrypted. Then sign in, or create the administrator if the server has no accounts yet.
+
+The app remembers the choice and the last five servers. To change it, open **Settings → About** and select **Change…** next to **This app uses**. Your library on this computer is kept, and you stay signed in to the server.
+
+If the app can't reach your server when it opens, it shows **Can't reach your server** and tries again every ten seconds. **Change server** goes back to the first screen.
+
+Your sign-in for each server is kept in the computer's own password store: Keychain on macOS, Credential Manager on Windows and the Secret Service on Linux.
 
 ### What it is
 
-- **Its own private library.** The desktop app keeps its own Hito library on your computer. It does not need a separate Hito server, Docker or an internet connection for your own music.
+- **Its own private library.** On this computer, the desktop app keeps its own Hito library. It does not need a separate Hito server, Docker or an internet connection for your own music.
 - **Your Music folder.** It can read the system Music folder after you confirm it in Settings. Nothing is scanned before you confirm.
-- **Native playback.** Audio plays through Hito's own player on your computer, not through a browser. The screens are the same as the web app.
+- **Native playback.** Audio plays through Hito's own player, not through a browser, both for the library on this computer and for a Hito server. Audio the player can't read directly, such as Opus, is converted on this computer with FFmpeg as it plays, from either library. The screens are the same as the web app.
 
 ### What is not available yet
 
 - There are no installers or packages. Building it today needs the developer setup.
 - Shuffle, repeat, previous track and playback speed are not available in the desktop player yet.
 - Operating-system media controls and the lock screen do not show the desktop app's track yet.
-- Connecting the desktop app to a Hito server, with playlists and progress that sync, is planned.
 - Offline downloads on all platforms are planned.
 
 The [roadmap](../roadmap.md) lists what the desktop app still needs before the first release, including signed installers for macOS, Windows and Linux.

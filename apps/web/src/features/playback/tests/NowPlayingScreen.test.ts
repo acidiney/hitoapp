@@ -56,6 +56,7 @@ beforeEach(async () => {
       match_kind: "verified",
       ready: true,
       can_prepare: true,
+      community_public: false,
     },
   ];
   vi.stubGlobal("fetch", fetch);

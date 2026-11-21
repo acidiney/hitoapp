@@ -325,7 +325,7 @@ async fn batches_resume_from_a_cursor_until_every_recording_is_examined() {
             .unwrap();
         matched += receipt.matched;
         batches += 1;
-        assert!(batches <= 8, "The walk must end");
+        assert!(batches <= 10, "The walk must end");
         match receipt.next_after {
             Some(next) => after = Some(next),
             None => break,

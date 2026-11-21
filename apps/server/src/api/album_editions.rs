@@ -8,9 +8,10 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    AlbumEditionChoiceReceipt, AlbumEditionTrackListAvailability, AlbumLibraryLevel,
-    AlbumTrackAudio, ChooseAlbumEdition, ClearAlbumEdition, FindAlbumTrackAudio,
-    ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, Services, TaggedAlbumEdition,
+    AddAlbum, AlbumAddition, AlbumAdditionUndone, AlbumEditionChoiceReceipt,
+    AlbumEditionTrackListAvailability, AlbumLibraryLevel, AlbumTrackAudio, ChooseAlbumEdition,
+    ClearAlbumEdition, FindAlbumTrackAudio, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel,
+    Services, TaggedAlbumEdition,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -111,6 +112,61 @@ pub async fn track_audio(
         "Album track audio HTTP request completed"
     );
     Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/albums/{id}/additions", operation_id = "add_album",
+    description = "Add every audio track of the chosen edition that this account does not own yet, at once and without audio. Repeating a request returns the same addition.",
+    params(("id" = String, Path)),
+    request_body = AddAlbum,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AlbumAddition, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_add_album"))]
+pub async fn add(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<AddAlbum>,
+) -> ApiResult<Json<AlbumAddition>> {
+    Ok(Json(
+        services
+            .artist_catalog
+            .add_album(&actor, &id, request)
+            .await?,
+    ))
+}
+
+#[utoipa::path(delete, path = "/api/v1/albums/additions/{addition}", operation_id = "undo_album_addition",
+    description = "Undo an album addition. Tracks used since (liked, in a playlist, played or with audio) stay; the rest are removed. Undoing twice changes nothing.",
+    params(("addition" = Uuid, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AlbumAdditionUndone, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(
+    level = "debug",
+    skip_all,
+    fields(operation = "http_undo_album_addition")
+)]
+pub async fn undo(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(addition): Path<Uuid>,
+) -> ApiResult<Json<AlbumAdditionUndone>> {
+    Ok(Json(
+        services
+            .artist_catalog
+            .undo_album_addition(&actor, addition)
+            .await?,
+    ))
 }
 
 #[utoipa::path(post, path = "/api/v1/albums/{id}/edition/track-list", operation_id = "saved_album_edition_track_list",

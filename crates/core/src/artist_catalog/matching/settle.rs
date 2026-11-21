@@ -34,6 +34,7 @@ pub(super) struct Settlement<'a> {
     pub next_after: Option<String>,
     pub checks: Checks,
     pub reviews: Vec<(String, Vec<ReviewCandidate>)>,
+    pub misses: Vec<(String, bool)>,
 }
 
 pub(super) fn empty_receipt(
@@ -63,6 +64,7 @@ impl ArtistCatalog {
             next_after,
             checks,
             reviews,
+            misses,
         } = settlement;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
@@ -175,6 +177,18 @@ impl ArtistCatalog {
         }
         for (credit, found) in &reviews {
             review_queue::keep(&mut tx, actor, credit, found).await?;
+        }
+        for (credit, missed) in &misses {
+            let statement = if *missed {
+                "INSERT OR IGNORE INTO artist_name_misses(user_id,artist_id) VALUES(?,?)"
+            } else {
+                "DELETE FROM artist_name_misses WHERE user_id=? AND artist_id=?"
+            };
+            sqlx::query(statement)
+                .bind(actor.id())
+                .bind(credit)
+                .execute(&mut *tx)
+                .await?;
         }
         let mut receipt = empty_receipt(request_id, next_after);
         receipt.matched = pending.len() as i64;

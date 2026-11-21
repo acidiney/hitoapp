@@ -3,7 +3,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use std::{future::Future, time::Duration};
 use tower::ServiceExt;
@@ -17,6 +17,7 @@ async fn accepted_playback_survives_restart_and_retry_without_inflating_ranking(
     let config = || Config {
         state_directory: directory.path().join("community"),
         admin_token: ADMIN_TOKEN.to_owned(),
+        limits: Limits::default(),
     };
     let service = phase("open", Service::open(config())).await.unwrap();
     let app = router(service.clone());

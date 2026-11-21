@@ -24,6 +24,7 @@ export type SettingId =
   | "playback-engine"
   | "streaming-quality"
   | "source-preference"
+  | "background-preparation"
   | "accounts-access"
   | "shared-corrections"
   | "about-hito";
@@ -209,6 +210,15 @@ const ENTRIES: SettingEntry[] = [
       "Which source plays first when a track has several. A source you choose for one track always wins.",
     keywords:
       "source order priority provider local files saved copies fallback next source fails",
+  },
+  {
+    id: "background-preparation",
+    section: "playback",
+    label: "Background preparation",
+    description:
+      "Find and check audio for your tracks while you're not listening, so Play starts sooner.",
+    keywords:
+      "background prepare sources ready play faster find audio check links expire",
   },
   {
     id: "accounts-access",

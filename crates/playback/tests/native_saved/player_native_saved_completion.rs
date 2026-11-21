@@ -66,7 +66,11 @@ async fn restored_end_and_beyond_end_advance_without_a_checkpoint_or_played_occu
         .await
         .unwrap()
         .unwrap();
-        let paused = f.position.borrow().position_ms;
+        let departed_position_ms = 1_000;
+        f.send(PlayerAction::Seek {
+            position_ms: departed_position_ms,
+        })
+        .await;
         tokio::time::timeout(Duration::from_secs(3), async {
             loop {
                 if f.source
@@ -78,7 +82,7 @@ async fn restored_end_and_beyond_end_advance_without_a_checkpoint_or_played_occu
                     )
                     .await
                     .unwrap()
-                    .is_some_and(|s| s.position_ms == paused)
+                    .is_some_and(|s| s.position_ms == departed_position_ms)
                 {
                     break;
                 }

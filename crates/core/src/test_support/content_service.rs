@@ -226,20 +226,29 @@ async fn audio(
     let (mut status, mut headers, mut bytes) = state.audio.read().await.clone();
     if let Some(maximum) = *state.range_chunk.read().await {
         headers.insert("accept-ranges", "bytes".parse().unwrap());
-        if let Some(first) = first {
-            let total = bytes.len();
-            if first >= total {
-                headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
-                return (StatusCode::RANGE_NOT_SATISFIABLE, headers).into_response();
+        if let Some(range) = range.as_deref() {
+            if maximum == 0 {
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
-            let end = first.saturating_add(maximum).min(total);
+            let total = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+            let Some(selection) = parse_byte_range(range).and_then(|range| range.resolve(total))
+            else {
+                headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
+                headers.insert("content-length", "0".parse().unwrap());
+                return (StatusCode::RANGE_NOT_SATISFIABLE, headers, Vec::new()).into_response();
+            };
+            let first = usize::try_from(*selection.start()).unwrap();
+            let maximum = u64::try_from(maximum).unwrap_or(u64::MAX);
+            let last = selection
+                .start()
+                .saturating_add(maximum.saturating_sub(1))
+                .min(*selection.end());
+            let end = usize::try_from(last.saturating_add(1)).unwrap();
             bytes = bytes[first..end].to_vec();
             status = StatusCode::PARTIAL_CONTENT;
             headers.insert(
                 "content-range",
-                format!("bytes {first}-{}/{total}", end - 1)
-                    .parse()
-                    .unwrap(),
+                format!("bytes {first}-{last}/{total}").parse().unwrap(),
             );
         }
         headers.insert("content-length", bytes.len().to_string().parse().unwrap());
@@ -310,6 +319,34 @@ async fn audio(
         return (status, headers, body).into_response();
     }
     (status, headers, bytes).into_response()
+}
+
+fn parse_byte_range(value: &str) -> Option<crate::ByteRange> {
+    let value = value.strip_prefix("bytes=")?;
+    if value.contains(',') || value.contains('=') {
+        return None;
+    }
+    let (first, last) = value.split_once('-')?;
+    if first.is_empty() {
+        return Some(crate::ByteRange::Suffix {
+            length: parse_range_number(last)?,
+        });
+    }
+    Some(crate::ByteRange::From {
+        first: parse_range_number(first)?,
+        last: if last.is_empty() {
+            None
+        } else {
+            Some(parse_range_number(last)?)
+        },
+    })
+}
+
+fn parse_range_number(value: &str) -> Option<u64> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse().ok()
 }
 
 struct BrokenTail(tokio::io::DuplexStream);

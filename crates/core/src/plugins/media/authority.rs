@@ -6,15 +6,32 @@ pub(crate) struct Authority {
     pub store: Store,
     pub account: String,
     pub installation: String,
+    pub installation_revision: i64,
     pub service: String,
+    pub service_revision: i64,
     pub credential: Option<Vec<u8>>,
     pub source: String,
     pub remote_source: String,
     pub generation: i64,
     pub binding: String,
     pub binding_revision: i64,
+    pub source_generation: i64,
 }
 impl Authority {
+    pub(crate) fn same_identity(&self, other: &Self) -> bool {
+        self.account == other.account
+            && self.installation == other.installation
+            && self.installation_revision == other.installation_revision
+            && self.service == other.service
+            && self.service_revision == other.service_revision
+            && self.credential == other.credential
+            && self.source == other.source
+            && self.remote_source == other.remote_source
+            && self.generation == other.generation
+            && self.binding == other.binding
+            && self.binding_revision == other.binding_revision
+            && self.source_generation == other.source_generation
+    }
     pub(in crate::plugins) async fn while_valid<T>(
         &self,
         future: impl std::future::Future<Output = Result<T>>,
@@ -39,9 +56,10 @@ impl Authority {
             AND ps.source_id=? AND ps.provider_source_id=?
             AND item.id=? AND item.revision=?
             AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value='sources'))")
-            .bind(&self.installation).bind(&self.account).bind(&self.service).bind(&self.credential)
-            .bind(self.generation)
-            .bind(&self.source).bind(&self.remote_source).bind(&self.binding).bind(self.binding_revision).fetch_one(&self.store.pool)).await
+            .bind(&self.installation).bind(&self.account).bind(&self.service)
+            .bind(&self.credential).bind(self.generation)
+            .bind(&self.source).bind(&self.remote_source)
+            .bind(&self.binding).bind(self.binding_revision).fetch_one(&self.store.pool)).await
             .map_err(|_| Error::Upstream("Audio authorization could not be checked in time"))??;
         if allowed {
             Ok(())

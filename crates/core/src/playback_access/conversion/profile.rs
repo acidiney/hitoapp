@@ -1,11 +1,11 @@
 use super::{
     ConversionSlot,
-    process::{retire, spawn_error, stdin_of, unfinished},
+    process::{cancelled, retire, spawn_error, stdin_of, unfinished},
 };
 use crate::{AudioFile, MediaTools, PlaybackSource, Result, media_command};
 use serde::Deserialize;
 use std::{ffi::OsString, path::Path, process::Stdio, time::Duration};
-use tokio::{io::AsyncReadExt, sync::oneshot};
+use tokio::{io::AsyncReadExt, sync::watch};
 use tracing::Instrument;
 
 const PROBE_LIMIT: usize = 16384;
@@ -66,8 +66,12 @@ pub(super) async fn probe(
     file: &AudioFile,
     authority: PlaybackSource,
     slot: ConversionSlot,
+    cancel: &mut watch::Receiver<bool>,
 ) -> Result<(SourceProfile, ConversionSlot)> {
     authority.check().await?;
+    if *cancel.borrow() {
+        return Err(unfinished());
+    }
     let mut arguments = media_command::audio_input(Path::new("/dev/stdin"));
     arguments.extend(
         [
@@ -84,29 +88,41 @@ pub(super) async fn probe(
     command.stdin(stdin_of(file)?).stderr(Stdio::null());
     let mut child = command.spawn().map_err(spawn_error)?;
     let stdout = child.stdout.take();
-    let (mut sender, receiver) = oneshot::channel();
     let span = tracing::debug_span!(
         "audio_conversion_probe",
         playback_grant = authority.correlation_id()
     );
-    tokio::spawn(async move {
-        let operation = async {
-            let mut output = Vec::new();
-            stdout.ok_or_else(unfinished)?.take(PROBE_LIMIT as u64 + 1).read_to_end(&mut output).await.map_err(|_| unfinished())?;
-            if output.len() > PROBE_LIMIT { return Err(unfinished()); }
-            if !child.wait().await.map_err(|_| unfinished())?.success() { return Err(unfinished()); }
-            parse(&output)
+    let mut output = Vec::new();
+    let result = async {
+        let read = async {
+            stdout
+                .ok_or_else(unfinished)?
+                .take(PROBE_LIMIT as u64 + 1)
+                .read_to_end(&mut output)
+                .await
+                .map_err(|_| unfinished())?;
+            if output.len() > PROBE_LIMIT {
+                return Err(unfinished());
+            }
+            if !child.wait().await.map_err(|_| unfinished())?.success() {
+                return Err(unfinished());
+            }
+            Ok(())
         };
         let result = tokio::select! {
             biased;
-            _ = sender.closed() => Err(unfinished()),
+            _ = cancelled(cancel) => Err(unfinished()),
             error = authority.revoked() => Err(error),
-            result = tokio::time::timeout(PROBE_TIMEOUT, operation) => result.unwrap_or_else(|_| Err(unfinished())),
+            result = tokio::time::timeout(PROBE_TIMEOUT, read) => result.unwrap_or_else(|_| Err(unfinished())),
         };
         retire(&mut child).await;
-        let _ = sender.send(result.map(|profile| (profile, slot)));
-    }.instrument(span));
-    receiver.await.map_err(|_| unfinished())?
+        result
+    }
+    .instrument(span)
+    .await;
+    result
+        .and_then(|()| parse(&output))
+        .map(|profile| (profile, slot))
 }
 
 fn parse(output: &[u8]) -> Result<SourceProfile> {

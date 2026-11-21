@@ -260,6 +260,17 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if let Some(view) = super::schema::album_additions_schema::declarations()
+            .into_iter()
+            .find(|object| object.0 == expected.0 && object.1 == expected.1)
+            .filter(|_| {
+                super::schema::album_additions_schema::REPLACED
+                    .iter()
+                    .any(|(kind, name)| *kind == expected.0 && *name == expected.1)
+            })
+        {
+            expected = view;
+        }
         assert!(
             after.contains(&expected),
             "the artwork upgrade must retain unrelated schema and every original index and lifecycle trigger: {}",

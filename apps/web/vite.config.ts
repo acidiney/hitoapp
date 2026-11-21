@@ -1,13 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { assetFileNames } from "./vite.assets";
+import { assetFileNames, stylesheetGuard } from "./vite.assets";
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), stylesheetGuard],
   build: {
     rollupOptions: {
-      input: "src/app/main.tsx",
+      input: { app: "src/app/main.tsx", "first-open": "first-open.html" },
       output: {
-        entryFileNames: "assets/app.js",
+        entryFileNames: (chunk) =>
+          chunk.name === "app" ? "assets/app.js" : "assets/[name]-[hash].js",
         assetFileNames,
         chunkFileNames: "assets/[name]-[hash].js",
       },

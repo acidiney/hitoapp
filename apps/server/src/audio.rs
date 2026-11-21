@@ -1,7 +1,5 @@
 mod original;
 
-pub(crate) use original::lease_response;
-
 use crate::error::ApiResult;
 use axum::{
     body::Body,
@@ -13,6 +11,7 @@ use serde::Deserialize;
 use std::time::{Duration, Instant};
 use tracing::Instrument;
 use utoipa::IntoParams;
+use uuid::Uuid;
 
 #[derive(Default, Deserialize, IntoParams)]
 #[serde(deny_unknown_fields)]
@@ -34,6 +33,37 @@ pub async fn response(
     request: Request<Body>,
 ) -> ApiResult<Response> {
     let started = Instant::now();
+    let Some(quality_request) = quality_request(&query, &request)? else {
+        return original::response(playback, actor, source, request).await;
+    };
+    let opened = playback
+        .open_quality_audio(actor, source, quality_request)
+        .await?;
+    negotiated(opened, &query, quality_request.original.head, started)
+}
+
+#[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.user().id.as_str(), quality = query.quality.label()))]
+pub(crate) async fn lease_response(
+    playback: &PlaybackAccess,
+    actor: &Actor,
+    id: Uuid,
+    query: AudioQuery,
+    request: Request<Body>,
+) -> ApiResult<Response> {
+    let started = Instant::now();
+    let Some(quality_request) = quality_request(&query, &request)? else {
+        return original::lease_response(playback, actor, id, request).await;
+    };
+    let opened = playback
+        .open_lease_quality_audio(actor, id, quality_request)
+        .await?;
+    negotiated(opened, &query, quality_request.original.head, started)
+}
+
+fn quality_request(
+    query: &AudioQuery,
+    request: &Request<Body>,
+) -> ApiResult<Option<QualityRequest>> {
     let quality_request = QualityRequest {
         quality: query.quality,
         start: Duration::from_millis(query.start_ms),
@@ -50,25 +80,27 @@ pub async fn response(
             )
             .into());
         }
-        return original::response(playback, actor, source, request).await;
+        return Ok(None);
     }
-    let opened = playback
-        .open_quality_audio(actor, source, quality_request)
-        .await?;
+    Ok(Some(quality_request))
+}
+
+fn negotiated(
+    opened: QualityAudio,
+    query: &AudioQuery,
+    head: bool,
+    started: Instant,
+) -> ApiResult<Response> {
     match opened {
         QualityAudio::Original { audio, reason } => {
             tracing::debug!(
                 event = "audio_quality_response",
-                outcome = if quality_request.original.head {
-                    "original"
-                } else {
-                    "retry_original"
-                },
+                outcome = if head { "original" } else { "retry_original" },
                 reason,
                 elapsed_ms = started.elapsed().as_millis() as u64,
                 "Audio quality negotiated"
             );
-            if !quality_request.original.head {
+            if !head {
                 drop(audio);
                 return Err(hito_core::Error::Conflict(
                     "Selected audio quality is unavailable; retry the original stream".into(),

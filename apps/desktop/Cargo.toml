@@ -9,7 +9,7 @@ license.workspace = true
 default = []
 device = ["hito-playback/device"]
 native-media = ["dep:souvlaki"]
-gui = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-build", "native-media", "device"]
+gui = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-build", "dep:keyring", "native-media", "device"]
 
 [dependencies]
 hito-core = { path = "../../crates/core" }
@@ -18,36 +18,50 @@ hito-playback = { path = "../../crates/playback" }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 thiserror.workspace = true
 url.workspace = true
 futures-util.workspace = true
+bytes.workspace = true
+sha2.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+reqwest = { workspace = true, features = ["stream"] }
+rustls.workspace = true
+tower-http.workspace = true
 subtle = "2.6.1"
 tauri = { version = "=2.12.4", optional = true }
 souvlaki = { version = "=0.8.3", optional = true }
 tauri-plugin-dialog = { version = "=2.8.4", optional = true, default-features = false, features = ["gtk3"] }
 
 tauri-plugin-opener = { version = "=2.7.2", optional = true, default-features = false }
+keyring = { version = "3.6", optional = true, default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "=0.6.2"
+core-foundation = "=0.10.1"
+dispatch2 = "=0.3.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "=0.62.2", features = ["Foundation", "Networking_Connectivity", "Win32_Foundation", "Win32_System_Power"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = "=0.9.12"
 
 [build-dependencies]
 tauri-build = { version = "2.7.2", optional = true }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 hito-audio = { path = "../../crates/audio", features = ["test-support"] }
 hito-testkit = { path = "../../crates/testkit" }
 tempfile.workspace = true
-reqwest.workspace = true
 sha2.workspace = true
 base64.workspace = true
-serde_json.workspace = true
 sqlx.workspace = true
-
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-dbus = "=0.9.12"
 
 [[bin]]
 name = "hito-desktop"

@@ -35,6 +35,13 @@ pub struct SuccessfulPlayback {
     pub submission_id: uuid::Uuid,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SameRecording {
+    pub submission_id: uuid::Uuid,
+    pub other_source_id: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CommunityReportAdmission {

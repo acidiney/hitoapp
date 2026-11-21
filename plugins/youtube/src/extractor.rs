@@ -97,7 +97,6 @@ impl Extractor {
             let dispatch = tracing::dispatcher::get_default(Clone::clone);
             self.workers.spawn(
                 async move {
-                    let _permit = permit;
                     let started = Instant::now();
                     let canceled = async {
                         tokio::select! {
@@ -125,6 +124,7 @@ impl Extractor {
                             .map_or_else(|error| error.outcome(), |_| "complete"),
                         elapsed_ms = started.elapsed().as_millis() as u64
                     );
+                    drop(permit);
                     let _ = sender.send(result);
                 }
                 .instrument(tracing::Span::current())

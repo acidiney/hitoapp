@@ -1,5 +1,6 @@
+use super::identity::PlayerListener;
 use super::{Playback, error::Error};
-use crate::{auth::Account, error::ErrorResponse, extract::JsonBody};
+use crate::{error::ErrorResponse, extract::JsonBody};
 use axum::{
     Extension,
     response::{
@@ -29,7 +30,7 @@ pub struct PlayerObservation {
     (status = 422, body = ErrorResponse), (status = 429, body = ErrorResponse), (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn state(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(input): JsonBody<PlayerObservation>,
 ) -> Result<Response, Error> {
@@ -50,7 +51,7 @@ pub async fn state(
     (status = 422, body = ErrorResponse), (status = 429, body = ErrorResponse), (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn position(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(input): JsonBody<PlayerObservation>,
 ) -> Result<Response, Error> {

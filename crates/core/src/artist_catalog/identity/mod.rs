@@ -5,6 +5,7 @@ mod credit;
 mod group_targets;
 pub(in crate::artist_catalog) mod groups;
 mod member_choices;
+mod member_credit;
 mod member_reset;
 pub(in crate::artist_catalog) mod receipts;
 mod reset;

@@ -7,9 +7,15 @@ mod authority;
 mod basic;
 #[path = "playback_leases/descriptor.rs"]
 mod descriptor;
+#[path = "playback_leases/direct.rs"]
+mod direct;
 #[path = "playback_leases/fixture.rs"]
 mod fixture;
 #[path = "playback_leases/lifecycle.rs"]
 mod lifecycle;
+#[path = "playback_leases/pending.rs"]
+mod pending;
+#[path = "playback_leases/reacquisition.rs"]
+mod reacquisition;
 #[path = "playback_leases/remote.rs"]
 mod remote;

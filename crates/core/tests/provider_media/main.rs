@@ -18,6 +18,7 @@ mod provider_audio;
 mod provider_audio_admission;
 mod provider_audio_bodies;
 mod provider_audio_faults;
+mod provider_audio_fixture_ranges;
 mod provider_audio_framing;
 mod provider_audio_lifetime;
 mod provider_audio_logging;

@@ -15,7 +15,7 @@ const credit = { id: "credit-plutonio", name: "Plutonio" };
 const providerArtist = "5b11f4ce-a62d-471e-81fc-a69a8278c7da";
 const suggestionsPath = `/api/v1/artists/${credit.id}/match-suggestions`;
 const statusPath = "/api/v1/artist-matching/status";
-const queuePath = "/api/v1/artist-matching/review-queue?limit=50";
+const queuePath = `/api/v1/artist-matching/review-queue?limit=1&artist=${credit.id}`;
 const confirmPath = `/api/v1/artist-matching/review-queue/${credit.id}/confirm`;
 
 const group: Schema<"ArtistIdentityGroup"> = {

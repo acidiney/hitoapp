@@ -44,6 +44,22 @@ test.each([
     "user_confirmed_candidate",
     "You confirmed this artist from the candidates Hito found.",
   ],
+  [
+    "matched_credit_completion",
+    "Matched to the artist you chose for this credit's other tracks.",
+  ],
+  [
+    "matched_member_solo_credit",
+    "Matched automatically because this artist's own tracks already have this identity.",
+  ],
+  [
+    "matched_member_listed_artist_id",
+    "Matched automatically from the artist identifier listed beside this name.",
+  ],
+  [
+    "matched_member_file_tag_artist_id",
+    "Matched automatically from the one artist identifier in the file's tags left for this name.",
+  ],
 ] as const)("a %s review says how it was matched", (evidence, text) => {
   show(evidence);
   expect(screen.getByText(text)).toBeTruthy();

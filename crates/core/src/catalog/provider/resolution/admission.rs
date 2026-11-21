@@ -20,6 +20,7 @@ struct Slot {
     generation: Uuid,
     phase: Phase,
     successor: Option<Successor>,
+    preempt: Option<oneshot::Sender<()>>,
 }
 
 struct Successor {
@@ -32,6 +33,7 @@ pub(super) struct Caller {
     account: String,
     generation: Uuid,
     ready: Option<oneshot::Receiver<()>>,
+    background: bool,
 }
 
 impl CallerAdmission {
@@ -42,6 +44,14 @@ impl CallerAdmission {
             .map_err(|_| Error::Internal("Source resolution admission is unavailable".into()))?;
         let generation = Uuid::new_v4();
         let ready = if let Some(slot) = active.get_mut(account) {
+            if let Some(preempt) = slot.preempt.take() {
+                let _ = preempt.send(());
+                slot.phase = Phase::Cancelling;
+                tracing::debug!(
+                    event = "source_resolution_background_preempted",
+                    "A listener's resolution asked background preparation to stop"
+                );
+            }
             if !matches!(slot.phase, Phase::Cancelling) || slot.successor.is_some() {
                 drop(active);
                 return Err(busy());
@@ -63,6 +73,7 @@ impl CallerAdmission {
                     generation,
                     phase: Phase::Running,
                     successor: None,
+                    preempt: None,
                 },
             );
             None
@@ -88,11 +99,52 @@ impl CallerAdmission {
             account: account.to_owned(),
             generation,
             ready,
+            background: false,
         })
     }
 }
 
+impl CallerAdmission {
+    pub(super) fn enter_background(
+        &self,
+        account: &str,
+    ) -> Result<Option<(Caller, oneshot::Receiver<()>)>> {
+        let mut active = self
+            .active
+            .lock()
+            .map_err(|_| Error::Internal("Source resolution admission is unavailable".into()))?;
+        if !active.is_empty() {
+            return Ok(None);
+        }
+        let generation = Uuid::new_v4();
+        let (preempt, preempted) = oneshot::channel();
+        active.insert(
+            account.to_owned(),
+            Slot {
+                generation,
+                phase: Phase::Running,
+                successor: None,
+                preempt: Some(preempt),
+            },
+        );
+        Ok(Some((
+            Caller {
+                active: Arc::clone(&self.active),
+                account: account.to_owned(),
+                generation,
+                ready: None,
+                background: true,
+            },
+            preempted,
+        )))
+    }
+}
+
 impl Caller {
+    pub(super) fn background(&self) -> bool {
+        self.background
+    }
+
     pub(super) async fn wait(&mut self) -> Result<()> {
         if let Some(ready) = self.ready.take() {
             let started = Instant::now();
@@ -132,6 +184,7 @@ impl Drop for Caller {
                 if let Some(successor) = slot.successor.take() {
                     slot.generation = successor.generation;
                     slot.phase = Phase::Running;
+                    slot.preempt = None;
                     successor.ready.send(()).is_err()
                 } else {
                     true
@@ -162,4 +215,28 @@ fn busy() -> Error {
         "Source resolution caller capacity is busy"
     );
     Error::Conflict("Source resolution is busy. Try again.".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_listener_takes_over_from_background_preparation() {
+        let admission = CallerAdmission::default();
+        let (background, mut preempted) = admission.enter_background("listener").unwrap().unwrap();
+        assert!(
+            admission.enter_background("other").unwrap().is_none(),
+            "background preparation only starts when nothing else is resolving"
+        );
+        let other = admission.enter("other").unwrap();
+        let mut listener = admission.enter("listener").unwrap();
+        assert!(
+            preempted.try_recv().is_ok(),
+            "the background caller is asked to stop"
+        );
+        drop(background);
+        listener.wait().await.unwrap();
+        drop(other);
+    }
 }

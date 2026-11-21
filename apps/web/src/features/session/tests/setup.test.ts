@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import LoginPage from "../pages/LoginPage";
 import { sessionApi } from "../api/sessionApi";
+import { HttpError } from "../../../shared/http";
 
 vi.mock("@inertiajs/react", () => ({ router: { clearHistory: vi.fn() } }));
 vi.mock("../api/sessionApi", () => ({
@@ -88,5 +89,40 @@ test("a rejected setup shows the error as an alert and keeps the form", async ()
     true,
     "admin",
     "correct horse battery",
+  );
+});
+
+test("when another device finishes setup first, the page turns into sign-in and says why", async () => {
+  vi.mocked(sessionApi.signIn).mockRejectedValueOnce(
+    new HttpError(409, "Setup is already complete"),
+  );
+  setupPage();
+  fireEvent.change(screen.getByLabelText("Username"), {
+    target: { value: "river" },
+  });
+  fireEvent.change(screen.getByLabelText(/^Password/), {
+    target: { value: "correct horse battery" },
+  });
+  fireEvent.submit(screen.getByRole("button", { name: /Create/ }));
+  expect(
+    await screen.findByRole("heading", { name: "Sign in", level: 1 }),
+  ).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Someone else finished setting up this server. Sign in with your account.",
+  );
+  expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe(
+    "river",
+  );
+  vi.mocked(sessionApi.signIn).mockResolvedValueOnce(undefined);
+  fireEvent.change(screen.getByLabelText(/^Password/), {
+    target: { value: "correct horse battery" },
+  });
+  fireEvent.submit(screen.getByRole("button", { name: "Sign in" }));
+  await vi.waitFor(() =>
+    expect(sessionApi.signIn).toHaveBeenLastCalledWith(
+      false,
+      "river",
+      "correct horse battery",
+    ),
   );
 });

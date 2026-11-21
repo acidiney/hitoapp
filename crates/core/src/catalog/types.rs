@@ -2,7 +2,7 @@ use super::credit_members::{CreditMember, CreditRow};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Clone, Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Clone, Serialize, sqlx::FromRow, ToSchema, Deserialize)]
 pub struct Recording {
     pub id: String,
     pub library_id: String,
@@ -73,20 +73,21 @@ pub struct Page<T> {
     pub limit: i64,
 }
 
-#[derive(Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Serialize, sqlx::FromRow, ToSchema, Deserialize)]
 pub struct Source {
     pub id: String,
     pub recording_id: String,
     pub provider: String,
     pub label: String,
     pub provider_label: Option<String>,
+    pub community_public: bool,
     pub device_id: Option<String>,
     pub ready: bool,
     pub can_prepare: bool,
     pub match_kind: SourceMatchKind,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, sqlx::Type, ToSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, sqlx::Type, ToSchema, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(rename_all = "snake_case")]
 pub enum SourceMatchKind {

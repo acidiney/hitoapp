@@ -21,9 +21,24 @@ public struct ServerConnection: Sendable {
         case certificate
         case notHito
         case notReady
+        case serverTooOld(version: String?)
+        case appTooOld
     }
 
-    struct Health: Decodable { let ready: Bool }
+    public static let apiLevel = 1
+    public static let minServerApiLevel = 1
+
+    struct Health: Decodable {
+        let ready: Bool
+        let version: String?
+        let apiLevel: Int?
+        let minClientApiLevel: Int?
+        enum CodingKeys: String, CodingKey {
+            case ready, version
+            case apiLevel = "api_level"
+            case minClientApiLevel = "min_client_api_level"
+        }
+    }
     struct SetupStatus: Decodable {
         let needsSetup: Bool
         enum CodingKeys: String, CodingKey { case needsSetup = "needs_setup" }
@@ -56,6 +71,10 @@ public struct ServerConnection: Sendable {
     }
 
     private func nextStep(at address: ServerAddress, after health: Health) async throws -> NextStep {
+        guard (health.apiLevel ?? 0) >= Self.minServerApiLevel else {
+            throw Problem.serverTooOld(version: health.version)
+        }
+        guard Self.apiLevel >= (health.minClientApiLevel ?? 0) else { throw Problem.appTooOld }
         guard health.ready else { throw Problem.notReady }
         let setup: SetupStatus = try await read(address.url("api/v1/setup"), from: address)
         return setup.needsSetup ? .createAdministrator : .signIn

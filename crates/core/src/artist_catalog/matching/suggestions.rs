@@ -231,6 +231,7 @@ async fn chosen_artists(
                 WHEN name.association_id IS NOT NULL THEN name.evidence_kind
                 WHEN credit.association_id IS NOT NULL THEN 'credit'
                 WHEN coverage.association_id IS NOT NULL THEN 'coverage'
+                WHEN completion.association_id IS NOT NULL THEN 'completion'
                 WHEN confirmed.association_id IS NOT NULL THEN confirmed.evidence_kind END AS kind,
             count(*)
          FROM (SELECT choice.group_id AS group_id,choice.association_id AS association_id ",
@@ -248,6 +249,7 @@ async fn chosen_artists(
          LEFT JOIN artist_association_name_matches name ON name.association_id=current.association_id
          LEFT JOIN artist_association_credit_matches credit ON credit.association_id=current.association_id
          LEFT JOIN artist_association_coverage_matches coverage ON coverage.association_id=current.association_id
+         LEFT JOIN artist_association_completion_matches completion ON completion.association_id=current.association_id
          LEFT JOIN artist_association_candidate_confirmations confirmed ON confirmed.association_id=current.association_id
          GROUP BY current.group_id,kind ORDER BY count(*) DESC,kind",
         );
@@ -264,6 +266,7 @@ async fn chosen_artists(
             Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
             Some("credit") => ArtistAssociationEvidence::MatchedCreditEvidence,
             Some("coverage") => ArtistAssociationEvidence::MatchedCreditCoverage,
+            Some("completion") => ArtistAssociationEvidence::MatchedCreditCompletion,
             Some("user_confirmed_candidate") => ArtistAssociationEvidence::UserConfirmedCandidate,
             Some(_) => {
                 tracing::error!(

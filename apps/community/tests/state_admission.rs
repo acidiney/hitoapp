@@ -5,7 +5,7 @@ use std::{
     os::unix::fs::{DirBuilderExt, PermissionsExt},
 };
 
-use hito_community::{Config, Error, Service};
+use hito_community::{Config, Error, Limits, Service};
 
 #[tokio::test]
 async fn a_replaceable_ancestor_is_rejected_before_mutating_private_state() {
@@ -28,6 +28,7 @@ async fn a_replaceable_ancestor_is_rejected_before_mutating_private_state() {
     let rejected = match Service::open(Config {
         state_directory: state_directory.clone(),
         admin_token: "17a0427d104d87ad8adce74f1fbbe334cb4969d697d0fe4d00bc58e15863a5ad".to_owned(),
+        limits: Limits::default(),
     })
     .await
     {

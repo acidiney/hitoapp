@@ -10,7 +10,7 @@ use axum::{
 use hito_core::{
     ApplyArtistIdentityToCredit, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
     ChooseCreditMemberIdentity, ChooseRecordingArtistIdentity, CreditMemberIdentityChoiceReceipt,
-    RecordingArtistIdentityChoice, RecordingCreditMemberIdentityChoice,
+    MemberArtistIdentity, RecordingArtistIdentityChoice, RecordingCreditMemberIdentityChoice,
     ResetRecordingArtistIdentity, Services,
 };
 use std::time::Instant;
@@ -138,6 +138,59 @@ pub async fn apply_to_credit(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist identity credit HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(get, path = "/api/v1/artists/{id}/member-artist-identity", operation_id = "member_artist_identity",
+    params(("id" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = MemberArtistIdentity), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+))]
+pub async fn member_identity(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Json<MemberArtistIdentity>> {
+    Ok(Json(
+        services
+            .artist_catalog
+            .member_artist_identity(&actor, &id)
+            .await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/v1/artists/{id}/member-artist-identity", operation_id = "apply_artist_identity_to_member_credits",
+    params(("id" = String, Path)), request_body = ApplyArtistIdentityToCredit,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistIdentityCreditReceipt), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_artist_identity_member_credit", request_id = %Uuid::new_v4()))]
+pub async fn apply_to_member_credits(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<ApplyArtistIdentityToCredit>,
+) -> ApiResult<Json<ArtistIdentityCreditReceipt>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .apply_artist_identity_to_member_credits(&actor, &id, request)
+        .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map(|_| "accepted")
+            .unwrap_or_else(|error| error.code()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Artist identity member credit HTTP request completed"
     );
     Ok(Json(result?))
 }

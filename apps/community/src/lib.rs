@@ -13,7 +13,7 @@ mod wire;
 
 use std::sync::Arc;
 
-pub use config::Config;
+pub use config::{Config, Limits};
 pub use error::Error;
 pub use http::router;
 
@@ -28,13 +28,13 @@ pub struct Service {
 
 impl Service {
     pub async fn open(config: Config) -> Result<Self, Error> {
-        let (path, admin_hash) = config.validate()?;
+        let (path, admin_hash, limits) = config.validate()?;
         let storage = Arc::new(storage::Storage::open(path).await?);
         Ok(Self {
             admission: admission::Admission::new(storage.clone(), admin_hash),
-            outcomes: outcomes::Outcomes::new(storage.clone()),
+            outcomes: outcomes::Outcomes::new(storage.clone(), limits),
             rankings: rankings::Rankings::new(storage.clone()),
-            corrections: corrections::Corrections::new(storage.clone()),
+            corrections: corrections::Corrections::new(storage.clone(), limits),
             storage,
         })
     }

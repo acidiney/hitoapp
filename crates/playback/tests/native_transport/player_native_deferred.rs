@@ -55,7 +55,7 @@ fn report(case: &str, captured: &[f32]) -> usize {
 async fn a_source_ready_before_the_boundary_joins_without_a_gap() {
     let f = Deferred::start(seconds(12), seconds(4), Mode::Ready(Duration::ZERO)).await;
     let total = (seconds(12) + seconds(4)) as usize;
-    let mut run = Run::start(f, true, pair).await;
+    let mut run = Run::start_witnessed_when_kept(f, true, pair).await;
     run.send(PlayerAction::Resume {}).await;
     run.queue_finishes(40).await;
     let (captured, events, f) = run.heard().await;

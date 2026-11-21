@@ -132,6 +132,18 @@ impl ArtistCatalog {
         release: &str,
         request: ReadAlbumEditionTrackList,
     ) -> Result<AlbumEditionTrackListAvailability> {
+        Ok(self
+            .read_album_edition_state(actor, release, request)
+            .await?
+            .0)
+    }
+
+    pub(super) async fn read_album_edition_state(
+        &self,
+        actor: &Actor,
+        release: &str,
+        request: ReadAlbumEditionTrackList,
+    ) -> Result<(AlbumEditionTrackListAvailability, Option<MetadataProvider>)> {
         let (detail, read) = self
             .read_album_edition_tracks(actor, release, request)
             .await?;
@@ -142,8 +154,9 @@ impl ArtistCatalog {
                 found.edition_digest,
                 found.playback_revision,
             ),
-            EditionRead::Missing(status) => return Ok(status.into()),
+            EditionRead::Missing(status) => return Ok((status.into(), None)),
         };
+        let provider = association.provider.clone();
         let remembered = self
             .linked_catalog_tracks(actor, &association.provider, &edition.id, None)
             .await?;
@@ -217,17 +230,20 @@ impl ArtistCatalog {
                 installation_id: installation.into(),
                 installation_revision: revision,
             });
-        Ok(AlbumEditionTrackListAvailability::Available {
-            association_id: association.id,
-            edition_digest,
-            stats: EditionTrackStats::from_edition(&edition),
-            edition: Box::new(edition),
-            matches,
-            library_only,
-            attached_occurrences,
-            adoption,
-            is_album_release,
-        })
+        Ok((
+            AlbumEditionTrackListAvailability::Available {
+                association_id: association.id,
+                edition_digest,
+                stats: EditionTrackStats::from_edition(&edition),
+                edition: Box::new(edition),
+                matches,
+                library_only,
+                attached_occurrences,
+                adoption,
+                is_album_release,
+            },
+            Some(provider),
+        ))
     }
 
     pub(super) async fn read_album_edition_tracks(
@@ -259,7 +275,7 @@ impl ArtistCatalog {
         Ok((detail, read))
     }
 
-    async fn linked_recordings(
+    pub(super) async fn linked_recordings(
         &self,
         actor: &Actor,
         installation: &str,

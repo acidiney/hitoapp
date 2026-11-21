@@ -17,10 +17,13 @@ mod web_assets;
 
 pub use api::host_browser::{HostBrowser, HostOpen, HostReturn};
 pub use api::host_folders::{HostChoice, HostFolders};
+pub use api::host_place::{HostPlace, HostPlaceCurrent, HostPlaceOffer};
+pub use api::player::identity::{Identified, Identify, PlayerIdentity};
+pub use api::{API_LEVEL, MIN_CLIENT_API_LEVEL};
 pub use config::{Config, RuntimeConfig};
 pub use routes::{
-    loopback_return_router, openapi, router, router_with_config, router_with_host,
-    router_with_hosts, router_with_player,
+    Hosts, loopback_return_router, native_player_router, openapi, router, router_with_config,
+    router_with_host, router_with_hosts, router_with_player,
 };
 pub use runtime::{offer_configured_plugin_services, run, serve};
 pub use telemetry::application_log;

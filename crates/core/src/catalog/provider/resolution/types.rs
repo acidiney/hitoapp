@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResolveSource {
     pub request_id: Uuid,
 }
 
-#[derive(Clone, Copy, Serialize, ToSchema)]
+#[derive(Clone, Copy, Serialize, ToSchema, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceResolutionOutcome {
     Ready,
@@ -20,7 +20,7 @@ pub enum SourceResolutionOutcome {
 }
 
 impl SourceResolutionOutcome {
-    pub(super) fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Ready => "ready",
             Self::NoSuitableSource => "no_suitable_source",
@@ -44,7 +44,7 @@ impl SourceResolutionOutcome {
     }
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, ToSchema, Deserialize)]
 pub struct SourceResolution {
     pub request_id: Uuid,
     pub resolution_id: Uuid,

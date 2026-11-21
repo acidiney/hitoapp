@@ -156,6 +156,12 @@ pub struct Observation {
     buffered: Vec<u8>,
 }
 impl Observation {
+    pub fn new(response: Response) -> Self {
+        Self {
+            response,
+            buffered: Vec::new(),
+        }
+    }
     pub async fn next(&mut self) -> Option<Value> {
         loop {
             if let Some(end) = self.buffered.windows(2).position(|bytes| bytes == b"\n\n") {

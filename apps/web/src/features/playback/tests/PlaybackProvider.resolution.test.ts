@@ -21,6 +21,7 @@ const source = (recording: string) => ({
   ready: true,
   label: "Owned audio service",
   can_prepare: false,
+  community_public: false,
 });
 const response = (body: unknown) =>
   new Response(JSON.stringify(body), {
