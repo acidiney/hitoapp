@@ -32,7 +32,7 @@ struct GenreTiles: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Spacer(minLength: 0)
                                 Text(genre.title).font(Theme.genreName).lineLimit(2).multilineTextAlignment(.leading)
-                                Text(genre.count).font(Theme.small).foregroundStyle(Theme.text.opacity(0.8))
+                                Text(genre.count).font(Theme.caption).monospacedDigit()
                             }
                             .foregroundStyle(Theme.text)
                             .padding(14)
@@ -63,10 +63,13 @@ struct GenreView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Genre").font(Theme.label).foregroundStyle(Theme.soft)
-                    Text(genre.title).font(Theme.display).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
-                    Text("\(genre.count) in your library").font(Theme.small).foregroundStyle(Theme.soft)
+                HStack(alignment: .center, spacing: 14) {
+                    GenreCover(albums: detail?.albums ?? [], size: 96)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Genre").font(Theme.label).foregroundStyle(Theme.soft)
+                        Text(genre.title).font(Theme.display).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
+                        Text("\((detail?.genre ?? genre).count) in your library").font(Theme.small).foregroundStyle(Theme.soft)
+                    }
                 }
                 if failed {
                     HStack(spacing: 8) {
@@ -99,8 +102,8 @@ struct GenreView: View {
                         .padding(.trailing, -16)
                     }
                     Text("Tracks").font(Theme.section).padding(.top, 8).accessibilityAddTraits(.isHeader)
-                    if paged == nil && detail.mayHaveMore {
-                        Text("Showing the first \(tracks.count) tracks.").font(Theme.small).foregroundStyle(Theme.soft)
+                    if detail.genre.trackCount > tracks.count {
+                        Text("Showing \(tracks.count) of \(detail.genre.shortCount) tracks.").font(Theme.small).foregroundStyle(Theme.soft)
                     }
                     VStack(spacing: 0) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
@@ -172,5 +175,40 @@ struct GenreView: View {
             failed = true
             model.handle(error)
         }
+    }
+}
+
+struct GenreCover: View {
+    let albums: [Album]
+    let size: CGFloat
+
+    var body: some View {
+        if albums.count >= 4 {
+            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    tile(albums[0])
+                    tile(albums[1])
+                }
+                GridRow {
+                    tile(albums[2])
+                    tile(albums[3])
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .accessibilityHidden(true)
+        } else if let first = albums.first {
+            Cover(path: first.artworkPath, size: size, radius: 10)
+        } else {
+            Icon("note", size: 40)
+                .foregroundStyle(Theme.coverMark)
+                .frame(width: size, height: size)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.tile))
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func tile(_ album: Album) -> some View {
+        Cover(path: album.artworkPath, size: size / 2, radius: 0)
     }
 }
