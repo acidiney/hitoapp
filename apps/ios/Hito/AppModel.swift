@@ -146,6 +146,20 @@ final class AppModel {
         }
     }
 
+    var pendingSignIn: PluginSignIn.Attempt? {
+        api.flatMap { store.pendingSignIn(on: $0.address) }
+    }
+
+    func keep(_ attempt: PluginSignIn.Attempt) {
+        guard let api else { return }
+        store.keep(attempt, on: api.address)
+    }
+
+    func forgetSignIn() {
+        guard let api else { return }
+        store.forgetSignIn(on: api.address)
+    }
+
     func renamed(_ user: User) {
         guard case let .signedIn(address, _) = step else { return }
         step = .signedIn(address, user)
