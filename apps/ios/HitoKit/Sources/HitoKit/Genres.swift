@@ -89,6 +89,18 @@ public struct Genres: Sendable {
         return TracksPage(items: page.items, next: page.nextAfter)
     }
 
+    public func tracks(_ key: String, after: String?, past shown: Int) async throws -> TracksPage {
+        var items: [Track] = []
+        var known: Set<String> = []
+        var next = after
+        repeat {
+            let page = try await tracks(key, after: next)
+            for track in page.items where known.insert(track.id).inserted { items.append(track) }
+            next = page.next
+        } while items.count <= shown && next != nil
+        return TracksPage(items: items, next: next)
+    }
+
     public func detail(_ key: String) async throws -> GenreDetail {
         try await api.get(["api", "v1", "genres", "detail"], query: [URLQueryItem(name: "key", value: key)], as: GenreDetail.self)
     }

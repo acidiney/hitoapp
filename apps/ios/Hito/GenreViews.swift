@@ -139,12 +139,12 @@ struct GenreView: View {
     }
 
     private func loadMore() async {
-        guard let api = model.api else { return }
+        guard let api = model.api, let detail else { return }
         loadingMore = true
         moreFailed = false
         defer { loadingMore = false }
         do {
-            let page = try await Genres(api: api).tracks(genre.key, after: paged == nil ? nil : cursor)
+            let page = try await Genres(api: api).tracks(genre.key, after: paged == nil ? nil : cursor, past: paged == nil ? shown(detail).count : 0)
             let known = Set((paged ?? []).map(\.id))
             paged = (paged ?? []) + page.items.filter { !known.contains($0.id) }
             cursor = page.next
@@ -164,6 +164,9 @@ struct GenreView: View {
         failed = false
         do {
             detail = try await Genres(api: api).detail(genre.key)
+            paged = nil
+            cursor = nil
+            moreFailed = false
         } catch is CancellationError {
         } catch {
             failed = true
