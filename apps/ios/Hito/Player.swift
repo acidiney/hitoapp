@@ -37,6 +37,11 @@ final class Player {
     private var resumeAt: Double?
     private var chapters: [String: AudiobookAnchor] = [:]
     private var remembered: Double = 0
+    private var playingAudio: AudioRequest?
+    private var preflight: Task<Void, Never>?
+    private var streamOffset: Double = 0
+    private var streamQuality = StreamingQuality.original
+    private var staysPaused = false
 
     private let playback: Playback
     private let likes: Likes
@@ -212,6 +217,13 @@ final class Player {
 
     func seek(to seconds: Double) {
         position = seconds
+        if streamQuality != .original, let playingAudio, playingAudio.leaseId == leaseId {
+            resumeAt = seconds
+            staysPaused = state == .paused
+            engine.pause()
+            stream(playingAudio, from: seconds)
+            return
+        }
         engine.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
         publish()
     }
@@ -380,6 +392,12 @@ final class Player {
     }
 
     private func releaseLease() {
+        preflight?.cancel()
+        preflight = nil
+        playingAudio = nil
+        streamOffset = 0
+        streamQuality = .original
+        staysPaused = false
         guard let leaseId else { return }
         self.leaseId = nil
         Task { [playback] in await playback.release(leaseId) }
@@ -484,7 +502,32 @@ final class Player {
         sourceLabel = audio.sourceLabel
         sourceId = audio.sourceId
         pickedSource = picked
-        let asset = AVURLAsset(url: audio.url, options: ["AVURLAssetHTTPHeaderFieldsKey": audio.headers])
+        playingAudio = audio
+        stream(audio, from: resumeAt ?? 0)
+    }
+
+    private func stream(_ audio: AudioRequest, from seconds: Double) {
+        let quality = StreamingQuality.preferred(account: account)
+        let original = StreamChoice(url: audio.url, quality: .original, startOffset: 0, fallback: nil)
+        preflight?.cancel()
+        guard quality != .original else { return present(audio, choice: original) }
+        state = .loading
+        publish()
+        preflight = Task { [weak self, playback] in
+            let choice = (try? await playback.stream(audio, quality: quality, from: seconds)) ?? StreamChoice(url: audio.url, quality: .original, startOffset: 0, fallback: StreamChoice.originalOnly)
+            guard let self, !Task.isCancelled, self.leaseId == audio.leaseId else { return }
+            self.present(audio, choice: choice)
+        }
+    }
+
+    private func present(_ audio: AudioRequest, choice: StreamChoice) {
+        streamOffset = choice.startOffset
+        streamQuality = choice.quality
+        if let fallback = choice.fallback {
+            notice = fallback
+            log.info("player.quality_fallback")
+        }
+        let asset = AVURLAsset(url: choice.url, options: ["AVURLAssetHTTPHeaderFieldsKey": audio.headers])
         let item = AVPlayerItem(asset: asset)
         let identity = ObjectIdentifier(item)
         itemStatus = item.observe(\.status) { [weak self] item, _ in
@@ -496,11 +539,18 @@ final class Player {
         if let resumeAt {
             self.resumeAt = nil
             position = resumeAt
-            engine.seek(to: CMTime(seconds: resumeAt, preferredTimescale: 600))
+            if choice.quality == .original {
+                engine.seek(to: CMTime(seconds: resumeAt, preferredTimescale: 600))
+            }
         }
-        engine.play()
-        state = .playing
-        log.info("player.started")
+        if staysPaused {
+            staysPaused = false
+            state = .paused
+        } else {
+            engine.play()
+            state = .playing
+            log.info("player.started")
+        }
         publish()
     }
 
@@ -508,9 +558,15 @@ final class Player {
 
     private func failed(_ item: ObjectIdentifier?) {
         guard let item, item == currentIdentity, let track = queue.current else { return }
+        engine.replaceCurrentItem(with: nil)
+        if streamQuality != .original, let playingAudio, playingAudio.leaseId == leaseId {
+            log.info("player.converted_failed")
+            resumeAt = position
+            present(playingAudio, choice: StreamChoice(url: playingAudio.url, quality: .original, startOffset: 0, fallback: StreamChoice.originalOnly))
+            return
+        }
         log.info("player.source_failed")
         let failedLabel = sourceLabel ?? "That source"
-        engine.replaceCurrentItem(with: nil)
         guard SourceFallback.allows(tried: tried.count, enabled: fallbackEnabled) else {
             log.info("player.fallback_declined")
             return skip(track, because: fallbackEnabled ? "\(track.title) didn't play from any of its sources." : "\(failedLabel) didn't play \(track.title). Trying the next source is off in Settings.")
@@ -731,8 +787,17 @@ final class Player {
 
     private func tick(_ seconds: Double) {
         guard seconds.isFinite, state != .loading else { return }
+        let seconds = seconds + streamOffset
         position = seconds
-        guard let stream = engine.currentItem?.duration.seconds, stream.isFinite, stream > 0 else { return }
+        let reported = engine.currentItem?.duration.seconds
+        let stream: Double
+        if let reported, reported.isFinite, reported > 0 {
+            stream = reported + streamOffset
+        } else if streamQuality != .original, listed > 0 {
+            stream = listed
+        } else {
+            return
+        }
         duration = PlaybackClock.length(stream: stream, listed: listed)
         prewarm(remaining: duration - seconds)
         if abs(seconds - remembered) >= 5 { remember() }
