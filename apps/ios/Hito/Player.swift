@@ -65,7 +65,6 @@ final class Player {
     private var warmMissed: String?
     private static let warmLead: Double = 30
     private(set) var stalls = StallWatch()
-    private var attached: AudioRequest?
     private var deadline: Task<Void, Never>?
     private var engineStatus: NSKeyValueObservation?
     private let network = NWPathMonitor()
@@ -497,7 +496,6 @@ final class Player {
             checkpoint = ProgressCheckpoint()
         }
         leaseId = audio.leaseId
-        attached = audio
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
         sourceId = audio.sourceId
@@ -699,7 +697,7 @@ final class Player {
     }
 
     private func rebuild() {
-        guard let audio = attached, audio.leaseId == leaseId else { return }
+        guard let audio = playingAudio, audio.leaseId == leaseId else { return }
         log.info("player.stall_rebuild at_s=\(Int(self.position), privacy: .public)")
         let at = position
         loading?.cancel()
