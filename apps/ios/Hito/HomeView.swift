@@ -398,7 +398,7 @@ struct YourArtists: View {
                                 .clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 0) {
                                     Text(artist.name).font(Theme.small).lineLimit(1)
-                                    Text("\(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks")").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                                    Text(artist.countLabel).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
                                 }
                             }
                             .frame(width: 136)

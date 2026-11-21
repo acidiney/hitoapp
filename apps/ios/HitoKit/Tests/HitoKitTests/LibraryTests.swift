@@ -73,6 +73,12 @@ import Testing
         #expect(fake.requests.first?.query == "offset=0&limit=50&q=fixture")
     }
 
+    @Test func anArtistWithoutTracksOfItsOwnCountsItsAlbumsNeverZeroTracks() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/artists": .json(200, #"{"items":[{"id":"ar1","library_id":"l1","name":"Track Band","release_count":2,"recording_count":12},{"id":"ar2","library_id":"l1","name":"Album Band","release_count":3,"recording_count":0},{"id":"ar3","library_id":"l1","name":"One Album Band","release_count":1,"recording_count":0},{"id":"ar4","library_id":"l1","name":"Guest","release_count":0,"recording_count":0,"featured_recording_count":2},{"id":"ar5","library_id":"l1","name":"One Track","release_count":0,"recording_count":1}],"total":5,"offset":0,"limit":50}"#)])
+        let page = try await library(fake).artists(offset: 0)
+        #expect(page.items.map(\.countLabel) == ["12 tracks", "3 albums", "1 album", "2 appearances", "1 track"])
+    }
+
     @Test func albumsAreListedNewestFirst() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[{"id":"a1","library_id":"l1","title":"Fixture Album","artist":"Fixture Band","artist_id":null,"track_count":12,"duration_ms":2400000,"inferred_artist":null,"year":2019}],"total":1,"offset":0,"limit":50}"#)])
         let page = try await library(fake).albums(offset: 0)
