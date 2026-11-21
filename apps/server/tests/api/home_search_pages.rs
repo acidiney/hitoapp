@@ -60,7 +60,7 @@ async fn home_page_reads_the_listening_summary_only_when_requested() {
     assert_eq!(home["recent_albums"], json!([]));
     assert_eq!(home["unheard"], json!([]));
     assert!(home["recently_added"].is_array());
-    assert_eq!(full["props"]["artists"]["items"], json!([]));
+    assert_eq!(full["props"]["artists"]["total"], 1);
     assert_eq!(full["props"]["artists"]["limit"], 20);
 
     let partial = page(&app, "/", Some(&token), Some(("HomePage", "playlists"))).await;
