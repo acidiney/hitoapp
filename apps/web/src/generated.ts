@@ -196,6 +196,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/albums/additions/{addition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Undo an album addition. Tracks used since (liked, in a playlist, played or with audio) stay; the rest are removed. Undoing twice changes nothing. */
+        delete: operations["undo_album_addition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/albums/{id}/additions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Add every audio track of the chosen edition that this account does not own yet, at once and without audio. Repeating a request returns the same addition. */
+        post: operations["add_album"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/albums/{id}/edition": {
         parameters: {
             query?: never;
@@ -676,6 +710,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artists/{id}/member-artist-identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["member_artist_identity"];
+        put?: never;
+        post: operations["apply_artist_identity_to_member_credits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artwork-fetches/{id}": {
         parameters: {
             query?: never;
@@ -708,6 +758,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audiobooks/chapters/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Confirm that every chapter still belongs to one of this account's books and is still in a library it can play. A player checks a long selection in chunks. */
+        post: operations["audiobook_chapters_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audiobooks/page": {
         parameters: {
             query?: never;
@@ -734,6 +801,23 @@ export interface paths {
         get: operations["audiobook"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audiobooks/{id}/admission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Admit playback of the target chapter of this account's book. The target must be one of the chapters, every chapter must belong to the book, and the target must have playable audio. */
+        post: operations["audiobook_admission"];
         delete?: never;
         options?: never;
         head?: never;
@@ -951,6 +1035,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/genres": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the same bounded genre tiles as Discover, with at most 18 entries. Genre.track_count is a bounded display count, may be nonexact, and is not a pagination total. */
+        get: operations["genres"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genres/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the existing genre detail and bounded previews of at most 24 albums and 100 tracks. The track preview is not a continuation page and is not guaranteed to match the first page of /api/v1/genres/tracks. track_count may be nonexact. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization. */
+        get: operations["genre_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genres/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns a continuation page in inherited title and recording-ID order. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization. limit defaults to 100 and is clamped to 1 through 200. after is an opaque continuation for the same account and normalized key, not an authorization token. Malformed or out-of-scope continuations, or a missing or inaccessible anchor, return 422 and require restarting pagination. Pages continue through a fixed catalog; catalog changes can alter later pages. */
+        get: operations["genre_tracks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/history": {
         parameters: {
             query?: never;
@@ -1025,6 +1160,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["choose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host/place": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["host_place_offer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host/place/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["host_place_change"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host/place/forget-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["host_place_forget_me"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1232,9 +1415,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access. */
+        /** @description Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access. A client may tag its leases with a stable `client` it keeps across restarts, and may send a `request_id`: repeating a request from the same session returns the lease it already began instead of a new one. */
         post: operations["playback_lease_begin"];
-        delete?: never;
+        /** @description Retire every lease this session began with the given client tag and join their work. A client calls this when it starts, to return the leases an earlier run left behind. Leases of other sessions and other tags are untouched. */
+        delete: operations["playback_lease_release_client"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1265,13 +1449,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Stream the admitted original representation. Single byte ranges are supported when the source is seekable. If-Range ignores Range because this route supplies no conditional validator. There is no conversion or quality negotiation. */
+        /** @description Stream the admitted audio. The default original representation supports single byte ranges when the source is seekable; If-Range ignores Range because this route supplies no conditional validator. High and saver qualities stream AAC from start_ms with no Content-Length or byte ranges, and Range is ignored. When conversion is unavailable, including remote-only sources, the response is 409 and the client should retry the original. */
         get: operations["playback_lease_audio"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
-        /** @description Read original representation headers without an audio body. Range is ignored for HEAD. */
+        /** @description Read the representation headers without an audio body or starting an encoder. Range is ignored for HEAD. For high or saver quality, the headers report the representation GET would stream; when conversion is unavailable they describe the original. */
         head: operations["playback_lease_audio_head"];
         patch?: never;
         trace?: never;
@@ -2038,6 +2222,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["unlink_recording_artist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-associations/{association}/additions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Add every audio track of the chosen edition that this account does not own yet, from an artist's discography. Repeating a request returns the same addition; undo it with the album addition route. */
+        post: operations["add_artist_album"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2940,6 +3141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-preferences/background": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether Hito prepares playable sources for this account's library in the background. On unless the account turned it off. */
+        get: operations["source_readiness_preference"];
+        put: operations["update_source_readiness_preference"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/{id}/audio": {
         parameters: {
             query?: never;
@@ -2953,6 +3171,22 @@ export interface paths {
         delete?: never;
         options?: never;
         head: operations["audio_head"];
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{id}/same-recording": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["suggest_same_recording"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3229,6 +3463,20 @@ export interface components {
         Activity: {
             history: components["schemas"]["HistoryEntry"][];
         };
+        AddAlbum: {
+            association_id: string;
+            edition_id: string;
+            recording_id: string;
+            release_group_id: string;
+            /** Format: uuid */
+            request_id: string;
+        };
+        AddArtistAlbum: {
+            edition_id: string;
+            release_group_id: string;
+            /** Format: uuid */
+            request_id: string;
+        };
         AddedAlbum: {
             artist: string | null;
             id: string;
@@ -3239,6 +3487,19 @@ export interface components {
             /** Format: int64 */
             installation_revision: number;
             provider_recording_id: string;
+        };
+        AlbumAddition: {
+            /** Format: int32 */
+            added: number;
+            /** Format: uuid */
+            id: string;
+            release_id: string;
+        };
+        AlbumAdditionUndone: {
+            /** Format: int32 */
+            kept: number;
+            /** Format: int32 */
+            removed: number;
         };
         AlbumArtistInference: {
             /** @enum {string} */
@@ -3441,7 +3702,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage" | "user_confirmed_candidate" | "matched_recording_id";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage" | "user_confirmed_candidate" | "matched_recording_id" | "matched_credit_completion" | "matched_member_solo_credit" | "matched_member_listed_artist_id" | "matched_member_file_tag_artist_id";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
@@ -3855,6 +4116,10 @@ export interface components {
         };
         /** Format: binary */
         AudioStream: string;
+        AudiobookAdmissionRequest: {
+            chapters: components["schemas"]["AudiobookChapterAnchor"][];
+            target: components["schemas"]["AudiobookChapterAnchor"];
+        };
         AudiobookBookmark: {
             audiobook_id: string;
             entry_id: string;
@@ -3871,6 +4136,9 @@ export interface components {
             entry_id: string;
             /** Format: uuid */
             recording_id: string;
+        };
+        AudiobookChapterCheck: {
+            chapters: components["schemas"]["AudiobookChapterAnchor"][];
         };
         AudiobookContinuation: {
             chapter: components["schemas"]["AudiobookChapterAnchor"];
@@ -3973,7 +4241,10 @@ export interface components {
             library_id: string;
         };
         BeginPlaybackLease: {
+            client?: string | null;
             recording_id: string;
+            /** Format: uuid */
+            request_id?: string | null;
             source_id: string;
         };
         BrowseDirectories: {
@@ -4498,8 +4769,17 @@ export interface components {
         GenrePageProps: components["schemas"]["SharedPageProps"] & {
             genre: components["schemas"]["GenreDetail"];
         };
+        GenreTracksPage: {
+            items: components["schemas"]["Recording"][];
+            next_after: string | null;
+        };
         Health: {
+            /** Format: int32 */
+            api_level: number;
+            /** Format: int32 */
+            min_client_api_level: number;
             ready: boolean;
+            version: string;
         };
         /** @enum {string} */
         HealthReason: "network" | "refused";
@@ -4564,6 +4844,19 @@ export interface components {
         HostFolderOffer: {
             picker: boolean;
             suggestion?: components["schemas"]["DirectoryRef"] | null;
+        };
+        HostPlaceCurrent: {
+            /** @enum {string} */
+            kind: "this_computer";
+        } | {
+            /** @enum {string} */
+            kind: "server";
+            origin: string;
+            remembered?: string | null;
+        };
+        HostPlaceOffer: {
+            changeable: boolean;
+            current?: components["schemas"]["HostPlaceCurrent"] | null;
         };
         ImportProviderPlaylist: {
             /** Format: int64 */
@@ -4826,6 +5119,17 @@ export interface components {
             limit?: number | null;
             /** Format: uuid */
             request_id: string;
+        };
+        MemberArtistIdentity: {
+            artist_id: string;
+            chosen: components["schemas"]["MemberArtistIdentityChosen"][];
+            /** Format: int64 */
+            undecided_tracks: number;
+        };
+        MemberArtistIdentityChosen: {
+            group_id: string;
+            /** Format: int64 */
+            tracks: number;
         };
         MetadataObservation: {
             album: string | null;
@@ -6094,6 +6398,11 @@ export interface components {
             candidate: components["schemas"]["ProviderCandidate"];
             review_stamp: string;
         };
+        SameRecording: {
+            other_source_id: string;
+            /** Format: uuid */
+            submission_id: string;
+        };
         SavedAlbumEdition: {
             association_id: string;
             edition_id: string;
@@ -6274,6 +6583,7 @@ export interface components {
         };
         Source: {
             can_prepare: boolean;
+            community_public: boolean;
             device_id?: string | null;
             id: string;
             label: string;
@@ -6361,6 +6671,9 @@ export interface components {
             source_id: string;
             /** Format: int64 */
             updated_at: number;
+        };
+        SourceReadinessPreference: {
+            enabled: boolean;
         };
         /** @enum {string} */
         SourceRefreshPurpose: "manual" | "playback";
@@ -7397,6 +7710,192 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    undo_album_addition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                addition: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumAdditionUndone"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_album: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAlbum"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumAddition"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8881,6 +9380,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                artist?: string;
             };
             header?: never;
             path?: never;
@@ -9793,6 +10293,164 @@ export interface operations {
             };
         };
     };
+    member_artist_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberArtistIdentity"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    apply_artist_identity_to_member_credits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyArtistIdentityToCredit"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityCreditReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     artwork_fetch: {
         parameters: {
             query?: never;
@@ -9882,6 +10540,101 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    audiobook_chapters_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudiobookChapterCheck"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10033,6 +10786,103 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    audiobook_admission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudiobookAdmissionRequest"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11055,6 +11905,211 @@ export interface operations {
             };
         };
     };
+    genres: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Genre"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    genre_detail: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenreDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    genre_tracks: {
+        parameters: {
+            query: {
+                key: string;
+                limit?: number;
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenreTracksPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     delete_history: {
         parameters: {
             query?: never;
@@ -11340,6 +12395,107 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    host_place_offer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostPlaceOffer"];
+                };
+            };
+        };
+    };
+    host_place_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    host_place_forget_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12227,6 +13383,81 @@ export interface operations {
             };
         };
     };
+    playback_lease_release_client: {
+        parameters: {
+            query: {
+                client: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     playback_lease_status: {
         parameters: {
             query?: never;
@@ -12397,7 +13628,10 @@ export interface operations {
     };
     playback_lease_audio: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: {
                 Range?: string | null;
                 "If-Range"?: string | null;
@@ -12411,10 +13645,15 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                    "audio/aac": components["schemas"]["AudioStream"];
                 };
             };
             206: {
@@ -12423,6 +13662,14 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: {
@@ -12499,7 +13746,10 @@ export interface operations {
     };
     playback_lease_audio_head: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -12510,9 +13760,21 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             401: {
                 headers: {
@@ -16484,6 +17746,122 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_artist_album: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                association: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddArtistAlbum"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumAddition"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22085,6 +23463,136 @@ export interface operations {
             };
         };
     };
+    source_readiness_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceReadinessPreference"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_source_readiness_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceReadinessPreference"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceReadinessPreference"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     audio: {
         parameters: {
             query?: {
@@ -22256,6 +23764,119 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    suggest_same_recording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SameRecording"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityReportAdmission"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityReportAdmission"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };

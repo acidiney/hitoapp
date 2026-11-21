@@ -107,6 +107,7 @@ export function useEditionPlayback(
   const [halted, setHalted] = useState("");
   const [consentOff, setConsentOff] = useState(false);
   const saved = useRef(new Map<string, Schema<"Recording">>());
+  const linked = useRef(new Map<string, Schema<"Recording">>());
   const missed = useRef(new Map<string, "not_found" | "failed">());
   const running = useRef<AbortController | null>(null);
   const [life] = useState(() => {
@@ -122,6 +123,7 @@ export function useEditionPlayback(
   useEffect(() => {
     const pending = finders.current;
     saved.current = new Map();
+    linked.current = new Map();
     missed.current = new Map();
     setRows(new Map());
     setRecordings(new Map());
@@ -137,9 +139,18 @@ export function useEditionPlayback(
   }, [life, audio.scope, edition]);
 
   useEffect(() => {
-    for (const [occurrence, recording] of remembered)
-      if (!saved.current.has(occurrence))
+    for (const [occurrence, recording] of linked.current)
+      if (
+        !remembered.has(occurrence) &&
+        saved.current.get(occurrence) === recording
+      )
+        saved.current.delete(occurrence);
+    for (const [occurrence, recording] of remembered) {
+      const known = saved.current.get(occurrence);
+      if (!known || known === linked.current.get(occurrence))
         saved.current.set(occurrence, recording);
+    }
+    linked.current = new Map(remembered);
     setRecordings(new Map(saved.current));
   }, [remembered]);
 

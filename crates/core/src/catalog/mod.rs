@@ -4,10 +4,12 @@ mod availability;
 mod browse;
 pub(crate) mod credit_members;
 mod featured;
+mod genre_tracks;
 mod genres;
 mod groups;
 pub(crate) mod local_files;
 mod provider;
+mod readiness;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
@@ -17,6 +19,7 @@ pub use provider::{
 };
 pub(crate) use provider::{AudioPermit, CatalogAudio, CatalogTrack};
 pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_metadata};
+pub use readiness::SourceReadinessPreference;
 pub(crate) mod release_availability;
 pub(crate) mod releases;
 pub(crate) mod search;
@@ -34,6 +37,9 @@ mod album_anchor_work;
 #[cfg(test)]
 #[path = "tests/credit_member_work.rs"]
 mod credit_member_work;
+#[cfg(test)]
+#[path = "tests/genre_paging_work.rs"]
+mod genre_paging_work;
 #[cfg(test)]
 #[path = "tests/genre_work.rs"]
 mod genre_work;
@@ -72,6 +78,7 @@ pub(crate) use availability::{
 pub use browse::Browse;
 pub use credit_members::CreditMember;
 pub use featured::{FeaturedEntry, FeaturedShelf};
+pub use genre_tracks::GenreTracksPage;
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};
 pub(crate) use groups::group_step;
@@ -99,4 +106,5 @@ pub struct Catalog {
     pub(crate) cover_art: hito_metadata_musicbrainz::CoverArtClient,
     pub(crate) artist_image: hito_metadata_musicbrainz::ArtistImageClient,
     pub(crate) featured_cache: featured::FeaturedCache,
+    pub(crate) preparation_held: Arc<std::sync::atomic::AtomicBool>,
 }

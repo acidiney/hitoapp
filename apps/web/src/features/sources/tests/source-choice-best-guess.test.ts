@@ -15,6 +15,7 @@ function choiceWith(source: Schema<"Source">): Schema<"SourceChoice"> {
 function renderControls(source: Schema<"Source">, fixSource = vi.fn()) {
   render(
     createElement(SourceChoiceControls, {
+      account: "account-1",
       choice: choiceWith(source),
       stagedSource: null,
       checking: false,

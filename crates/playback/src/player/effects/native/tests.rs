@@ -36,14 +36,14 @@ async fn sources_yield_two_then_one_then_one_grants_for_persistent_provider_fail
         entry: uuid::Uuid::new_v4(),
         start: None,
     };
-    let mut sources = Sources::new(hito.catalog.clone(), hito.playback.clone());
+    let mut sources = Sources::new(crate::seam::Seam::in_process(&hito).sources);
     sources.reset(Some(key));
     let result = tokio::time::timeout(
         Duration::from_secs(4),
         persistent_failure_source_passes(
             &mut sources,
             &server,
-            &actor,
+            &crate::seam::Listener::from(&actor),
             &source.recording_id,
             &source.id,
         ),
@@ -65,7 +65,7 @@ async fn sources_yield_two_then_one_then_one_grants_for_persistent_provider_fail
 async fn persistent_failure_source_passes(
     sources: &mut Sources,
     server: &ProviderServer,
-    actor: &hito_core::Actor,
+    actor: &crate::seam::Listener,
     recording: &str,
     source_id: &str,
 ) -> Result<(), &'static str> {
@@ -217,10 +217,10 @@ async fn deadline_failure_uses_fresh_catalog_access_before_publishing() {
         seek_id: None,
         restoration_id: None,
     };
-    let mut native = Native::new(library.hito.catalog.clone(), library.hito.playback.clone());
+    let mut native = Native::new(crate::seam::Seam::in_process(&library.hito));
     native.target = Some(Target {
         key,
-        actor: actor.clone(),
+        actor: actor.clone().into(),
         recording,
         playing: true,
         play_revision: 1,
@@ -335,10 +335,10 @@ async fn deadline_failure_does_not_skip_after_fresh_library_denial() {
         seek_id: None,
         restoration_id: None,
     };
-    let mut native = Native::new(library.hito.catalog.clone(), library.hito.playback.clone());
+    let mut native = Native::new(crate::seam::Seam::in_process(&library.hito));
     native.target = Some(Target {
         key,
-        actor: actor.clone(),
+        actor: actor.clone().into(),
         recording: uuid::Uuid::parse_str(&recording.id).unwrap(),
         playing: true,
         play_revision: 1,
@@ -413,10 +413,10 @@ async fn finalizer_panic_is_fenced_and_close_drains_pending_tasks() {
         demand: uuid::Uuid::new_v4(),
         ..old
     };
-    let mut native = Native::new(library.hito.catalog.clone(), library.hito.playback.clone());
+    let mut native = Native::new(crate::seam::Seam::in_process(&library.hito));
     native.target = Some(Target {
         key: current_key,
-        actor: library.actor.clone(),
+        actor: library.actor.clone().into(),
         recording,
         playing: true,
         play_revision: 1,
@@ -511,7 +511,7 @@ async fn finalizer_panic_is_fenced_and_close_drains_pending_tasks() {
 async fn unavailable_finalization_suspends_authority_without_exhausting_or_advancing() {
     let library = hang_guard("owned unavailable finalizer fixture", AudioLibrary::start()).await;
     let recording = uuid::Uuid::parse_str(&library.source.recording_id).unwrap();
-    let mut owned = crate::player::attachment::Owned::new(library.actor.clone());
+    let mut owned = crate::player::attachment::Owned::new(library.actor.clone().into());
     owned.retrying = Some(crate::PlayerRetry { attempt: 2, of: 3 });
     owned
         .queue
@@ -535,10 +535,10 @@ async fn unavailable_finalization_suspends_authority_without_exhausting_or_advan
         seek_id: None,
         restoration_id: None,
     };
-    let mut native = Native::new(library.hito.catalog.clone(), library.hito.playback.clone());
+    let mut native = Native::new(crate::seam::Seam::in_process(&library.hito));
     native.target = Some(Target {
         key,
-        actor: library.actor.clone(),
+        actor: library.actor.clone().into(),
         recording,
         playing: true,
         play_revision: 1,

@@ -1,6 +1,7 @@
 use super::{
     ArtistProviderMatchReceipt, MatchArtistsFromProviderEvidence,
     apply::{EvidenceKind, REPLACEABLE},
+    members::MEMBER_CURSOR,
     name_discography::NAME_CURSOR,
     settle::{Checks, Examined, Outcome, Settlement, empty_receipt},
 };
@@ -46,6 +47,7 @@ enum Lookup {
 enum Phase {
     Evidence(Vec<Candidate>, Option<String>),
     Names(String),
+    Members(String),
 }
 
 #[derive(Clone)]
@@ -179,13 +181,14 @@ impl ArtistCatalog {
             if !policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz) {
                 return Ok(empty_receipt(request.request_id, None));
             }
-            match request
-                .after
-                .as_deref()
-                .and_then(|after| after.strip_prefix(NAME_CURSOR))
-            {
-                Some(after) => Phase::Names(after.to_owned()),
-                None => {
+            let after = request.after.as_deref();
+            match (
+                after.and_then(|after| after.strip_prefix(NAME_CURSOR)),
+                after.and_then(|after| after.strip_prefix(MEMBER_CURSOR)),
+            ) {
+                (Some(after), _) => Phase::Names(after.to_owned()),
+                (_, Some(after)) => Phase::Members(after.to_owned()),
+                (None, None) => {
                     let (candidates, next_after) =
                         candidates(&mut connection, actor, request.after.as_deref(), limit).await?;
                     Phase::Evidence(candidates, next_after)
@@ -196,6 +199,11 @@ impl ArtistCatalog {
             Phase::Names(after) => {
                 return self
                     .match_names(actor, request.request_id, &digest, &after)
+                    .await;
+            }
+            Phase::Members(after) => {
+                return self
+                    .match_members(actor, request.request_id, &digest, &after)
                     .await;
             }
             Phase::Evidence(candidates, next_after) => (
@@ -232,6 +240,7 @@ impl ArtistCatalog {
                 next_after,
                 checks: Checks::Evidence,
                 reviews: Vec::new(),
+                misses: Vec::new(),
             },
             examined,
         )

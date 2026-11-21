@@ -38,6 +38,14 @@ async fn queued_with(
     covered: Vec<(String, Option<u64>)>,
     outcome: (i64, i64),
 ) -> Queued {
+    prepared(found, covered, outcome).await.0
+}
+
+async fn prepared(
+    found: Vec<(String, String)>,
+    covered: Vec<(String, Option<u64>)>,
+    outcome: (i64, i64),
+) -> (Queued, hito_core::Services) {
     let musicbrainz = FakeMusicBrainz::start().await;
     musicbrainz.search("Nova Quartet", Reply::Candidates(found));
     musicbrainz.describe(NOVA, "Lisbon fado band", "PT");
@@ -53,7 +61,7 @@ async fn queued_with(
     );
     config.musicbrainz_loopback_endpoint = Some(musicbrainz.endpoint.clone());
     let hito = hito_core::open(config).await.unwrap();
-    let app = hito_server::router(hito);
+    let app = hito_server::router(hito.clone());
     let session = admin(&app).await;
     let token = Some(session.as_str());
     let entry = |id: &str, title: &str, length: u64| {
@@ -143,7 +151,7 @@ async fn queued_with(
         (&names["matched"], &names["uncertain"]),
         (&json!(outcome.0), &json!(outcome.1))
     );
-    (dir, app, session, musicbrainz, origin, recordings)
+    ((dir, app, session, musicbrainz, origin, recordings), hito)
 }
 
 #[tokio::test]
@@ -596,4 +604,64 @@ async fn tracks_left_undecided_beside_matched_tracks_are_offered_the_matched_art
     );
     let (_, after) = call(&app, "GET", QUEUE, Value::Null, token).await;
     assert_eq!(after["total"], 0);
+}
+
+#[tokio::test]
+async fn confirming_an_artist_for_some_tracks_gives_it_to_the_rest_of_the_credit() {
+    let ((dir, app, session, _musicbrainz, _origin, recordings), _hito) = prepared(
+        vec![
+            (NOVA.into(), "Nova Quartet".into()),
+            (NAMESAKE.into(), "Nova Quartet".into()),
+        ],
+        vec![],
+        (0, 3),
+    )
+    .await;
+    let token = Some(session.as_str());
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(dir.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    for recording in &recordings[1..] {
+        sqlx::query("DELETE FROM artist_name_checks WHERE recording_id=?")
+            .bind(recording)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
+    let (_, page) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    let credit = page["items"][0]["artist_id"].as_str().unwrap();
+    let (status, receipt) = call(
+        &app,
+        "POST",
+        &format!("{QUEUE}/{credit}/confirm"),
+        json!({"request_id": Uuid::new_v4(), "provider_artist_id": NOVA}),
+        token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (&receipt["applied"], &receipt["remaining"]),
+        (&json!(1), &json!(0))
+    );
+    for recording in &recordings[1..] {
+        let (status, linked) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/recordings/{recording}/artist-associations"),
+            Value::Null,
+            token,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let nova: Vec<&Value> = linked
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|association| association["provider_artist_id"] == NOVA)
+            .collect();
+        assert_eq!(nova.len(), 1, "{linked}");
+        assert_eq!(nova[0]["evidence"], "matched_credit_completion");
+    }
 }

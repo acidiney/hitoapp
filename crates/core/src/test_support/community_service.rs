@@ -77,6 +77,7 @@ impl CommunityServer {
         let router = Router::new()
             .route("/v1/admin/reporters", post(provision))
             .route("/v1/outcomes", post(outcome))
+            .route("/v1/corrections", post(correction))
             .layer(axum::extract::DefaultBodyLimit::max(16_384))
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -196,6 +197,45 @@ async fn outcome(
     drop(receipts);
     response_barrier(&state.outcome_gate).await;
     (status, Json(receipt))
+}
+
+async fn correction(
+    State(state): State<Arc<Fixture>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let token =
+        authorization(&headers).and_then(|value| value.strip_prefix("Bearer ").map(str::to_owned));
+    let reporters = state.reporters.lock().await;
+    let authorized = token
+        .as_ref()
+        .is_some_and(|token| reporters.contains(token));
+    drop(reporters);
+    let submission = body
+        .get("submission_id")
+        .and_then(Value::as_str)
+        .and_then(|value| Uuid::parse_str(value).ok());
+    let valid = submission.is_some_and(|id| id.get_version_num() == 4)
+        && body["relation"] == "same_recording"
+        && body["left"]["provider"].is_string()
+        && body["right"]["provider"].is_string();
+    state.requests.lock().await.push(Request {
+        path: "/v1/corrections",
+        authorization: authorization(&headers),
+        body,
+    });
+    if !authorized || !valid {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "invalid"})),
+        );
+    }
+    (
+        StatusCode::CREATED,
+        Json(
+            json!({"correction_id": Uuid::new_v4(), "submission_id": submission, "status": "pending"}),
+        ),
+    )
 }
 
 async fn hold(pending: &Mutex<Option<Arc<Gate>>>) -> HeldResponse {

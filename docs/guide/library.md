@@ -48,6 +48,14 @@ Albums and artists come from the tags in your files and from tracks you saved th
 
 To browse by genre, open **Discover**. **Genres you own** lists the busiest genres in your library. Genres come from your file tags. Tracks without a genre tag can get one from MusicBrainz when automatic artist lookups are on.
 
+## Add a whole album
+
+An album page shows the full edition: tracks you own, and tracks you don't. If you own none of them, select **Add album**. If you own some, select **Add the other N**. On a phone, both are in the **More** menu.
+
+Every missing track joins your library at once, filed under that album, even before Hito has found audio for it. Hito looks for audio when you play a track, or in the background if **Prepare sources in the background** is on.
+
+Right after adding, **Undo** takes the tracks out again. A track you have already liked, put in a playlist, played, or that has audio, stays in your library, and Hito tells you how many it kept.
+
 ## Search
 
 Open **Search** in the sidebar and start typing. Results update as you type and are grouped into tracks, albums and artists. Search ignores case and accents, so "bjork" finds "Björk".
@@ -95,6 +103,8 @@ Nothing changes until you confirm.
 
 On an artist credit page, **Choose the artist** can apply one artist to every track with that credit. Hito shows what will change before it writes anything. Tracks that already have a different artist keep it.
 
+Once you confirm or choose an artist for some of a credit's tracks, the next background match gives that artist to the credit's other tracks that have no artist yet. Their **Saved artist reviews** say "Matched to the artist you chose for this credit's other tracks." Hito skips this when another artist is linked to any track of that credit, when you dismissed that artist for the credit, and when the credit names several artists. Tracks with a personal artist edit keep what they have.
+
 ### Choose the artist for one credited artist
 
 When a track credits more than one artist, such as a featured guest, you can pick the artist for each of them separately.
@@ -104,6 +114,18 @@ When a track credits more than one artist, such as a featured guest, you can pic
 3. To undo it, select **Clear choice**. The credit goes back to **Not chosen yet**.
 
 This choice is yours alone. It does not change the track's other credits or its **Linked artist**.
+
+### How Hito matches credited artists on its own
+
+Automatic matching also picks an artist for each credited artist when your own library vouches for it:
+
+- Another track of yours is credited to that name alone and already has exactly one artist.
+- The file lists a MusicBrainz identifier beside each name.
+- The file's artist identifiers leave exactly one identifier for the last credited artist that has none.
+
+A combined name such as "Ada & Bo, Cy" is only split when MusicBrainz has no artist with the whole name and every part has its own track with an artist, as above. So a duo whose name contains "&" stays whole when MusicBrainz knows the duo. A name you chose or cleared for the whole credit also keeps it whole. Parts after "feat." are listed as featured. A split credit lists its parts under **Credited artists** and leaves the review queue once every part has an artist. If a part loses its own artist, the next matching run puts the name back together, unless you changed the choice for one of its parts yourself.
+
+Hito never replaces a choice you made, including **Clear choice**, and leaves tracks with a personal artist edit alone.
 
 ### Undo an artist link
 

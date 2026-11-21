@@ -5,6 +5,11 @@ import RouteLink from "../../../shared/ui/RouteLink";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { longDuration } from "../../artists/model/catalogAlbumRows";
 import AlbumActions from "../components/AlbumActions";
+import {
+  useAlbumAddition,
+  type AlbumAdditionSource,
+} from "../hooks/useAlbumAddition";
+import { albumAdditionApi } from "../api/albumAdditionApi";
 import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
 import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import Artwork from "../../artwork/components/Artwork";
@@ -74,6 +79,27 @@ export default function AlbumPage({
   const sharedTrackArtist =
     trackArtistIds.size === 1 ? ([...trackArtistIds][0] ?? null) : null;
   const artistId = release.artist_id ?? sharedTrackArtist;
+  const additionRequest = editionPlay?.addition ?? null;
+  const additionSource = useMemo<AlbumAdditionSource | null>(
+    () =>
+      editionPlay && additionRequest
+        ? {
+            key: `${release.id}/${additionRequest.edition_id}`,
+            missing: editionPlay.missing,
+            total: editionPlay.tracks,
+            add: (requestId, signal) =>
+              albumAdditionApi.add(
+                user.id,
+                release.id,
+                { ...additionRequest, request_id: requestId },
+                signal,
+              ),
+            refresh: editionPlay.refresh,
+          }
+        : null,
+    [editionPlay, additionRequest, release.id, user.id],
+  );
+  const addition = useAlbumAddition(user.id, additionSource);
   const trackCount = editionPlay?.tracks ?? release.track_count;
   const durationMs = editionPlay ? editionPlay.durationMs : release.duration_ms;
   const libraryPlay = usePlayTracks(tracks, listing);
@@ -125,6 +151,7 @@ export default function AlbumPage({
           actions={
             <AlbumActions
               play={play}
+              addition={addition}
               detailsHref={`/albums/${encodeURIComponent(release.id)}/details`}
               retry={retry}
             />

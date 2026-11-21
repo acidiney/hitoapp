@@ -528,6 +528,17 @@ impl RetainedState {
             .insert("users".into(), declared.get("users").unwrap().clone());
         self.schema
             .insert("sessions".into(), declared.get("sessions").unwrap().clone());
+        reference.close().await.unwrap();
+        let mut reference = collection_artwork_schema::reference_101().await;
+        let declared = schema(&mut reference).await;
+        for &(_, name) in collection_artwork_schema::album_additions_schema::REPLACED {
+            assert!(
+                self.schema.contains_key(name),
+                "the baseline must contain {name}"
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
         self.schema.insert(
             "plugin_authorization_attempts".into(),
             declared

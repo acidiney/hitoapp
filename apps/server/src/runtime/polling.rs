@@ -155,7 +155,8 @@ fn log_stopped(worker: Worker) {
 mod tests {
     use super::*;
     use crate::runtime::{
-        artwork, community, downloads, follows, indexing, matching, podcasts, source_preparation,
+        artwork, community, downloads, follows, indexing, matching, podcasts, readiness,
+        source_preparation,
     };
     use hito_core::test_support::hang_guard::hang_guard;
     use hito_testkit::logs::LogCapture;
@@ -258,7 +259,7 @@ mod tests {
 
     #[test]
     fn every_worker_keeps_its_event_names_and_messages() {
-        let expected: [(Worker, [(&str, &str); 4]); 10] = [
+        let expected: [(Worker, [(&str, &str); 4]); 11] = [
             (
                 artwork::ARTWORK,
                 [
@@ -347,6 +348,27 @@ mod tests {
                     ("worker_polled", "Indexing worker checked pending work"),
                     ("worker_failed", "Background worker failed"),
                     ("worker_stopped", "Indexing worker stopped"),
+                ],
+            ),
+            (
+                readiness::READINESS,
+                [
+                    (
+                        "source_readiness_worker_started",
+                        "Background source preparation worker started",
+                    ),
+                    (
+                        "source_readiness_worker_polled",
+                        "Background source preparation worker checked pending work",
+                    ),
+                    (
+                        "source_readiness_worker_failed",
+                        "Background source preparation worker failed",
+                    ),
+                    (
+                        "source_readiness_worker_stopped",
+                        "Background source preparation worker stopped",
+                    ),
                 ],
             ),
             (

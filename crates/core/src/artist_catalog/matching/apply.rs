@@ -14,7 +14,8 @@ macro_rules! automatic_matches {
             UNION ALL SELECT association_id,receipt_order FROM artist_association_recording_id_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches
-            UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches"
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_completion_matches"
     };
 }
 
@@ -42,6 +43,7 @@ pub(super) enum EvidenceKind {
     NameDiscography,
     Credit(Origin, u32),
     Coverage(u32, u32),
+    Completion(u32),
     UserConfirmedCandidate,
 }
 
@@ -73,6 +75,7 @@ impl EvidenceKind {
             Self::NameDiscography => "artist_association_name_matches",
             Self::Credit(..) => "artist_association_credit_matches",
             Self::Coverage(..) => "artist_association_coverage_matches",
+            Self::Completion(..) => "artist_association_completion_matches",
             Self::UserConfirmedCandidate => "artist_association_candidate_confirmations",
         }
     }
@@ -86,6 +89,7 @@ impl EvidenceKind {
             Self::NameDiscography => Origin::NameDiscography.name(),
             Self::Credit(origin, _) => origin.name(),
             Self::Coverage(..) => "name_coverage",
+            Self::Completion(..) => "credit_completion",
             Self::UserConfirmedCandidate => "user_confirmed_candidate",
         }
     }
@@ -99,6 +103,7 @@ impl EvidenceKind {
             | Self::NameDiscography
             | Self::Credit(..)
             | Self::Coverage(..)
+            | Self::Completion(..)
             | Self::UserConfirmedCandidate => None,
         }
     }
@@ -262,6 +267,9 @@ pub(super) async fn commit(
                     "association_id,receipt_order,matched_tracks,probed_tracks",
                     "?,?,?,?",
                 ),
+                EvidenceKind::Completion(..) => {
+                    ("association_id,receipt_order,source_tracks", "?,?,?")
+                }
                 EvidenceKind::NameDiscography => {
                     ("association_id,evidence_kind,receipt_order,rule", "?,?,?,?")
                 }
@@ -278,6 +286,7 @@ pub(super) async fn commit(
                     .bind(order)
                     .bind(i64::from(matched))
                     .bind(i64::from(probed)),
+                EvidenceKind::Completion(tracks) => insert.bind(order).bind(i64::from(tracks)),
                 EvidenceKind::Credit(_, tracks) => insert
                     .bind(item.kind.name())
                     .bind(order)

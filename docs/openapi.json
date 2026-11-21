@@ -1044,6 +1044,256 @@
         ]
       }
     },
+    "/api/v1/albums/additions/{addition}": {
+      "delete": {
+        "description": "Undo an album addition. Tracks used since (liked, in a playlist, played or with audio) stay; the rest are removed. Undoing twice changes nothing.",
+        "operationId": "undo_album_addition",
+        "parameters": [
+          {
+            "name": "addition",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumAdditionUndone"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/albums/{id}/additions": {
+      "post": {
+        "description": "Add every audio track of the chosen edition that this account does not own yet, at once and without audio. Repeating a request returns the same addition.",
+        "operationId": "add_album",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAlbum"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumAddition"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/albums/{id}/edition": {
       "put": {
         "operationId": "choose_album_edition",
@@ -3046,6 +3296,14 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4284,6 +4542,208 @@
         ]
       }
     },
+    "/api/v1/artists/{id}/member-artist-identity": {
+      "get": {
+        "operationId": "member_artist_identity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberArtistIdentity"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "apply_artist_identity_to_member_credits",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyArtistIdentityToCredit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistIdentityCreditReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artwork-fetches/{id}": {
       "get": {
         "operationId": "artwork_fetch",
@@ -4397,6 +4857,123 @@
             }
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiobooks/chapters/check": {
+      "post": {
+        "description": "Confirm that every chapter still belongs to one of this account's books and is still in a library it can play. A player checks a long selection in chunks.",
+        "operationId": "audiobook_chapters_check",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudiobookChapterCheck"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4610,6 +5187,134 @@
             }
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiobooks/{id}/admission": {
+      "post": {
+        "description": "Admit playback of the target chapter of this account's book. The target must be one of the chapters, every chapter must belong to the book, and the target must have playable audio.",
+        "operationId": "audiobook_admission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudiobookAdmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5896,6 +6601,298 @@
         ]
       }
     },
+    "/api/v1/genres": {
+      "get": {
+        "description": "Returns the same bounded genre tiles as Discover, with at most 18 entries. Genre.track_count is a bounded display count, may be nonexact, and is not a pagination total.",
+        "operationId": "genres",
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Genre"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/genres/detail": {
+      "get": {
+        "description": "Returns the existing genre detail and bounded previews of at most 24 albums and 100 tracks. The track preview is not a continuation page and is not guaranteed to match the first page of /api/v1/genres/tracks. track_count may be nonexact. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization.",
+        "operationId": "genre_detail",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenreDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/genres/tracks": {
+      "get": {
+        "description": "Returns a continuation page in inherited title and recording-ID order. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization. limit defaults to 100 and is clamped to 1 through 200. after is an opaque continuation for the same account and normalized key, not an authorization token. Malformed or out-of-scope continuations, or a missing or inaccessible anchor, return 422 and require restarting pagination. Pages continue through a fixed catalog; catalog changes can alter later pages.",
+        "operationId": "genre_tracks",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenreTracksPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/history": {
       "delete": {
         "operationId": "delete_history",
@@ -6250,6 +7247,108 @@
             }
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/host/place": {
+      "get": {
+        "operationId": "host_place_offer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostPlaceOffer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/host/place/change": {
+      "post": {
+        "operationId": "host_place_change",
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/host/place/forget-me": {
+      "post": {
+        "operationId": "host_place_forget_me",
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
             "content": {
               "application/json": {
                 "schema": {
@@ -7233,7 +8332,7 @@
     },
     "/api/v1/playback/leases": {
       "post": {
-        "description": "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access.",
+        "description": "Retain this foreground session's admitted recording and source for original audio playback. The expiry is an original Unix timestamp in seconds and is not renewed by reading the lease. The handle is not authorization and does not grant downloads or offline access. A client may tag its leases with a stable `client` it keeps across restarts, and may send a `request_id`: repeating a request from the same session returns the lease it already began instead of a new one.",
         "operationId": "playback_lease_begin",
         "requestBody": {
           "content": {
@@ -7310,6 +8409,96 @@
             }
           },
           "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "description": "Retire every lease this session began with the given client tag and join their work. A client calls this when it starts, to return the leases an earlier run left behind. Leases of other sessions and other tags are untouched.",
+        "operationId": "playback_lease_release_client",
+        "parameters": [
+          {
+            "name": "client",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {},
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
             "content": {
               "application/json": {
                 "schema": {
@@ -7573,7 +8762,7 @@
     },
     "/api/v1/playback/leases/{id}/audio": {
       "get": {
-        "description": "Stream the admitted original representation. Single byte ranges are supported when the source is seekable. If-Range ignores Range because this route supplies no conditional validator. There is no conversion or quality negotiation.",
+        "description": "Stream the admitted audio. The default original representation supports single byte ranges when the source is seekable; If-Range ignores Range because this route supplies no conditional validator. High and saver qualities stream AAC from start_ms with no Content-Length or byte ranges, and Range is ignored. When conversion is unavailable, including remote-only sources, the response is 409 and the client should retry the original.",
         "operationId": "playback_lease_audio",
         "parameters": [
           {
@@ -7606,12 +8795,52 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
           "200": {
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            },
             "content": {
               "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStream"
+                }
+              },
+              "audio/aac": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
                 }
@@ -7623,6 +8852,15 @@
               "application/octet-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7711,7 +8949,7 @@
         ]
       },
       "head": {
-        "description": "Read original representation headers without an audio body. Range is ignored for HEAD.",
+        "description": "Read the representation headers without an audio body or starting an encoder. Range is ignored for HEAD. For high or saver quality, the headers report the representation GET would stream; when conversion is unavailable they describe the original.",
         "operationId": "playback_lease_audio_head",
         "parameters": [
           {
@@ -7722,10 +8960,55 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
-          "200": {},
+          "200": {
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "content": {
               "application/json": {
@@ -12884,6 +14167,166 @@
             }
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-associations/{association}/additions": {
+      "post": {
+        "description": "Add every audio track of the chosen edition that this account does not own yet, from an artist's discography. Repeating a request returns the same addition; undo it with the album addition route.",
+        "operationId": "add_artist_album",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "association",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddArtistAlbum"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumAddition"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
             "content": {
               "application/json": {
                 "schema": {
@@ -20337,6 +21780,162 @@
         ]
       }
     },
+    "/api/v1/source-preferences/background": {
+      "get": {
+        "description": "Whether Hito prepares playable sources for this account's library in the background. On unless the account turned it off.",
+        "operationId": "source_readiness_preference",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReadinessPreference"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "update_source_readiness_preference",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceReadinessPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReadinessPreference"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/sources/{id}/audio": {
       "get": {
         "operationId": "audio",
@@ -20568,6 +22167,149 @@
             }
           },
           "502": {}
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/same-recording": {
+      "post": {
+        "operationId": "suggest_same_recording",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SameRecording"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityReportAdmission"
+                }
+              }
+            }
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityReportAdmission"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         },
         "security": [
           {
@@ -21854,6 +23596,56 @@
           }
         }
       },
+      "AddAlbum": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "recording_id",
+          "association_id",
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "edition_id": {
+            "type": "string"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddArtistAlbum": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "edition_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "AddedAlbum": {
         "type": "object",
         "required": [
@@ -21903,6 +23695,47 @@
           }
         },
         "additionalProperties": false
+      },
+      "AlbumAddition": {
+        "type": "object",
+        "required": [
+          "id",
+          "release_id",
+          "added"
+        ],
+        "properties": {
+          "added": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "release_id": {
+            "type": "string"
+          }
+        }
+      },
+      "AlbumAdditionUndone": {
+        "type": "object",
+        "required": [
+          "removed",
+          "kept"
+        ],
+        "properties": {
+          "kept": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "removed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "AlbumArtistInference": {
         "oneOf": [
@@ -22797,7 +24630,11 @@
           "matched_credit_evidence",
           "matched_credit_coverage",
           "user_confirmed_candidate",
-          "matched_recording_id"
+          "matched_recording_id",
+          "matched_credit_completion",
+          "matched_member_solo_credit",
+          "matched_member_listed_artist_id",
+          "matched_member_file_tag_artist_id"
         ]
       },
       "ArtistAssociationRetirement": {
@@ -24441,6 +26278,27 @@
         "type": "string",
         "format": "binary"
       },
+      "AudiobookAdmissionRequest": {
+        "type": "object",
+        "required": [
+          "target",
+          "chapters"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudiobookChapterAnchor"
+            },
+            "maxItems": 1000,
+            "minItems": 1
+          },
+          "target": {
+            "$ref": "#/components/schemas/AudiobookChapterAnchor"
+          }
+        },
+        "additionalProperties": false
+      },
       "AudiobookBookmark": {
         "type": "object",
         "required": [
@@ -24493,6 +26351,22 @@
           "recording_id": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudiobookChapterCheck": {
+        "type": "object",
+        "required": [
+          "chapters"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudiobookChapterAnchor"
+            },
+            "maxItems": 1000
           }
         },
         "additionalProperties": false
@@ -24958,8 +26832,23 @@
           "source_id"
         ],
         "properties": {
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64,
+            "minLength": 1
+          },
           "recording_id": {
             "type": "string"
+          },
+          "request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "source_id": {
             "type": "string"
@@ -27184,14 +29073,51 @@
           }
         ]
       },
+      "GenreTracksPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_after"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recording"
+            }
+          },
+          "next_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Health": {
         "type": "object",
         "required": [
-          "ready"
+          "ready",
+          "version",
+          "api_level",
+          "min_client_api_level"
         ],
         "properties": {
+          "api_level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "min_client_api_level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
           "ready": {
             "type": "boolean"
+          },
+          "version": {
+            "type": "string"
           }
         }
       },
@@ -27464,6 +29390,69 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/DirectoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HostPlaceCurrent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "this_computer"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "origin",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "server"
+                ]
+              },
+              "origin": {
+                "type": "string"
+              },
+              "remembered": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "HostPlaceOffer": {
+        "type": "object",
+        "required": [
+          "changeable"
+        ],
+        "properties": {
+          "changeable": {
+            "type": "boolean"
+          },
+          "current": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HostPlaceCurrent"
               },
               {
                 "type": "null"
@@ -28642,6 +30631,45 @@
           }
         },
         "additionalProperties": false
+      },
+      "MemberArtistIdentity": {
+        "type": "object",
+        "required": [
+          "artist_id",
+          "chosen",
+          "undecided_tracks"
+        ],
+        "properties": {
+          "artist_id": {
+            "type": "string"
+          },
+          "chosen": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberArtistIdentityChosen"
+            }
+          },
+          "undecided_tracks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "MemberArtistIdentityChosen": {
+        "type": "object",
+        "required": [
+          "group_id",
+          "tracks"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "MetadataObservation": {
         "type": "object",
@@ -33795,6 +35823,23 @@
         },
         "additionalProperties": false
       },
+      "SameRecording": {
+        "type": "object",
+        "required": [
+          "submission_id",
+          "other_source_id"
+        ],
+        "properties": {
+          "other_source_id": {
+            "type": "string"
+          },
+          "submission_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "SavedAlbumEdition": {
         "type": "object",
         "required": [
@@ -34510,12 +36555,16 @@
           "recording_id",
           "provider",
           "label",
+          "community_public",
           "ready",
           "can_prepare",
           "match_kind"
         ],
         "properties": {
           "can_prepare": {
+            "type": "boolean"
+          },
+          "community_public": {
             "type": "boolean"
           },
           "device_id": {
@@ -34842,6 +36891,18 @@
             "format": "int64"
           }
         }
+      },
+      "SourceReadinessPreference": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "SourceRefreshPurpose": {
         "type": "string",

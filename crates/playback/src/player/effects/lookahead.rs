@@ -4,7 +4,8 @@ use super::{
     sources::Sources,
 };
 use crate::Session;
-use hito_core::{Actor, Catalog, PlaybackAccess};
+use crate::seam;
+use crate::seam::Listener;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use uuid::Uuid;
 
@@ -31,11 +32,11 @@ pub(super) enum Event {
 
 pub(super) struct Lookahead {
     pub sources: Sources,
-    catalog: Catalog,
+    access: Arc<dyn seam::Sources>,
     key: Option<Key>,
     stage: Stage,
     cancelling: Option<Pending<bool>>,
-    demand: Option<(Actor, Uuid)>,
+    demand: Option<(Listener, Uuid)>,
     early_key: Option<Key>,
     deferral: Option<Deferral>,
     outcome: Option<Outcome>,
@@ -43,10 +44,10 @@ pub(super) struct Lookahead {
 }
 
 impl Lookahead {
-    pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
+    pub fn new(access: Arc<dyn seam::Sources>) -> Self {
         Self {
-            sources: Sources::cached(catalog.clone(), playback),
-            catalog,
+            sources: Sources::cached(access.clone()),
+            access,
             key: None,
             stage: Stage::Idle,
             cancelling: None,
@@ -111,7 +112,7 @@ impl Lookahead {
         early: Option<NextTarget>,
         wanted: Option<NextTarget>,
         session: &Arc<Session>,
-        actor: &Actor,
+        actor: &Listener,
     ) {
         let early_key = early.map(|next| next.key);
         if self.early_key != early_key {
@@ -124,7 +125,7 @@ impl Lookahead {
             && self.outcome.is_none()
         {
             self.deferral = Some(Deferral::start(
-                self.catalog.clone(),
+                self.access.clone(),
                 actor.clone(),
                 next.recording,
             ));

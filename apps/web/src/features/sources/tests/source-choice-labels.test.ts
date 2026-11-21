@@ -8,6 +8,7 @@ import { automaticChoice, choiceSourceA } from "../fixtures/sourceChoice";
 function renderRow(source: Schema<"Source">) {
   render(
     createElement(SourceChoiceControls, {
+      account: "account-1",
       choice: {
         ...automaticChoice,
         sources: [{ source, selected: false, selectable: true }],

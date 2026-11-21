@@ -10,7 +10,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use sqlite_clock::Clock;
 use tower::ServiceExt;
@@ -26,6 +26,7 @@ async fn durable_rolling_reporter_limit_preserves_replay_conflicts_peers_and_exa
     let config = || Config {
         state_directory: fixture.path().join("private-outcome-limit-state"),
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     };
     let service = bounded(Service::open(config())).await.unwrap();
     let app = router(service.clone());

@@ -1,9 +1,10 @@
+use super::identity::PlayerListener;
 use super::{
     Playback,
     error::Error,
     wire::{PlayerAudiobookCancel, PlayerAudiobookSettlement},
 };
-use crate::{auth::Account, error::ErrorResponse, extract::JsonBody};
+use crate::{error::ErrorResponse, extract::JsonBody};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json, http::StatusCode};
 use hito_playback::{PlayerAudiobookContinuation, PlayerAudiobookRequest};
@@ -19,7 +20,7 @@ use hito_playback::{PlayerAudiobookContinuation, PlayerAudiobookRequest};
     (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn prepare(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(input): JsonBody<PlayerAudiobookRequest>,
 ) -> Result<Json<PlayerAudiobookContinuation>, Error> {
@@ -39,7 +40,7 @@ pub async fn prepare(
     (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn cancel(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(input): JsonBody<PlayerAudiobookCancel>,
 ) -> Result<Response, Error> {

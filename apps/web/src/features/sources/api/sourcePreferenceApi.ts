@@ -33,6 +33,31 @@ export const sourcePreferenceApi = {
     fallbackByAccount.set(account, Promise.resolve(saved.fallback));
     return saved;
   },
+  background(
+    account: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"SourceReadinessPreference">> {
+    return requestJson<Schema<"SourceReadinessPreference">>(
+      "/source-preferences/background",
+      { action: "source_preferences.background", account, signal },
+    );
+  },
+  setBackground(
+    account: string,
+    enabled: boolean,
+    signal: AbortSignal,
+  ): Promise<Schema<"SourceReadinessPreference">> {
+    return requestJson<Schema<"SourceReadinessPreference">>(
+      "/source-preferences/background",
+      {
+        action: "source_preferences.background.update",
+        method: "PUT",
+        account,
+        body: { enabled },
+        signal,
+      },
+    );
+  },
   fallbackEnabled(account: string): Promise<boolean> {
     const known = fallbackByAccount.get(account);
     if (known) return known;

@@ -8,8 +8,9 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    AlbumTrackAudio, EditionTrackListAvailability, FindArtistTrackAudio, ReadEditionTrackList,
-    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, Services,
+    AddArtistAlbum, AlbumAddition, AlbumTrackAudio, EditionTrackListAvailability,
+    FindArtistTrackAudio, ReadEditionTrackList, ReadReleaseGroupEditions,
+    ReleaseGroupEditionsAvailability, Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -148,4 +149,32 @@ pub async fn track_audio(
         "Recording artist edition track audio HTTP request completed"
     );
     Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/artist-associations/{association}/additions", operation_id = "add_artist_album",
+    description = "Add every audio track of the chosen edition that this account does not own yet, from an artist's discography. Repeating a request returns the same addition; undo it with the album addition route.",
+    params(("id" = String, Path), ("association" = String, Path)),
+    request_body = AddArtistAlbum,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AlbumAddition, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_add_artist_album"))]
+pub async fn add(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((id, association)): Path<(String, String)>,
+    JsonBody(request): JsonBody<AddArtistAlbum>,
+) -> ApiResult<Json<AlbumAddition>> {
+    Ok(Json(
+        services
+            .artist_catalog
+            .add_artist_album(&actor, &id, &association, request)
+            .await?,
+    ))
 }

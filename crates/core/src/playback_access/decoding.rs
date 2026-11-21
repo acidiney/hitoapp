@@ -6,14 +6,72 @@ pub use opening::PcmOpening;
 use opening::Stop;
 
 use super::{PlaybackSource, conversion::ConversionLimits};
-use crate::{Error, MediaTools, Result};
+use crate::{AudioFile, Error, MediaTools, Result};
+use bytes::Bytes;
+use futures_util::{future::BoxFuture, stream::BoxStream};
 use std::{
     future::Future,
     io::Seek,
     pin::Pin,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::{sync::mpsc, task::JoinHandle};
+
+pub trait PcmInput: Send + Sync + 'static {
+    fn correlation_id(&self) -> u64;
+    fn check(&self) -> BoxFuture<'_, Result<()>>;
+    fn revoked(&self) -> BoxFuture<'_, Error>;
+    fn bytes(&self) -> BoxFuture<'_, Result<BoxStream<'static, Result<Bytes>>>>;
+}
+
+#[derive(Clone)]
+pub struct StreamDecoder {
+    context: DecodeContext,
+}
+
+impl StreamDecoder {
+    pub fn new(tools: MediaTools) -> Self {
+        let limits = ConversionLimits::new(tools.parallelism);
+        Self {
+            context: DecodeContext { tools, limits },
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(super) enum Authority {
+    Grant(Box<PlaybackSource>),
+    Input(Arc<dyn PcmInput>),
+}
+
+impl Authority {
+    pub(super) fn correlation_id(&self) -> u64 {
+        match self {
+            Self::Grant(grant) => grant.correlation_id(),
+            Self::Input(input) => input.correlation_id(),
+        }
+    }
+
+    pub(super) async fn check(&self) -> Result<()> {
+        match self {
+            Self::Grant(grant) => grant.check().await,
+            Self::Input(input) => input.check().await,
+        }
+    }
+
+    pub(super) async fn revoked(&self) -> Error {
+        match self {
+            Self::Grant(grant) => grant.revoked().await,
+            Self::Input(input) => input.revoked().await,
+        }
+    }
+}
+
+pub(super) enum Feed {
+    File(AudioFile),
+    Stream(Arc<dyn PcmInput>),
+}
 
 #[derive(Clone)]
 pub(super) struct DecodeContext {
@@ -41,7 +99,7 @@ enum Message {
 
 pub struct PcmStream {
     format: PcmFormat,
-    authority: PlaybackSource,
+    authority: Authority,
     receiver: mpsc::Receiver<Message>,
     pending: Option<Message>,
     cancellation: Stop,
@@ -67,16 +125,27 @@ impl PlaybackSource {
             _ = stop.cancelled() => return Err(opening::cancelled()),
             file = self.open_file_if_present() => file?.ok_or(Error::UnsupportedAudio)?,
         };
-        let (format, slot) =
-            profile::probe(&self.decoding.tools, &file, self.clone(), slot, &stop).await?;
+        let authority = Authority::Grant(Box::new(self.clone()));
+        let (format, slot) = profile::probe(
+            &self.decoding.tools,
+            &Feed::File(AudioFile {
+                file: file.file.try_clone().map_err(|_| unfinished())?,
+                length: file.length,
+                content_type: file.content_type,
+            }),
+            authority.clone(),
+            slot,
+            &stop,
+        )
+        .await?;
         stop.check()?;
         file.file.rewind().map_err(|_| unfinished())?;
         let stream = process::start(
             &self.decoding.tools,
-            file,
+            Feed::File(file),
             format,
             start,
-            self.clone(),
+            authority,
             slot,
             stop,
         )
@@ -87,6 +156,49 @@ impl PlaybackSource {
             channels = format.channels,
             elapsed_ms = started.elapsed().as_millis() as u64,
             "Native decoder ready"
+        );
+        Ok(stream)
+    }
+}
+
+impl StreamDecoder {
+    async fn decode(
+        &self,
+        input: Arc<dyn PcmInput>,
+        start: Duration,
+        stop: Stop,
+    ) -> Result<PcmStream> {
+        stop.check()?;
+        input.check().await?;
+        stop.check()?;
+        let slot = self.context.limits.acquire("stream")?;
+        let started = Instant::now();
+        let authority = Authority::Input(input.clone());
+        let (format, slot) = profile::probe(
+            &self.context.tools,
+            &Feed::Stream(input.clone()),
+            authority.clone(),
+            slot,
+            &stop,
+        )
+        .await?;
+        stop.check()?;
+        let stream = process::start(
+            &self.context.tools,
+            Feed::Stream(input),
+            format,
+            start,
+            authority,
+            slot,
+            stop,
+        )
+        .await?;
+        tracing::debug!(
+            event = "native_pcm_started",
+            sample_rate = format.sample_rate,
+            channels = format.channels,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Native decoder ready from a stream"
         );
         Ok(stream)
     }

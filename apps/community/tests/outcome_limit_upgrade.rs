@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::{
@@ -117,6 +117,7 @@ async fn reporter_time_index_upgrade_preserves_every_legacy_row_rowid_receipt_an
     let service = Service::open(Config {
         state_directory: directory,
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     })
     .await
     .unwrap();

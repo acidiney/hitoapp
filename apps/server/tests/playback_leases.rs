@@ -8,6 +8,10 @@ mod input;
 mod logs;
 #[path = "playback_leases/pin.rs"]
 mod pin;
+#[path = "playback_leases/quality.rs"]
+mod quality;
+#[path = "playback_leases/reacquisition.rs"]
+mod reacquisition;
 #[path = "playback_leases/representation.rs"]
 mod representation;
 #[path = "playback_leases/runtime.rs"]

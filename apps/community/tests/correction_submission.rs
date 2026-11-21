@@ -5,7 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -18,6 +18,7 @@ async fn pending_correction_is_private_durable_and_cannot_change_success_ranking
     let config = || Config {
         state_directory: fixture.path().join("private-correction-submission-state"),
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     };
     let service = bounded(Service::open(config())).await.unwrap();
     let app = router(service.clone());

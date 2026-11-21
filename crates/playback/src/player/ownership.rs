@@ -3,7 +3,8 @@ use super::{
     Action, PlayerAction, PlayerAttachment, PlayerError, PlayerInspection, PlayerPosition,
     PlayerReceipt, Response, Result,
 };
-use hito_core::{Actor, Recording};
+use crate::seam::Listener;
+use hito_core::Recording;
 use tokio::sync::watch;
 use uuid::Uuid;
 
@@ -19,7 +20,7 @@ pub(super) struct AdmissionSelection {
     pub continuation: Option<hito_core::AudiobookChapterAnchor>,
 }
 impl State {
-    pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<AdmissionSelection> {
+    pub fn preflight(&self, actor: &Listener, action: &Action) -> Result<AdmissionSelection> {
         match action {
             Action::Host { .. } => Ok(AdmissionSelection::default()),
             Action::Submit(command) => {
@@ -91,7 +92,7 @@ impl State {
         }
     }
 
-    pub(super) fn owned(&self, actor: &Actor, lease: Uuid) -> Result<&Owned> {
+    pub(super) fn owned(&self, actor: &Listener, lease: Uuid) -> Result<&Owned> {
         self.owner
             .as_ref()
             .filter(|owner| owner.lease == lease && owner.actor.same_session(actor))
@@ -100,7 +101,7 @@ impl State {
 
     pub fn accept(
         &mut self,
-        actor: &Actor,
+        actor: &Listener,
         action: Action,
         recordings: Vec<Recording>,
         progress_ready: bool,
@@ -508,7 +509,7 @@ mod tests {
 
     struct Harness {
         state: State,
-        actor: Actor,
+        actor: Listener,
         recording: Uuid,
         sequence: u64,
         _fixture: LocalPlayback,
@@ -517,7 +518,7 @@ mod tests {
     impl Harness {
         async fn start() -> Self {
             let fixture = LocalPlayback::start().await;
-            let actor = fixture.actor.clone();
+            let actor = crate::seam::Listener::from(&fixture.actor);
             let owned = Owned::new(actor.clone());
             Self {
                 state: State {

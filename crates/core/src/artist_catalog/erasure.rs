@@ -6,14 +6,16 @@ use uuid::Uuid;
 const ASSOCIATIONS_OF_ACCOUNT: &str =
     "(SELECT id FROM recording_artist_associations WHERE user_id=?1)";
 
-const PROVENANCE_TABLES: [&str; 7] = [
+const PROVENANCE_TABLES: [&str; 9] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_recording_id_matches",
     "artist_association_name_matches",
     "artist_association_credit_matches",
     "artist_association_coverage_matches",
+    "artist_association_completion_matches",
     "artist_association_candidate_confirmations",
+    "artist_association_member_matches",
 ];
 
 impl ArtistCatalog {
@@ -152,6 +154,13 @@ pub(crate) fn account_statements() -> Vec<String> {
         "DELETE FROM artist_name_checks WHERE user_id=?1",
         "DELETE FROM artist_name_candidates WHERE user_id=?1",
         "DELETE FROM artist_review_dismissals WHERE user_id=?1",
+        "DELETE FROM account_recording_credit_members WHERE user_id=?1 AND recording_id IN (SELECT whole.recording_id FROM account_recording_credits whole
+            JOIN account_credit_splits split ON split.user_id=whole.user_id AND split.artist_id=whole.artist_id AND split.position=0
+            JOIN recordings r ON r.id=whole.recording_id
+            WHERE whole.user_id=?1 AND NOT EXISTS (SELECT 1 FROM recording_credit_observations credit
+                WHERE credit.observation_id=r.metadata_observation_id))",
+        "DELETE FROM account_credit_splits WHERE user_id=?1",
+        "DELETE FROM artist_name_misses WHERE user_id=?1",
         "UPDATE shared_artist_correction_states SET changed_by=NULL WHERE changed_by=?1",
         "UPDATE shared_artist_corrections SET promoted_by=NULL,source_change_id=NULL,source_association_id=NULL WHERE promoted_by=?1",
         "DELETE FROM artist_identity_change_items WHERE change_id IN (SELECT id FROM artist_identity_changes WHERE user_id=?1)",

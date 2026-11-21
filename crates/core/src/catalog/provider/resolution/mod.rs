@@ -31,7 +31,61 @@ enum PreparedResolution {
     Search(Box<Candidates>),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Fallback {
+    ProviderRank,
+    None,
+}
+
+struct Limits {
+    deadline: Instant,
+    fallback: Fallback,
+}
+
 impl Catalog {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub(crate) async fn resolve_confident_source_in_background(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        shutdown: impl Future<Output = ()> + Send,
+    ) -> Result<Option<SourceResolution>> {
+        let Some((caller, mut preempted)) = self.resolution_callers.enter_background(actor.id())?
+        else {
+            return Ok(None);
+        };
+        let (cancel, cancellation) = oneshot::channel();
+        let operation = self.resolve_source_owned(
+            actor,
+            recording,
+            ResolveSource {
+                request_id: uuid::Uuid::new_v4(),
+            },
+            async move {
+                let _ = cancellation.await;
+            },
+            &caller,
+            Instant::now(),
+        );
+        tokio::pin!(operation);
+        tokio::pin!(shutdown);
+        tokio::select! {
+            biased;
+            _ = &mut shutdown => {
+                caller.cancelling();
+                let _ = cancel.send(());
+                let _ = operation.await;
+                Ok(None)
+            },
+            Ok(()) = &mut preempted => {
+                let _ = cancel.send(());
+                let _ = operation.await;
+                Ok(None)
+            },
+            result = &mut operation => result.map(Some),
+        }
+    }
+
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), request_id = %request.request_id))]
     pub async fn resolve_source_until(
         &self,
@@ -88,6 +142,11 @@ impl Catalog {
         started: Instant,
     ) -> Result<SourceResolution> {
         let deadline = started + Duration::from_secs(10);
+        let fallback = if caller.background() {
+            Fallback::None
+        } else {
+            Fallback::ProviderRank
+        };
         tokio::pin!(cancelled);
         let lease = Lease::new(&self.store);
         let admitted = tokio::select! {
@@ -138,7 +197,7 @@ impl Catalog {
                             &attempt,
                             *candidates,
                             cancelled.as_mut(),
-                            deadline,
+                            Limits { deadline, fallback },
                         )
                         .await
                     }
@@ -244,8 +303,9 @@ impl Catalog {
         attempt: &Attempt,
         mut candidates: Candidates,
         mut cancelled: Pin<&mut (impl Future<Output = ()> + Send)>,
-        deadline: Instant,
+        limits: Limits,
     ) -> Result<Option<SourceResolutionOutcome>> {
+        let Limits { deadline, fallback } = limits;
         let subject = Subject {
             musical: &attempt.target.musical,
             source: Some(RetainedSource {
@@ -287,6 +347,17 @@ impl Catalog {
                 Publication::Settled(outcome) => return Ok(Some(outcome)),
                 Publication::CandidateOccupied => {}
             }
+        }
+        if fallback == Fallback::None {
+            return match self
+                .complete_resolution(actor, recording, attempt, None, Basis::Matched, &candidates)
+                .await?
+            {
+                Publication::Settled(outcome) => Ok(Some(outcome)),
+                Publication::CandidateOccupied => Err(Error::Internal(
+                    "Source resolution settled without a candidate".into(),
+                )),
+            };
         }
         let started = Instant::now();
         let mut examined = 0usize;

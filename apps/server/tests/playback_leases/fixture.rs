@@ -29,10 +29,17 @@ impl Case {
     }
 
     pub async fn with_audio(write: impl FnOnce(&std::path::Path) -> Vec<u8>) -> Self {
+        Box::pin(Self::with_named_audio("private-owned.wav", write)).await
+    }
+
+    pub async fn with_named_audio(
+        name: &str,
+        write: impl FnOnce(&std::path::Path) -> Vec<u8>,
+    ) -> Self {
         let directory = Arc::new(tempfile::tempdir().unwrap());
         let music = directory.path().join("music");
         std::fs::create_dir(&music).unwrap();
-        let original = write(&music.join("private-owned.wav"));
+        let original = write(&music.join(name));
         let owner = DatabaseOwner::retain(directory.clone());
         let mut config = CoreConfig::new(
             directory.path().join("hito.db"),
@@ -84,6 +91,8 @@ impl Case {
         let body = serde_json::to_vec(&BeginPlaybackLease {
             recording_id: self.recording.clone(),
             source_id: self.source.clone(),
+            client: None,
+            request_id: None,
         })
         .unwrap();
         self.request("POST", "/api/v1/playback/leases", &[], Some(body))

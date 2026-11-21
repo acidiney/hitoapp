@@ -86,6 +86,7 @@ pub struct RestoreArtistMatchSuggestion {
 pub struct ArtistReviewQueueQuery {
     pub offset: Option<i64>,
     pub limit: Option<i64>,
+    pub artist: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, ToSchema)]

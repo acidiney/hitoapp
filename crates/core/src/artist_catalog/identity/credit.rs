@@ -7,14 +7,14 @@ use crate::{Actor, ArtistCatalog, Error};
 use sqlx::SqliteConnection;
 use std::time::Instant;
 
-const MAX_BATCH: i64 = 100;
-const MAX_ID_LENGTH: usize = 64;
+pub(super) const MAX_BATCH: i64 = 100;
+pub(super) const MAX_ID_LENGTH: usize = 64;
 
 #[derive(Default)]
-struct Outcome {
-    unchanged: i64,
-    skipped_different: i64,
-    skipped_unavailable: i64,
+pub(super) struct Outcome {
+    pub(super) unchanged: i64,
+    pub(super) skipped_different: i64,
+    pub(super) skipped_unavailable: i64,
 }
 
 struct Pending {
@@ -258,12 +258,12 @@ async fn plan(
     }
 }
 
-struct Group {
-    provider: MetadataProvider,
-    provider_artist_id: String,
+pub(super) struct Group {
+    pub(super) provider: MetadataProvider,
+    pub(super) provider_artist_id: String,
 }
 
-async fn load_group(
+pub(super) async fn load_group(
     connection: &mut SqliteConnection,
     actor: &Actor,
     group: &str,
@@ -296,7 +296,7 @@ async fn load_group(
     })
 }
 
-async fn credit_name(
+pub(super) async fn credit_name(
     connection: &mut SqliteConnection,
     actor: &Actor,
     artist: &str,
@@ -313,14 +313,14 @@ async fn credit_name(
     .ok_or(Error::NotFound)
 }
 
-fn comparable(name: &str) -> String {
+pub(super) fn comparable(name: &str) -> String {
     name.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase()
 }
 
-async fn current_member_names(
+pub(super) async fn current_member_names(
     connection: &mut SqliteConnection,
     actor: &Actor,
     group: &str,

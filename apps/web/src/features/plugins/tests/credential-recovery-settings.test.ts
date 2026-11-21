@@ -27,6 +27,8 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
+vi.mock("../components/PluginPlaybackOrder", () => ({ default: () => null }));
+
 vi.mock("../api/pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),
@@ -145,10 +147,10 @@ function mount() {
 
 const reads = () => vi.mocked(pluginsApi.settings).mock.calls.length;
 
-function recover(state: { phase: Phase }) {
+async function recover(state: { phase: Phase }) {
   state.phase = "after";
   const version = credentialMarkVersion("bob", "a");
-  act(() =>
+  await act(async () =>
     clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version),
   );
 }
@@ -173,8 +175,8 @@ test("a fresh protected success re-reads the mounted settings once and clears th
   const baseline = reads();
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
 
-  recover(state);
-  await waitFor(() => expect(state.afterReads).toBe(1));
+  await recover(state);
+  expect(state.afterReads).toBe(1);
   await settle();
   expect(reads()).toBe(baseline + 1);
   expect(card("Lyrics A").textContent).not.toContain(
@@ -199,8 +201,8 @@ test("the mounted card stays marked when the post-recovery read still reports cr
   await settle();
   const baseline = reads();
 
-  recover(state);
-  await waitFor(() => expect(state.afterReads).toBe(1));
+  await recover(state);
+  expect(state.afterReads).toBe(1);
   await settle();
   expect(reads()).toBe(baseline + 1);
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
@@ -249,7 +251,7 @@ test("a recovery published while an unrelated plugin removal is pending still re
   fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(pluginsApi.remove).toHaveBeenCalledTimes(1));
 
-  recover(state);
+  await recover(state);
   expect(state.afterReads).toBe(0);
   await act(async () => release());
   await waitFor(() => expect(state.afterReads).toBe(1));

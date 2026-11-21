@@ -1,7 +1,11 @@
 import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
+import { Link } from "@inertiajs/react";
 
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import Button from "../../../shared/ui/Button";
+import { useSameRecording } from "../hooks/useSameRecording";
+import SameRecordingDialog from "./SameRecordingDialog";
 import {
   bestGuessReason,
   sourceLabels,
@@ -15,6 +19,7 @@ const modes: Record<Schema<"SourceChoice">["mode"], string> = {
 };
 
 type Props = {
+  account: string;
   choice: Schema<"SourceChoice"> | null;
   stagedSource: string | null;
   checking: boolean;
@@ -41,6 +46,7 @@ function savedSelection(choice: Schema<"SourceChoice">, source: string) {
 }
 
 export default function SourceChoiceControls({
+  account,
   choice,
   stagedSource,
   checking,
@@ -60,6 +66,10 @@ export default function SourceChoiceControls({
   fixSource,
 }: Props) {
   const heading = useId();
+  const same = useSameRecording(
+    account,
+    (choice?.sources ?? []).map((entry) => entry.source),
+  );
   const selectedSource =
     stagedSource ??
     (choice?.mode === "manual"
@@ -122,6 +132,21 @@ export default function SourceChoiceControls({
                         Pinned
                       </span>
                     )}
+                    {same.offered && entry.source.community_public && (
+                      <ActionMenu
+                        label={`More for ${labels.primary}`}
+                        align="end"
+                        items={[
+                          {
+                            label: "Suggest as same recording",
+                            disabled:
+                              same.consent !== true ||
+                              same.rows[entry.source.id]?.kind === "sending",
+                            onSelect: () => same.pick(entry.source),
+                          },
+                        ]}
+                      />
+                    )}
                     {entry.source.match_kind === "best_guess" && (
                       <>
                         <span
@@ -137,6 +162,11 @@ export default function SourceChoiceControls({
                       </>
                     )}
                   </span>
+                  <SameRecordingStatus
+                    row={same.rows[entry.source.id]}
+                    onRetry={(other) => void same.send(entry.source.id, other)}
+                    onCancel={same.cancel}
+                  />
                 </li>
               );
             })}
@@ -162,6 +192,21 @@ export default function SourceChoiceControls({
               Use source
             </Button>
           </div>
+          {same.offered && same.consent === false && (
+            <p className="track-note">
+              To suggest that two sources are the same recording, turn on
+              Metadata corrections in{" "}
+              <Link href="/settings?section=privacy">Community settings</Link>.
+            </p>
+          )}
+          {same.picking && (
+            <SameRecordingDialog
+              from={same.picking}
+              candidates={same.candidates}
+              onSend={(other) => void same.send(same.picking!.id, other)}
+              onClose={() => same.pick(null)}
+            />
+          )}
           {stagedSource !== null && !savedSelection(choice, stagedSource) && (
             <p className="track-note" role="status">
               Selected, not saved yet. Use source to play from it.
@@ -188,5 +233,42 @@ export default function SourceChoiceControls({
         </Button>
       )}
     </section>
+  );
+}
+
+function SameRecordingStatus({
+  row,
+  onRetry,
+  onCancel,
+}: {
+  row: ReturnType<typeof useSameRecording>["rows"][string] | undefined;
+  onRetry(other: string): void;
+  onCancel(): void;
+}) {
+  if (!row) return null;
+  if (row.kind === "sending")
+    return (
+      <span className="rd-choice-note" role="status">
+        Sending suggestion…{" "}
+        <Button variant="link" onClick={onCancel}>
+          Cancel
+        </Button>
+      </span>
+    );
+  if (row.kind === "sent")
+    return (
+      <span className="rd-choice-note" role="status">
+        Suggestion sent for review
+      </span>
+    );
+  return (
+    <span className="rd-choice-note">
+      <span className="form-error" role="alert">
+        {row.error}
+      </span>{" "}
+      <Button variant="link" onClick={() => onRetry(row.other)}>
+        Try again
+      </Button>
+    </span>
   );
 }

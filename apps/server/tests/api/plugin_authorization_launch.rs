@@ -42,9 +42,15 @@ async fn fixture(browser: Option<Arc<Recorder>>) -> Fixture {
         ..Default::default()
     };
     let app = match browser {
-        Some(browser) => {
-            hito_server::router_with_hosts(services, config, None, None, Some(browser))
-        }
+        Some(browser) => hito_server::router_with_hosts(
+            services,
+            config,
+            None,
+            hito_server::Hosts {
+                browser: Some(browser),
+                ..hito_server::Hosts::default()
+            },
+        ),
         None => hito_server::router_with_config(services, config),
     };
     let token = admin(&app).await;

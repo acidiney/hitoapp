@@ -13,7 +13,7 @@ impl Catalog {
         actor.check_session_on(&mut connection).await?;
         recording_access(&mut connection, actor, recording).await?;
         Ok(sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND recording_id = ?)",
+            "SELECT EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND recording_id = ? AND liked = 1)",
         )
         .bind(actor.id())
         .bind(recording)

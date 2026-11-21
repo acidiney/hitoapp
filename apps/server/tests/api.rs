@@ -143,6 +143,8 @@ mod credited_artists;
 #[path = "api/browsing.rs"]
 mod browsing;
 
+#[path = "api/audiobook_admission.rs"]
+mod audiobook_admission;
 #[path = "api/audiobook_continuation.rs"]
 mod audiobook_continuation;
 #[path = "api/audiobook_library.rs"]
@@ -275,6 +277,8 @@ mod artist_identity_receipts;
 mod artist_matching;
 #[path = "api/artist_matching_provider.rs"]
 mod artist_matching_provider;
+#[path = "api/artist_member_matching.rs"]
+mod artist_member_matching;
 #[path = "api/artist_review.rs"]
 mod artist_review;
 #[path = "api/artist_review_authority.rs"]
@@ -325,6 +329,16 @@ mod credit_member_review_search_credentials;
 mod credit_member_review_search_stale;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
+#[path = "fixtures/genre_access.rs"]
+mod genre_access_fixture;
+#[path = "api/genre_tracks.rs"]
+mod genre_tracks;
+#[path = "api/genre_tracks_access.rs"]
+mod genre_tracks_access;
+#[path = "api/genre_tracks_privacy.rs"]
+mod genre_tracks_privacy;
+#[path = "api/genres.rs"]
+mod genres;
 #[path = "api/metadata.rs"]
 mod metadata;
 #[path = "api/metadata_preferences.rs"]
@@ -384,6 +398,8 @@ mod credit_member_review_main_target;
 mod credit_member_identity_choice;
 #[path = "fixtures/credit_member_identity_choice.rs"]
 mod credit_member_identity_choice_fixture;
+#[path = "api/member_credit_identity.rs"]
+mod member_credit_identity;
 
 #[path = "api/artist_identity_read_fence.rs"]
 mod artist_identity_read_fence;

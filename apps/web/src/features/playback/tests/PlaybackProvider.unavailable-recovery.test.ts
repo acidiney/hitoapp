@@ -35,6 +35,7 @@ test("the outage notice clears once the same track plays after going back to it"
     ready: true,
     label: "Private source label canary",
     can_prepare: false,
+    community_public: false,
     match_kind: "verified",
   };
   const cachedPath = `/api/v1/recordings/${recording}/playback-sources`;

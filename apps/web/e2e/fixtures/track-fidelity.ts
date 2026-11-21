@@ -229,6 +229,7 @@ function source(
     device_id: null,
     ready,
     can_prepare: false,
+    community_public: false,
     match_kind: "verified",
   };
 }

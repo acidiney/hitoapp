@@ -18,6 +18,10 @@ pub struct Case {
 
 impl Case {
     pub async fn new() -> Self {
+        Box::pin(Self::configured(|_, _| {})).await
+    }
+
+    pub async fn configured(configure: impl FnOnce(&std::path::Path, &mut CoreConfig)) -> Self {
         let directory = Arc::new(tempfile::tempdir().unwrap());
         let music = directory.path().join("music");
         std::fs::create_dir(&music).unwrap();
@@ -29,6 +33,7 @@ impl Case {
             HostDeviceId::new("owned-lease-host").unwrap(),
         );
         owner.attach(&mut config);
+        configure(directory.path(), &mut config);
         let services = super::core::open(config).await.unwrap();
         let login = services.identity.setup(credentials()).await.unwrap();
         let actor = services.identity.authenticate(&login.token).await.unwrap();
@@ -74,6 +79,8 @@ impl Case {
         BeginPlaybackLease {
             recording_id: self.recording.clone(),
             source_id: self.source.clone(),
+            client: None,
+            request_id: None,
         }
     }
     pub async fn close(self) {

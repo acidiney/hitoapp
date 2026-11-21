@@ -41,5 +41,16 @@ pub struct Downloads {
     pub(crate) files: ManagedFiles,
     pub(crate) active: active::ActiveJobs,
     pub(crate) playlist_turn: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    pub(crate) authority_interval: std::time::Duration,
+}
+
+pub(crate) const AUTHORITY_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+impl Downloads {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn with_authority_interval(mut self, interval: std::time::Duration) -> Self {
+        self.authority_interval = interval;
+        self
+    }
 }
 mod active;

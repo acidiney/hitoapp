@@ -10,10 +10,14 @@ async fn exact_recording_source_and_account_access_are_required() {
         BeginPlaybackLease {
             recording_id: "missing".into(),
             source_id: f.source.clone(),
+            client: None,
+            request_id: None,
         },
         BeginPlaybackLease {
             recording_id: f.recording.clone(),
             source_id: "missing".into(),
+            client: None,
+            request_id: None,
         },
     ] {
         assert!(matches!(

@@ -1,11 +1,13 @@
 pub(crate) mod audiobooks;
 mod error;
+pub mod identity;
 pub(crate) mod observations;
 mod wire;
-use crate::{auth::Account, error::ErrorResponse, extract::JsonBody};
+use crate::{error::ErrorResponse, extract::JsonBody};
 use axum::{Extension, Json};
 use error::Error;
 use hito_playback::{Player, PlayerAttachment, PlayerCommand, PlayerQueuePage, PlayerReceipt};
+use identity::PlayerListener;
 use wire::{PlayerClaim, PlayerQueueRequest, PlayerStatus};
 
 #[derive(Clone)]
@@ -35,7 +37,7 @@ impl Playback {
     (status = 403, body = ErrorResponse), (status = 429, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn inspect(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
 ) -> Result<Json<PlayerStatus>, Error> {
     let state = match playback.player {
@@ -64,7 +66,7 @@ pub async fn inspect(
     (status = 429, body = ErrorResponse), (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn claim(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(claim): JsonBody<PlayerClaim>,
 ) -> Result<Json<PlayerAttachment>, Error> {
@@ -80,7 +82,7 @@ pub async fn claim(
     (status = 429, body = ErrorResponse), (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn submit(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(command): JsonBody<PlayerCommand>,
 ) -> Result<Json<PlayerReceipt>, Error> {
@@ -96,7 +98,7 @@ pub async fn submit(
     (status = 429, body = ErrorResponse), (status = 501, body = ErrorResponse), (status = 503, body = ErrorResponse),
 ))]
 pub async fn queue(
-    Account(actor): Account,
+    PlayerListener(actor): PlayerListener,
     Extension(playback): Extension<Playback>,
     JsonBody(query): JsonBody<PlayerQueueRequest>,
 ) -> Result<Json<PlayerQueuePage>, Error> {

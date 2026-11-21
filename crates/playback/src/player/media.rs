@@ -3,10 +3,12 @@ use crate::media::{
     MediaCommand, MediaIntegration, artwork,
     publisher::{Loaded, Observation, Publisher, TrackKey, reconcile},
 };
-use hito_core::{Actor, Catalog};
+use crate::seam::CatalogReads;
+use crate::seam::Listener;
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::{mpsc, oneshot};
@@ -33,7 +35,7 @@ type ArtworkLoading =
     Pin<Box<dyn Future<Output = (TrackKey, Option<artwork::MediaArtwork>)> + Send>>;
 
 struct Target {
-    actor: Actor,
+    actor: Listener,
     attempt: usize,
 }
 
@@ -47,14 +49,14 @@ pub(super) struct TrackScope {
 
 struct CommandTarget {
     id: Uuid,
-    actor: Actor,
+    actor: Listener,
     scope: TrackScope,
 }
 
 pub(super) struct Driver {
     publisher: Publisher,
     commands: Option<mpsc::Receiver<MediaCommand>>,
-    catalog: Catalog,
+    catalog: Arc<dyn CatalogReads>,
     target: Option<Target>,
     command_target: Option<CommandTarget>,
     text: Option<TextLoading>,
@@ -108,7 +110,7 @@ pub(super) fn retry_delay(attempt: usize) -> Option<Duration> {
 }
 
 impl Driver {
-    pub fn new(integration: MediaIntegration, catalog: Catalog) -> Self {
+    pub fn new(integration: MediaIntegration, catalog: Arc<dyn CatalogReads>) -> Self {
         Self {
             publisher: Publisher::new(integration.sink),
             commands: Some(integration.commands),
@@ -199,7 +201,7 @@ impl Driver {
         self.artwork = None;
     }
 
-    pub fn request(&self, actor: Option<Actor>, command: MediaCommand) -> Option<Request> {
+    pub fn request(&self, actor: Option<Listener>, command: MediaCommand) -> Option<Request> {
         let (actor, scope) = if let MediaCommand::SeekTrack { track, .. } = command {
             self.duration_ms()?;
             let target = self
@@ -283,7 +285,7 @@ impl Driver {
 impl State {
     pub(super) fn resolve_host(
         &self,
-        actor: &Actor,
+        actor: &Listener,
         command: MediaCommand,
         duration_ms: Option<u64>,
         scope: Option<TrackScope>,
@@ -339,7 +341,7 @@ impl State {
 }
 
 pub(super) fn host_request(
-    actor: Actor,
+    actor: Listener,
     command: MediaCommand,
     duration_ms: Option<u64>,
     scope: Option<TrackScope>,
@@ -359,15 +361,15 @@ pub(super) fn host_request(
 }
 
 async fn fetch_text(
-    catalog: Catalog,
-    actor: Actor,
+    catalog: Arc<dyn CatalogReads>,
+    actor: Listener,
     key: TrackKey,
     delay: Duration,
 ) -> (TrackKey, Fetched) {
     if !delay.is_zero() {
         tokio::time::sleep(delay).await;
     }
-    let fetched = match catalog.recordings_by_ids(&actor, &[key.recording]).await {
+    let fetched = match catalog.recordings(&actor, &[key.recording]).await {
         Ok(recordings) => match recordings.into_iter().next() {
             Some(recording) => Fetched::Found(
                 Loaded {
@@ -398,8 +400,8 @@ async fn fetch_text(
 }
 
 async fn fetch_artwork(
-    catalog: Catalog,
-    actor: Actor,
+    catalog: Arc<dyn CatalogReads>,
+    actor: Listener,
     key: TrackKey,
     release: Option<String>,
 ) -> (TrackKey, Option<artwork::MediaArtwork>) {

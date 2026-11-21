@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
-use hito_community::{Config, Service, router};
+use hito_community::{Config, Limits, Service, router};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::{
@@ -128,6 +128,7 @@ async fn corrections_upgrade_preserves_existing_rate_index_and_both_historical_m
     let service = Service::open(Config {
         state_directory: directory,
         admin_token: ADMIN.to_owned(),
+        limits: Limits::default(),
     })
     .await
     .unwrap();

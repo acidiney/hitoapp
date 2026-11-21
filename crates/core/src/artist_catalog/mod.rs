@@ -1,3 +1,4 @@
+mod album_additions;
 mod album_audio;
 mod album_edition_choice;
 mod album_editions;
@@ -39,6 +40,7 @@ pub use library_availability::{
 pub use matching::*;
 pub(crate) use matching::{Title, tolerance_ms};
 
+pub use album_additions::{AddAlbum, AddArtistAlbum, AlbumAddition, AlbumAdditionUndone};
 pub use album_audio::{AlbumTrackAudio, FindAlbumTrackAudio, FindArtistTrackAudio};
 pub use album_edition_choice::{
     AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState, ChooseAlbumEdition,

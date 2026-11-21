@@ -240,6 +240,37 @@ test("a name cursor that does not advance ends the manual walk without looping",
   expect(run).toHaveBeenCalledTimes(2);
 });
 
+test("a manual walk goes on from the names to the credit members and stops when they repeat", async () => {
+  const afters: (string | undefined)[] = [];
+  const next: Record<string, string | null> = {
+    "": "name:z",
+    "name:z": "member:",
+    "member:": "member:2:",
+    "member:2:": "member:2:r-9",
+    "member:2:r-9": "name:a",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      if (path === STATUS) return Response.json(status());
+      const body = JSON.parse(options?.body as string);
+      afters.push(body.after);
+      return receipt(body, { matched: 1 }, next[body.after ?? ""] ?? null);
+    }),
+  );
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "Match again" }));
+  await advance(0);
+  expect(afters).toEqual([
+    undefined,
+    "name:z",
+    "member:",
+    "member:2:",
+    "member:2:r-9",
+  ]);
+  expect(reload).toHaveBeenCalledTimes(1);
+});
+
 test("leaving the page cancels a manual pass", async () => {
   const signals: AbortSignal[] = [];
   vi.stubGlobal(
