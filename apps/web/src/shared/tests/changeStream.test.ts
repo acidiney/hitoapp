@@ -263,3 +263,96 @@ test("a failing, gateway-erroring or unanswering session check never raises the 
   await pending;
   expect(getConnection().reachable).toBe(true);
 });
+
+function setHidden(hidden: boolean) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => (hidden ? "hidden" : "visible"),
+  });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+function openWithGrace() {
+  FakeSource.all = [];
+  return openChangeStream({
+    eventSource: FakeSource as unknown as typeof EventSource,
+    sessionActive: async () => true,
+    delays: [10, 20],
+    hiddenGraceMs: 100,
+  });
+}
+
+afterEach(() => {
+  setHidden(false);
+});
+
+test("a page opened in the background holds no stream until it is shown, then refreshes what it shows", () => {
+  const { seen, stop: unwatch } = watch();
+  setHidden(true);
+  const stop = openWithGrace();
+  expect(FakeSource.all).toHaveLength(0);
+  setHidden(false);
+  expect(FakeSource.all).toHaveLength(1);
+  FakeSource.all[0].send({ kind: "resync", reason: "connected" });
+  expect(seen.map((entry) => entry.scope).sort()).toEqual([
+    "playlist",
+    "playlists",
+    "recording",
+    "resolved",
+    "sources",
+  ]);
+  stop();
+  unwatch();
+});
+
+test("a page hidden past the grace period releases its stream and reconnects with a refresh when shown", async () => {
+  vi.useFakeTimers();
+  const { seen, stop: unwatch } = watch();
+  const stop = openWithGrace();
+  FakeSource.all[0].send({ kind: "resync", reason: "connected" });
+  setHidden(true);
+  await vi.advanceTimersByTimeAsync(99);
+  expect(FakeSource.all[0].closed).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(FakeSource.all[0].closed).toBe(true);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(FakeSource.all).toHaveLength(1);
+  setHidden(false);
+  expect(FakeSource.all).toHaveLength(2);
+  FakeSource.all[1].send({ kind: "resync", reason: "connected" });
+  expect(seen.length).toBeGreaterThan(0);
+  stop();
+  unwatch();
+});
+
+test("a page hidden briefly keeps its stream", async () => {
+  vi.useFakeTimers();
+  const stop = openWithGrace();
+  setHidden(true);
+  await vi.advanceTimersByTimeAsync(50);
+  setHidden(false);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(FakeSource.all).toHaveLength(1);
+  expect(FakeSource.all[0].closed).toBe(false);
+  stop();
+});
+
+test("a stream that fails while its page is hidden past the grace period waits for the page to be shown", async () => {
+  vi.useFakeTimers();
+  const stop = openWithGrace();
+  setHidden(true);
+  FakeSource.all[0].fail();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(FakeSource.all.filter((source) => !source.closed)).toHaveLength(0);
+  setHidden(false);
+  expect(FakeSource.all.filter((source) => !source.closed)).toHaveLength(1);
+  stop();
+});
+
+test("a closed stream ignores later visibility changes", () => {
+  const stop = openWithGrace();
+  stop();
+  setHidden(true);
+  setHidden(false);
+  expect(FakeSource.all).toHaveLength(1);
+});

@@ -71,7 +71,16 @@ export type ChangeStreamOptions = {
   eventSource?: typeof EventSource;
   sessionActive?: (signal: AbortSignal) => Promise<boolean>;
   delays?: readonly number[];
+  hiddenGraceMs?: number;
 };
+
+const hiddenGraceMs = 30_000;
+
+function pageHidden() {
+  return (
+    typeof document !== "undefined" && document.visibilityState === "hidden"
+  );
+}
 
 function parse(data: unknown): ChangeNotice | undefined {
   if (typeof data !== "string") return undefined;
@@ -90,12 +99,16 @@ export function openChangeStream(options: ChangeStreamOptions = {}) {
     "eventSource" in options ? options.eventSource : globalThis.EventSource;
   const sessionActive = options.sessionActive ?? sessionStillActive;
   const delays = options.delays ?? reconnectDelaysMs;
+  const grace = options.hiddenGraceMs ?? hiddenGraceMs;
   if (!Source) return () => {};
   const lifetime = new AbortController();
   let source: EventSource | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let hiding: ReturnType<typeof setTimeout> | undefined;
   let failures = 0;
-  let connectedOnce = false;
+  let paused = pageHidden();
+  let stopped = false;
+  let connectedOnce = paused;
 
   function connect() {
     const next = new Source!(changeStreamPath, { withCredentials: true });
@@ -124,8 +137,9 @@ export function openChangeStream(options: ChangeStreamOptions = {}) {
     } catch {
       active = !lifetime.signal.aborted;
     }
-    if (lifetime.signal.aborted) return;
+    if (lifetime.signal.aborted || paused) return;
     if (!active) {
+      stopped = true;
       log.info("changes.stream_stopped", { reason: "session_unavailable" });
       return;
     }
@@ -133,14 +147,41 @@ export function openChangeStream(options: ChangeStreamOptions = {}) {
     failures += 1;
     log.debug("changes.stream_retry", { count: failures, duration_ms: delay });
     timer = setTimeout(() => {
-      if (!lifetime.signal.aborted) connect();
+      timer = undefined;
+      if (!lifetime.signal.aborted && !paused) connect();
     }, delay);
   }
 
-  connect();
+  function pause() {
+    hiding = undefined;
+    paused = true;
+    connectedOnce = true;
+    clearTimeout(timer);
+    timer = undefined;
+    source?.close();
+    source = undefined;
+    log.debug("changes.stream_paused", { reason: "page_hidden" });
+  }
+
+  function visibilityChanged() {
+    if (pageHidden()) {
+      if (!paused && hiding === undefined) hiding = setTimeout(pause, grace);
+      return;
+    }
+    clearTimeout(hiding);
+    hiding = undefined;
+    if (!paused) return;
+    paused = false;
+    if (!stopped && !source && timer === undefined) connect();
+  }
+
+  if (!paused) connect();
+  document.addEventListener("visibilitychange", visibilityChanged);
   return () => {
     lifetime.abort();
+    document.removeEventListener("visibilitychange", visibilityChanged);
     clearTimeout(timer);
+    clearTimeout(hiding);
     source?.close();
     source = undefined;
   };
