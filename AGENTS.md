@@ -20,7 +20,7 @@ Playlists, likes, history, corrections, credentials and listening data belong to
 
 ### 4. The listener's files are read-only
 
-Music folders are mounted read-only. Edits in Hito never write back to a file. Downloads and saved copies happen only after an explicit action.
+Music folders are mounted read-only. Edits in Hito never write back to a file. Hito may keep automatic copies of plugin tracks a listener plays or has queued next, so a track starts without waiting on its provider. Those copies are private to the account, stay inside a storage budget and can be turned off. Download and Keep offline are the copies a listener chooses, and automatic cleanup never removes them.
 
 ### 5. Every surface
 
