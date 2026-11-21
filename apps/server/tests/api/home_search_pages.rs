@@ -1,10 +1,15 @@
-use super::support::{app, call, indexed_app};
+use super::support::{admin, app, call, indexed_app, services};
 use axum::{
     Router,
     body::Body,
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
+use lofty::{
+    config::WriteOptions,
+    prelude::{Accessor, ItemKey, TagExt},
+    tag::{Tag, TagType},
+};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -55,8 +60,8 @@ async fn home_page_reads_the_listening_summary_only_when_requested() {
     assert_eq!(home["recent_albums"], json!([]));
     assert_eq!(home["unheard"], json!([]));
     assert!(home["recently_added"].is_array());
-    assert_eq!(full["props"]["artists"]["items"], json!([]));
-    assert_eq!(full["props"]["artists"]["limit"], 12);
+    assert_eq!(full["props"]["artists"]["total"], 1);
+    assert_eq!(full["props"]["artists"]["limit"], 20);
 
     let partial = page(&app, "/", Some(&token), Some(("HomePage", "playlists"))).await;
     assert!(partial["props"].get("home").is_none());
@@ -65,6 +70,71 @@ async fn home_page_reads_the_listening_summary_only_when_requested() {
 
     let anonymous = page(&app, "/", None, None).await;
     assert_eq!(anonymous["component"], "LoginPage");
+}
+
+#[tokio::test]
+async fn home_page_lists_library_artists_with_album_counts_for_album_only_credits() {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    for (index, title) in ["First", "Second"].into_iter().enumerate() {
+        let file = music.join(format!("{title}.wav"));
+        hito_core::test_support::support::write_wav(&file, index as i16 + 1);
+        let mut tag = Tag::new(TagType::Id3v2);
+        tag.set_title(title.into());
+        tag.set_artist("Track Singer".into());
+        tag.set_album("Shared Album".into());
+        tag.insert_text(ItemKey::AlbumArtist, "Album Band".into());
+        tag.save_to_path(file, WriteOptions::default()).unwrap();
+    }
+    let hito = services(dir.path(), &music).await;
+    let app = hito_server::router(hito.clone());
+    let token = admin(&app).await;
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&token)).await;
+    call(
+        &app,
+        "POST",
+        &format!(
+            "/api/v1/libraries/{}/scan",
+            libraries[0]["id"].as_str().unwrap()
+        ),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    hito.storage.run_next_job().await.unwrap();
+
+    let full = page(&app, "/", Some(&token), None).await;
+    let artists = &full["props"]["artists"];
+    let (status, listed) = call(
+        &app,
+        "GET",
+        "/api/v1/artists?limit=20",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(artists, &listed);
+    let counts: Vec<_> = artists["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|artist| {
+            (
+                artist["name"].as_str().unwrap().to_owned(),
+                artist["recording_count"].as_i64().unwrap(),
+                artist["release_count"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        counts,
+        [
+            ("Album Band".to_owned(), 0, 1),
+            ("Track Singer".to_owned(), 2, 1)
+        ]
+    );
 }
 
 #[tokio::test]

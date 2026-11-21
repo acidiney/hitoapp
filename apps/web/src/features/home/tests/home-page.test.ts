@@ -48,7 +48,7 @@ const props = (
     unheard: [],
     ...home,
   },
-  artists: { items: [], total: 0, offset: 0, limit: 12 },
+  artists: { items: [], total: 0, offset: 0, limit: 20 },
 });
 const albums = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -194,22 +194,21 @@ test("a listener who cannot manage folders is told to ask the administrator", ()
   expect(screen.getByText(/Ask your administrator/)).toBeTruthy();
 });
 
-const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
+const artist = (
+  id: string,
+  name: string,
+  tracks: number,
+  albums: number,
+): Schema<"Artist"> => ({
   id,
-  provider: { kind: "builtin_musicbrainz" },
-  provider_artist_id: id,
-  name: {
-    artist_id: id,
-    association_id: id,
-    recording_id: `r-${id}`,
-    value: name,
-  },
-  library_count: 1,
-  recording_count: 4,
-  release_count: 1,
+  library_id: "library",
+  name,
+  recording_count: tracks,
+  release_count: albums,
+  artwork_recording_id: `r-${id}`,
 });
 
-test("home shows recently played, recently added and chosen artists as shelves", () => {
+test("home shows recently played, recently added and library artists as shelves", () => {
   const data = props({
     recent_albums: albums(2),
     recently_added: [
@@ -217,10 +216,10 @@ test("home shows recently played, recently added and chosen artists as shelves",
     ],
   });
   data.artists = {
-    items: [group("g1", "Slipknot"), group("g2", "Shore")],
+    items: [artist("a1", "Slipknot", 4, 1), artist("a2", "Shore", 0, 3)],
     total: 2,
     offset: 0,
-    limit: 12,
+    limit: 20,
   };
   render(createElement(HomePage, data));
   const played = screen.getByRole("region", { name: "Recently played" });
@@ -238,8 +237,10 @@ test("home shows recently played, recently added and chosen artists as shelves",
     within(artists)
       .getAllByRole("link", { name: /Slipknot|Shore/ })
       .map((link) => link.getAttribute("href")),
-  ).toEqual(["/artist-groups/g1", "/artist-groups/g2"]);
-  expect(within(artists).getAllByText("4 tracks")).toBeTruthy();
+  ).toEqual(["/artists/a1", "/artists/a2"]);
+  expect(within(artists).getByText("4 tracks")).toBeTruthy();
+  expect(within(artists).getByText("3 albums")).toBeTruthy();
+  expect(within(artists).queryByText("0 tracks")).toBeNull();
   expect(
     screen
       .getByRole("link", { name: "Discover music from your services" })
