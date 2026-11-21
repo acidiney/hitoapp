@@ -33,7 +33,7 @@ struct SettingsView: View {
             (.profile, "Profile", "Name, photo, password, devices"),
             (.privacy, "Privacy & lock", "PIN, history, what Hito sends out"),
             (.music, "Music", admin ? "Folders and libraries" : "Libraries you can listen to"),
-            (.playback, "Playback", "Source order"),
+            (.playback, "Playback", "Source order, streaming quality"),
         ] + (admin ? [(.accounts, "Accounts", "People on this server")] : []) + [
             (.about, "About", "Version and updates"),
         ]

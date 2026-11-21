@@ -108,6 +108,24 @@ public struct HitoAPI: Sendable {
         return try await send(request, as: type)
     }
 
+    func head(_ path: [String], query: [URLQueryItem]) async throws -> HTTPURLResponse {
+        var request = request(path, query: query)
+        request.httpMethod = "HEAD"
+        let response: HTTPURLResponse
+        do {
+            (_, response) = try await ServerConnection.load(request, with: session, staying: address)
+        } catch ServerConnection.Problem.certificate {
+            throw Problem.certificate
+        } catch is ServerConnection.Problem {
+            throw Problem.noAnswer
+        }
+        switch response.statusCode {
+        case 401: throw Problem.signedOut
+        case 423: throw Problem.locked
+        default: return response
+        }
+    }
+
     private func send<Value: Decodable>(_ request: URLRequest, as type: Value.Type, explained: Bool = false) async throws -> Value {
         try await exchange(request, as: type, explained: explained).0
     }
