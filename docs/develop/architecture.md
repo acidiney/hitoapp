@@ -148,6 +148,7 @@ Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every wor
 | Artist matching             | 1                          | MusicBrainz (tags, ISRC, artist links, names, genres).                                                                                   |
 | Playlist follow             | 4                          | Plugins (playlist refresh).                                                                                                              |
 | Downloads                   | 2, plus one reconcile loop | Plugins and managed storage.                                                                                                             |
+| Automatic copies            | 1                          | Plugins (audio, opened so foreground playback can take the slot back) and managed storage.                                               |
 | Source preparation          | 2                          | Plugins (search, sources, preparation).                                                                                                  |
 | Podcast refresh             | 2                          | Feed hosts and enclosure hosts.                                                                                                          |
 | Community reports           | 1                          | The community service, only when configured.                                                                                             |
@@ -168,6 +169,7 @@ flowchart LR
   Poll --> Mat["runtime/matching.rs: worker"] --> MatCore["ArtistCatalog::run_next_automatic_matching_until"]
   Poll --> Fol["runtime/follows.rs: worker, 4 slots"] --> FolCore["Collection::run_next_follow_refresh_until"]
   Poll --> Dl["runtime/downloads.rs: worker, 2 slots, and reconcile"] --> DlCore["Downloads::run_next_job_until and run_next_playlist_reconciliation_until"]
+  Poll --> Copy["runtime/downloads.rs: copies"] --> CopyCore["Downloads::run_next_copy_until"]
   Poll --> Prep["runtime/source_preparation.rs: worker, 2 slots"] --> PrepCore["Catalog::run_next_source_preparation_until"]
   Poll --> Pod["runtime/podcasts.rs: worker, 2 slots"] --> PodCore["Podcasts::run_next_refresh_until"]
   Poll --> Com["runtime/community.rs: worker"] --> ComCore["Community::run_next_report_until"]
@@ -367,7 +369,7 @@ What each capability owns:
 - `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
 - `LibraryStorage`: music folders, grants, scans, leases and reconciliation.
 - `Plugins`: offered service addresses, personal installations, credential encryption and manifest checks.
-- `Downloads`: persistent and playlist downloads into managed storage.
+- `Downloads`: persistent and playlist downloads into managed storage, and each account's automatic copies of the tracks its clients announce as upcoming, kept within the account's budget.
 - `Podcasts`: subscriptions, episodes and episode progress.
 - `Replicas`: separate private server profiles, encrypted server sessions, durable offline operations, acknowledgement/echo reconciliation, validated catalog generation installation and joined connection retirement. Current collection projection is limited to empty playlists; the catalog cache adds no ordinary local sources or playback readiness.
 - `CatalogReplication`: authorized immutable local recording/source snapshots, create-or-resume and owned release, bounded construction/pages, current grant checks and joined reader closure. `Replicas` owns client installation separately; incremental catalog delivery remains open.
