@@ -143,13 +143,24 @@ final class Player {
 
     private func sendAnnouncement() {
         guard let announcement = pace.take(at: .now) else { return scheduleAnnouncement() }
+        deliver(announcement)
+    }
+
+    private func flushAnnouncement() {
+        announcing?.cancel()
+        announcing = nil
+        guard let announcement = pace.flush(.stopped, at: .now) else { return }
+        deliver(announcement)
+    }
+
+    private func deliver(_ announcement: Announcement) {
         let started = ContinuousClock.now
-        Task { [weak self, upcoming] in
+        Task { [weak self, upcoming, log] in
             let outcome = await upcoming.announce(announcement)
+            let elapsed = Int((ContinuousClock.now - started) / .milliseconds(1))
+            log.info("player.upcoming_announced outcome=\(String(describing: outcome), privacy: .public) playing=\(announcement.current != nil, privacy: .public) upcoming=\(announcement.upcoming.count, privacy: .public) ms=\(elapsed, privacy: .public)")
             guard let self else { return }
             self.pace.finished(outcome, at: .now)
-            let elapsed = Int((ContinuousClock.now - started) / .milliseconds(1))
-            self.log.info("player.upcoming_announced outcome=\(String(describing: outcome), privacy: .public) playing=\(announcement.current != nil, privacy: .public) upcoming=\(announcement.upcoming.count, privacy: .public) ms=\(elapsed, privacy: .public)")
             self.scheduleAnnouncement()
         }
     }
@@ -410,6 +421,7 @@ final class Player {
         engine.replaceCurrentItem(with: nil)
         releaseLease()
         state = .idle
+        flushAnnouncement()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
