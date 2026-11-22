@@ -148,6 +148,7 @@ async fn local_originals_are_never_copied() {
             &local.actor,
             hito_core::UpcomingRecordings {
                 client: None,
+                current: None,
                 recording_ids: vec![local.recording.clone()],
             },
         )

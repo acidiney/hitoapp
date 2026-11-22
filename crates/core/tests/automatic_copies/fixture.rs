@@ -1,6 +1,6 @@
 use hito_core::test_support::{content_service::ProviderServer, hang_guard::hang_guard, support};
 use hito_core::{
-    Actor, AdoptProviderRecording, AutomaticCopyBudget, Credentials, DownloadRequest,
+    Action, Actor, AdoptProviderRecording, AutomaticCopyBudget, Credentials, DownloadRequest,
     DownloadState, Downloads, InstallPlugin, OfferPluginService, PluginInstallation,
     PreviewPluginInstallation, Services, UpcomingRecordings,
 };
@@ -10,6 +10,7 @@ use std::{future::pending, path::PathBuf, time::Duration};
 use uuid::Uuid;
 
 pub const HOST: &str = "automatic-copies";
+pub const DURATION_MS: i64 = 200_000;
 
 pub struct Copies {
     pub directory: tempfile::TempDir,
@@ -103,7 +104,7 @@ impl Copies {
                 .recording_reply(
                     "v1/recordings/detail",
                     name,
-                    json!({"id": name, "title": "Copy fixture track", "artist": "Copy fixture artist"}),
+                    json!({"id": name, "title": "Copy fixture track", "artist": "Copy fixture artist", "duration_ms": DURATION_MS}),
                 )
                 .await;
             self.server
@@ -132,17 +133,54 @@ impl Copies {
     }
 
     pub async fn announce(&self, actor: &Actor, recordings: &[&str]) {
+        self.announce_playing(actor, None, recordings).await;
+    }
+
+    pub async fn announce_playing(
+        &self,
+        actor: &Actor,
+        current: Option<&str>,
+        recordings: &[&str],
+    ) {
         self.hito
             .downloads
             .announce_upcoming(
                 actor,
                 UpcomingRecordings {
                     client: Some("fixture-player".into()),
+                    current: current.map(str::to_owned),
                     recording_ids: recordings.iter().map(|id| (*id).to_owned()).collect(),
                 },
             )
             .await
             .unwrap();
+    }
+
+    pub async fn listen(&self, actor: &Actor, recording: &str, positions_ms: &[i64]) {
+        for position_ms in positions_ms {
+            hito_core::test_support::support::synchronize(
+                &self.hito,
+                actor,
+                vec![Action::ProgressSet {
+                    recording_id: Uuid::parse_str(recording).unwrap(),
+                    position_ms: *position_ms,
+                    speed: 1.0,
+                }],
+            )
+            .await;
+        }
+    }
+
+    pub async fn play_count(&self, actor: &Actor, recording: &str) -> Option<i64> {
+        let mut connection = connect(&self.directory).await;
+        sqlx::query_scalar(
+            "SELECT play_count FROM listening_history WHERE user_id=? AND recording_id=?",
+        )
+        .bind(&actor.user().id)
+        .bind(recording)
+        .fetch_optional(&mut connection)
+        .await
+        .unwrap()
     }
 
     pub async fn drain(&self) -> usize {

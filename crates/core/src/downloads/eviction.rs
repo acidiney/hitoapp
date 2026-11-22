@@ -6,7 +6,7 @@ use crate::Result;
 use sqlx::SqliteConnection;
 
 pub(super) const UPCOMING_SECONDS: i64 = 6 * 60 * 60;
-const PLAYING_SECONDS: i64 = 15 * 60;
+const RECENT_PROGRESS_SECONDS: i64 = 15 * 60;
 const PLAY_WEIGHT_SECONDS: i64 = 7 * 24 * 60 * 60;
 const COUNTED_PLAYS: i64 = 8;
 
@@ -43,14 +43,18 @@ impl Downloads {
                 AND NOT EXISTS(SELECT 1 FROM chosen_download_intents chosen WHERE chosen.id=intent.id)
                 AND NOT EXISTS(SELECT 1 FROM upcoming_recordings upcoming WHERE upcoming.account_id=copy.account_id
                     AND upcoming.recording_id=copy.recording_id AND upcoming.announced_at>unixepoch()-?3)
-                AND NOT EXISTS(SELECT 1 FROM listening_progress progress WHERE progress.user_id=copy.account_id
-                    AND progress.recording_id=copy.recording_id AND progress.updated_at>unixepoch()-?4)
+                AND NOT EXISTS(SELECT 1 FROM playing_recordings playing WHERE playing.account_id=copy.account_id
+                    AND playing.recording_id=copy.recording_id AND playing.announced_at>unixepoch()-?3)
+                AND (EXISTS(SELECT 1 FROM playing_recordings playing WHERE playing.account_id=copy.account_id
+                        AND playing.announced_at>unixepoch()-?3)
+                    OR NOT EXISTS(SELECT 1 FROM listening_progress progress WHERE progress.user_id=copy.account_id
+                        AND progress.recording_id=copy.recording_id AND progress.updated_at>unixepoch()-?4))
              ORDER BY coalesce(history.played_at,0)+?5*min(coalesce(history.play_count,0),?6),copy.created_at,copy.recording_id",
         )
         .bind(account)
         .bind(self.host.as_str())
         .bind(UPCOMING_SECONDS)
-        .bind(PLAYING_SECONDS)
+        .bind(RECENT_PROGRESS_SECONDS)
         .bind(PLAY_WEIGHT_SECONDS)
         .bind(COUNTED_PLAYS)
         .fetch_all(&mut *connection)

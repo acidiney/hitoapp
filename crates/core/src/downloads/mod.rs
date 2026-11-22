@@ -35,6 +35,7 @@ pub use playlist_types::{
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
     PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
 };
+pub(crate) use prefetch::request_copy_after_play_on;
 pub use types::{DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus};
 pub(crate) use upcoming::AnnouncementPace;
 pub use upcoming::{MAX_UPCOMING_RECORDINGS, UpcomingRecordings};

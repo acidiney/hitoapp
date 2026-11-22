@@ -1,6 +1,7 @@
 use super::Downloads;
 use crate::{Actor, Error, Result, identity::recording_access};
 use serde::{Deserialize, Serialize};
+use sqlx::SqliteConnection;
 use std::{
     collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
@@ -19,6 +20,8 @@ pub struct UpcomingRecordings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(min_length = 1, max_length = 64)]
     pub client: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current: Option<String>,
     #[schema(max_items = 2)]
     pub recording_ids: Vec<String>,
 }
@@ -80,11 +83,14 @@ impl Downloads {
                 "Announce at most 2 upcoming recordings".into(),
             ));
         }
+        let current = announcement
+            .current
+            .as_deref()
+            .map(recording_identity)
+            .transpose()?;
         let mut recordings: Vec<String> = Vec::with_capacity(MAX_UPCOMING_RECORDINGS);
         for recording in &announcement.recording_ids {
-            let recording = uuid::Uuid::parse_str(recording)
-                .map_err(|_| Error::Invalid("Use recording identities".into()))?
-                .to_string();
+            let recording = recording_identity(recording)?;
             if !recordings.contains(&recording) {
                 recordings.push(recording);
             }
@@ -130,16 +136,65 @@ impl Downloads {
             .execute(&mut *tx)
             .await?;
         }
+        let playing = announce_current_on(&mut tx, actor, &client, current).await?;
         tx.commit().await?;
         tracing::debug!(
             event = "upcoming_recordings_announced",
             accepted = accepted.len(),
             ignored = announced - accepted.len(),
+            playing,
             elapsed_ms = started.elapsed().as_millis() as u64,
             "Upcoming recordings announced"
         );
         Ok(())
     }
+}
+
+async fn announce_current_on(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    client: &str,
+    current: Option<String>,
+) -> Result<bool> {
+    sqlx::query("DELETE FROM playing_recordings WHERE announced_at<=unixepoch()-?")
+        .bind(super::eviction::UPCOMING_SECONDS)
+        .execute(&mut *connection)
+        .await?;
+    let accepted = match current {
+        Some(recording) => match recording_access(&mut *connection, actor, &recording).await {
+            Ok(()) => Some(recording),
+            Err(Error::NotFound) => None,
+            Err(error) => return Err(error),
+        },
+        None => None,
+    };
+    let Some(recording) = accepted else {
+        sqlx::query("DELETE FROM playing_recordings WHERE session_hash=? AND client=?")
+            .bind(actor.session_binding())
+            .bind(client)
+            .execute(connection)
+            .await?;
+        return Ok(false);
+    };
+    sqlx::query(
+        "INSERT INTO playing_recordings(session_hash,client,account_id,recording_id) VALUES(?,?,?,?)
+         ON CONFLICT(session_hash,client) DO UPDATE SET recording_id=excluded.recording_id,announced_at=unixepoch(),
+            next_attempt_at=CASE WHEN playing_recordings.recording_id=excluded.recording_id
+                THEN playing_recordings.next_attempt_at ELSE 0 END",
+    )
+    .bind(actor.session_binding())
+    .bind(client)
+    .bind(actor.id())
+    .bind(recording)
+    .execute(connection)
+    .await?;
+    Ok(true)
+}
+
+fn recording_identity(recording: &str) -> Result<String> {
+    uuid::Uuid::parse_str(recording)
+        .map(|recording| recording.to_string())
+        .map_err(|_| Error::Invalid("Use recording identities".into()))
 }
 
 fn valid_client(client: &str) -> bool {

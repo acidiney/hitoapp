@@ -16,6 +16,75 @@ const BUSY_RETRY_SECONDS: i64 = 60;
 const NO_SOURCE_RETRY_SECONDS: i64 = 10 * 60;
 const OVER_BUDGET_RETRY_SECONDS: i64 = 10 * 60;
 
+const ELIGIBLE: &str = "JOIN recordings recording ON recording.id=wanted.recording_id
+    JOIN library_members member ON member.library_id=recording.library_id AND member.user_id=wanted.account_id
+    WHERE wanted.next_attempt_at<=unixepoch()
+        AND coalesce((SELECT keep_played_tracks FROM account_automatic_copies WHERE user_id=wanted.account_id),1)=1
+        AND NOT EXISTS(SELECT 1 FROM sources local WHERE local.recording_id=wanted.recording_id AND local.provider='local' AND local.ready=1)
+        AND NOT EXISTS(SELECT 1 FROM podcast_episodes episode WHERE episode.recording_id=wanted.recording_id)
+        AND NOT EXISTS(SELECT 1 FROM download_intents intent WHERE intent.account_id=wanted.account_id
+            AND intent.recording_id=wanted.recording_id AND intent.host_device=?1 AND intent.state!='removed'
+            AND (intent.state!='failed' OR intent.updated_at>unixepoch()-?2))";
+const LIVE_SESSION: &str = "JOIN sessions session ON session.token_hash=wanted.session_hash
+    AND session.user_id=wanted.account_id AND session.expires_at>unixepoch()";
+
+#[derive(Clone, Copy)]
+enum Wanted {
+    Upcoming,
+    Playing,
+    Played,
+}
+
+impl Wanted {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Upcoming => "upcoming",
+            Self::Playing => "playing",
+            Self::Played => "played",
+        }
+    }
+
+    fn query(self) -> String {
+        match self {
+            Self::Upcoming => format!(
+                "SELECT wanted.session_hash,wanted.client,wanted.account_id,wanted.recording_id
+                 FROM upcoming_recordings wanted INDEXED BY upcoming_recordings_due {LIVE_SESSION} {ELIGIBLE}
+                    AND wanted.announced_at>unixepoch()-?3
+                 ORDER BY wanted.announced_at DESC,wanted.position,wanted.recording_id LIMIT 1"
+            ),
+            Self::Playing => format!(
+                "SELECT wanted.session_hash,wanted.client,wanted.account_id,wanted.recording_id
+                 FROM playing_recordings wanted {LIVE_SESSION} {ELIGIBLE}
+                    AND wanted.announced_at>unixepoch()-?3
+                 ORDER BY wanted.announced_at DESC,wanted.recording_id LIMIT 1"
+            ),
+            Self::Played => format!(
+                "SELECT '' AS session_hash,'' AS client,wanted.account_id,wanted.recording_id
+                 FROM played_copy_requests wanted INDEXED BY played_copy_requests_recent {ELIGIBLE}
+                    AND wanted.played_at>unixepoch()-?3
+                 ORDER BY wanted.played_at DESC,wanted.recording_id LIMIT 1"
+            ),
+        }
+    }
+
+    fn retry(self) -> &'static str {
+        match self {
+            Self::Upcoming => {
+                "UPDATE upcoming_recordings SET next_attempt_at=unixepoch()+?1
+                 WHERE session_hash=?2 AND client=?3 AND recording_id=?4 AND account_id=?5"
+            }
+            Self::Playing => {
+                "UPDATE playing_recordings SET next_attempt_at=unixepoch()+?1
+                 WHERE session_hash=?2 AND client=?3 AND recording_id=?4 AND account_id=?5"
+            }
+            Self::Played => {
+                "UPDATE played_copy_requests SET next_attempt_at=unixepoch()+?1
+                 WHERE recording_id=?4 AND account_id=?5"
+            }
+        }
+    }
+}
+
 #[derive(sqlx::FromRow)]
 struct Candidate {
     session_hash: String,
@@ -57,7 +126,7 @@ impl Downloads {
         if saving_allowed && self.run_job(stopped.clone(), Claim::Automatic).await? {
             return Ok(true);
         }
-        let Some(candidate) = self.next_candidate().await? else {
+        let Some((wanted, candidate)) = self.next_candidate().await? else {
             return Ok(false);
         };
         if !saving_allowed {
@@ -71,17 +140,34 @@ impl Downloads {
         let started = Instant::now();
         let prepared = self.prepare(&candidate, stopped).await?;
         let outcome = match prepared {
-            Prepared::Queued => "queued",
+            Prepared::Queued => {
+                if matches!(wanted, Wanted::Played) {
+                    sqlx::query(
+                        "DELETE FROM played_copy_requests WHERE account_id=? AND recording_id=?",
+                    )
+                    .bind(&candidate.account_id)
+                    .bind(&candidate.recording_id)
+                    .execute(&self.store.pool)
+                    .await?;
+                }
+                "queued"
+            }
             Prepared::Deferred(outcome, seconds) => {
-                sqlx::query("UPDATE upcoming_recordings SET next_attempt_at=unixepoch()+? WHERE session_hash=? AND client=? AND recording_id=?")
-                    .bind(seconds).bind(&candidate.session_hash).bind(&candidate.client).bind(&candidate.recording_id)
-                    .execute(&self.store.pool).await?;
+                sqlx::query(wanted.retry())
+                    .bind(seconds)
+                    .bind(&candidate.session_hash)
+                    .bind(&candidate.client)
+                    .bind(&candidate.recording_id)
+                    .bind(&candidate.account_id)
+                    .execute(&self.store.pool)
+                    .await?;
                 outcome
             }
         };
         tracing::info!(
             event = "automatic_copy_prepared",
             account_id = %candidate.account_id,
+            wanted = wanted.label(),
             outcome,
             elapsed_ms = started.elapsed().as_millis() as u64,
             "Upcoming recording considered for an automatic copy"
@@ -131,28 +217,19 @@ impl Downloads {
         }
     }
 
-    async fn next_candidate(&self) -> Result<Option<Candidate>> {
-        Ok(sqlx::query_as(
-            "SELECT upcoming.session_hash,upcoming.client,upcoming.account_id,upcoming.recording_id
-             FROM upcoming_recordings upcoming INDEXED BY upcoming_recordings_due
-             JOIN sessions session ON session.token_hash=upcoming.session_hash AND session.user_id=upcoming.account_id
-                AND session.expires_at>unixepoch()
-             JOIN recordings recording ON recording.id=upcoming.recording_id
-             JOIN library_members member ON member.library_id=recording.library_id AND member.user_id=upcoming.account_id
-             WHERE upcoming.next_attempt_at<=unixepoch() AND upcoming.announced_at>unixepoch()-?3
-                AND coalesce((SELECT keep_played_tracks FROM account_automatic_copies WHERE user_id=upcoming.account_id),1)=1
-                AND NOT EXISTS(SELECT 1 FROM sources local WHERE local.recording_id=upcoming.recording_id AND local.provider='local' AND local.ready=1)
-                AND NOT EXISTS(SELECT 1 FROM podcast_episodes episode WHERE episode.recording_id=upcoming.recording_id)
-                AND NOT EXISTS(SELECT 1 FROM download_intents intent WHERE intent.account_id=upcoming.account_id
-                    AND intent.recording_id=upcoming.recording_id AND intent.host_device=?1 AND intent.state!='removed'
-                    AND (intent.state!='failed' OR intent.updated_at>unixepoch()-?2))
-             ORDER BY upcoming.announced_at DESC,upcoming.position,upcoming.recording_id LIMIT 1",
-        )
-        .bind(self.host.as_str())
-        .bind(FAILED_RETRY_SECONDS)
-        .bind(UPCOMING_SECONDS)
-        .fetch_optional(&self.store.pool)
-        .await?)
+    async fn next_candidate(&self) -> Result<Option<(Wanted, Candidate)>> {
+        for wanted in [Wanted::Upcoming, Wanted::Playing, Wanted::Played] {
+            let candidate = sqlx::query_as(&wanted.query())
+                .bind(self.host.as_str())
+                .bind(FAILED_RETRY_SECONDS)
+                .bind(UPCOMING_SECONDS)
+                .fetch_optional(&self.store.pool)
+                .await?;
+            if let Some(candidate) = candidate {
+                return Ok(Some((wanted, candidate)));
+            }
+        }
+        Ok(None)
     }
 
     async fn prepare(
@@ -246,6 +323,31 @@ impl Downloads {
         tx.commit().await?;
         Ok(Some(prepared))
     }
+}
+
+pub(crate) async fn request_copy_after_play_on(
+    connection: &mut SqliteConnection,
+    account: &str,
+    recording: &str,
+) -> Result<bool> {
+    sqlx::query("DELETE FROM played_copy_requests WHERE played_at<=unixepoch()-?")
+        .bind(UPCOMING_SECONDS)
+        .execute(&mut *connection)
+        .await?;
+    let requested = sqlx::query(
+        "INSERT INTO played_copy_requests(account_id,recording_id) SELECT ?1,?2
+         WHERE coalesce((SELECT keep_played_tracks FROM account_automatic_copies WHERE user_id=?1),1)=1
+            AND NOT EXISTS(SELECT 1 FROM sources local WHERE local.recording_id=?2 AND local.provider='local' AND local.ready=1)
+            AND NOT EXISTS(SELECT 1 FROM download_intents intent WHERE intent.account_id=?1
+                AND intent.recording_id=?2 AND intent.state='ready')
+         ON CONFLICT(account_id,recording_id) DO UPDATE SET played_at=unixepoch()",
+    )
+    .bind(account)
+    .bind(recording)
+    .execute(connection)
+    .await?
+    .rows_affected();
+    Ok(requested > 0)
 }
 
 async fn retain_copy_on(
