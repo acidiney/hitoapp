@@ -87,7 +87,10 @@ export default function PlayedTracksBudgetDialog({
             aria-describedby={`${id}-space-hint`}
             onChange={(event) => setValue(event.target.value)}
           />
-          <small id={`${id}-space-hint`}>
+          <small
+            id={`${id}-space-hint`}
+            className={invalid ? "form-error" : undefined}
+          >
             {invalid
               ? `Enter a number from 0 to ${LARGEST_BUDGET_GIB}.`
               : `From 0 to ${LARGEST_BUDGET_GIB} GiB. 0 stops keeping played tracks for this account. A lower amount removes the least played copies right away.`}
