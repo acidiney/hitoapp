@@ -108,6 +108,28 @@ import Testing
         #expect(pace.due == nil)
     }
 
+    @Test func aStopIsSentAtOnceWhenThePlayerGoesAway() {
+        var pace = AnnouncementPace()
+        pace.want(Announcement(current: "a", upcoming: ["b"]), at: at(0))
+        _ = pace.take(at: at(settle))
+        pace.finished(.delivered, at: at(settle))
+        #expect(pace.flush(.stopped, at: at(settle + 0.1)) == .stopped)
+        #expect(pace.due == nil)
+    }
+
+    @Test func aStopIsNotFlushedWhenNothingWasAnnouncedOrTheServerAskedToWait() {
+        var idle = AnnouncementPace()
+        #expect(idle.flush(.stopped, at: at(0)) == nil)
+        var limited = AnnouncementPace()
+        limited.want(Announcement(current: "a", upcoming: []), at: at(0))
+        _ = limited.take(at: at(settle))
+        limited.finished(.delivered, at: at(settle))
+        limited.want(Announcement(current: "b", upcoming: []), at: at(5))
+        _ = limited.take(at: at(5 + settle))
+        limited.finished(.limited(retryAfter: .seconds(30)), at: at(5 + settle))
+        #expect(limited.flush(.stopped, at: at(10)) == nil)
+    }
+
     @Test func announcementsAreSpacedSoOneDeviceStaysUnderTheServerLimit() {
         var pace = AnnouncementPace()
         pace.want(Announcement(current: "a", upcoming: []), at: at(0))

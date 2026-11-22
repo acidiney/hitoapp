@@ -42,15 +42,14 @@ public struct AnnouncementPace: Sendable {
     private var announced = Announcement.stopped
     private var sending: Announcement?
     private var earliest: Instant?
+    private var blocked: Instant?
     private var unsupported = false
 
     public init() {}
 
     public var due: Instant? {
         guard !unsupported, sending == nil, wanted != announced, let changedAt else { return nil }
-        let settled = changedAt + Self.settle
-        guard let earliest else { return settled }
-        return max(settled, earliest)
+        return [earliest, blocked].compactMap { $0 }.reduce(changedAt + Self.settle, max)
     }
 
     public mutating func want(_ next: Announcement, at now: Instant) {
@@ -66,6 +65,15 @@ public struct AnnouncementPace: Sendable {
         return wanted
     }
 
+    public mutating func flush(_ last: Announcement, at now: Instant) -> Announcement? {
+        want(last, at: now)
+        guard !unsupported, sending == nil, wanted != announced else { return nil }
+        if let blocked, now < blocked { return nil }
+        sending = wanted
+        earliest = now + Self.spacing
+        return wanted
+    }
+
     public mutating func finished(_ outcome: Outcome, at now: Instant) {
         guard let sent = sending else { return }
         sending = nil
@@ -73,11 +81,11 @@ public struct AnnouncementPace: Sendable {
         case .delivered, .rejected:
             announced = sent
         case let .limited(retryAfter):
-            earliest = now + (retryAfter ?? Self.limitedWait)
+            blocked = now + (retryAfter ?? Self.limitedWait)
         case .unsupported:
             unsupported = true
         case .failed:
-            earliest = now + Self.failureWait
+            blocked = now + Self.failureWait
         }
     }
 }
