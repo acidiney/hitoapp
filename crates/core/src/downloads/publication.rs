@@ -3,6 +3,10 @@ use crate::{Result, library_storage::ManagedFileLocation};
 use uuid::Uuid;
 
 pub(super) const STORAGE_RETRY_SECONDS: i64 = 120;
+const YIELD_RETRY_SECONDS: i64 = 15;
+const BUSY_RETRY_SECONDS: i64 = 5;
+const BUSY_RETRY_CEILING_SECONDS: i64 = 300;
+const BUSY_RETRY_LIMIT: i64 = 8;
 
 pub(super) fn waiting_for_storage_sql() -> String {
     format!(
@@ -74,12 +78,34 @@ impl Downloads {
         };
         let storage_full =
             current && !stopped && error.as_ref().is_some_and(crate::Error::is_storage_full);
+        let provider_busy = lease.automatic
+            && lease.busy_retries < BUSY_RETRY_LIMIT
+            && error.as_ref().is_some_and(|error| {
+                matches!(
+                    error,
+                    crate::Error::PlaybackProvider {
+                        reason: crate::PlaybackFailureReason::ProviderUnavailable,
+                        ..
+                    }
+                )
+            });
+        let yielded = lease.automatic && error.as_ref().is_some_and(super::has_yielded);
         let (state, job, reason, refund, delay) = if !current {
             ("failed", "cancelled", Some("authority_changed"), false, 0)
         } else if stopped {
             ("queued", "queued", None, true, 0)
         } else if storage_full {
             ("queued", "queued", None, true, STORAGE_RETRY_SECONDS)
+        } else if yielded {
+            ("queued", "queued", None, true, YIELD_RETRY_SECONDS)
+        } else if provider_busy {
+            (
+                "queued",
+                "queued",
+                Some("provider_unavailable"),
+                true,
+                (BUSY_RETRY_SECONDS << lease.busy_retries).min(BUSY_RETRY_CEILING_SECONDS),
+            )
         } else if lease.attempts < 3
             && matches!(
                 error.as_ref().map(crate::Error::without_playback_reason),
@@ -97,11 +123,11 @@ impl Downloads {
             ("failed", "failed", Some("transfer_failed"), false, 0)
         };
         if let Some(error) = error {
-            tracing::debug!(job_id = %lease.id, error_code = error.code(), "Download attempt did not publish");
+            tracing::debug!(job_id = %lease.id, error_code = error.code(), yielded, provider_busy, "Download attempt did not publish");
         }
         if owned {
-            sqlx::query("UPDATE download_jobs SET status=?,attempts=max(attempts-?,0),next_attempt_at=unixepoch()+?,lease_token=NULL,lease_until=NULL,updated_at=unixepoch() WHERE id=? AND lease_token=?")
-                .bind(job).bind(i64::from(refund)).bind(delay).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
+            sqlx::query("UPDATE download_jobs SET status=?,attempts=max(attempts-?,0),busy_retries=busy_retries+?,next_attempt_at=unixepoch()+?,lease_token=NULL,lease_until=NULL,updated_at=unixepoch() WHERE id=? AND lease_token=?")
+                .bind(job).bind(i64::from(refund)).bind(i64::from(provider_busy && current && !stopped && !storage_full && !yielded)).bind(delay).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
             sqlx::query("UPDATE download_intents SET state=?,file_id=NULL,error=?,updated_at=unixepoch() WHERE id=? AND generation=? AND state!='removed'")
                 .bind(state).bind(reason).bind(&lease.intent_id).bind(lease.generation).execute(&mut *tx).await?;
         }

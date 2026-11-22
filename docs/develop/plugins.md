@@ -51,7 +51,7 @@ A short example:
 
 Known capabilities are `search`, `catalog`, `metadata`, `sources`, `source_links`, `source_preparation`, `playlists`, `artwork`, `dashboard`, `lyrics`, `backing_tracks` and `featured`. Hito rejects unknown capabilities, unknown fields and other protocol versions. `source_links` and `source_preparation` require `sources`. `featured` requires `playlists`. Hito versions that know `source_links` can connect older manifests that omit it; older strict Hito versions reject manifests that advertise a capability they do not know.
 
-`playback_only` tells Hito not to start new offline downloads from your sources. It is a declaration, not proof of a license.
+`playback_only` tells Hito not to start new offline downloads or automatic copies from your sources. It is a declaration, not proof of a license.
 
 The manifest can be public even when your other routes need a token. Some services also protect the manifest. In that case the administrator gives the offer a custom label.
 

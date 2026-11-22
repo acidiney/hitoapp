@@ -141,9 +141,10 @@ impl Downloads {
                 last: None,
             }),
         };
-        let Some(opened) = guard.wait(self.open_origin(lease, ranged)).await? else {
+        let Some((opened, yielded)) = guard.wait(self.open_origin(lease, ranged)).await? else {
             return Ok(None);
         };
+        guard.yielded = yielded;
         let full = match opened {
             OpenedAudio::Content(mut content) if representation.continued_by(&content, offset) => {
                 let stream = content
@@ -156,12 +157,13 @@ impl Downloads {
                 content
             }
             _ => {
-                let Some(opened) = guard
+                let Some((opened, yielded)) = guard
                     .wait(self.open_origin(lease, AudioRequest::default()))
                     .await?
                 else {
                     return Ok(None);
                 };
+                guard.yielded = yielded;
                 let OpenedAudio::Content(content) = opened else {
                     return Err(Error::Upstream(
                         "The download service did not return complete audio",

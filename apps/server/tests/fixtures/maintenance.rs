@@ -428,6 +428,12 @@ impl Snapshot {
             if table.name == "users" {
                 expected.push("display_name".to_owned());
             }
+            if table.name == "download_jobs" {
+                expected.push("busy_retries".to_owned());
+            }
+            if table.name == "listening_history" {
+                expected.push("play_count".to_owned());
+            }
             if table.name == "sessions" {
                 expected.extend(["created_at", "last_seen_at", "client"].map(str::to_owned));
             }
@@ -660,6 +666,27 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
             })
         {
             declared = view;
+        }
+        if schema_history::automatic_copies_schema::REPLACED
+            .iter()
+            .any(|(kind, name)| *kind == declared.0 && *name == declared.1)
+        {
+            let current = expected
+                .iter()
+                .find(|current| current.0 == declared.0 && current.1 == declared.1)
+                .unwrap();
+            assert!(
+                schema_history::automatic_copies_schema::changed_as_declared(
+                    &declared.0,
+                    &declared.1,
+                    declared.3.as_deref().unwrap_or_default(),
+                    current.3.as_deref().unwrap_or_default(),
+                ),
+                "0105 must change {} {} exactly as declared",
+                declared.0,
+                declared.1
+            );
+            declared = current.clone();
         }
         assert!(
             expected.contains(&declared),
@@ -963,6 +990,7 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
     declared_additions.extend_from_slice(schema_history::album_additions_schema::ADDED);
     declared_additions.extend_from_slice(schema_history::credit_completion_schema::ADDED);
     declared_additions.extend_from_slice(schema_history::credit_member_matches_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::automatic_copies_schema::ADDED);
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(

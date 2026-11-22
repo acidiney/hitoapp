@@ -143,6 +143,39 @@ impl MediaClient {
         Ok((opened, ticket))
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub(super) async fn open_background(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: AudioRequest,
+        authority: Authority,
+    ) -> Result<(OpenedAudio, tokio::sync::watch::Receiver<bool>)> {
+        let (ticket, account, global) = self
+            .admission
+            .warm_resources(&authority.account, &self.accounts, &self.slots)
+            .map_err(|_| crate::downloads::yielded())?;
+        ticket.finish_preparation();
+        let mut canceled = ticket.cancelled();
+        let opened = tokio::select! {
+            biased;
+            _ = canceled.changed() => return Err(crate::downloads::yielded()),
+            opened = self.open_admitted(
+                base_url,
+                token,
+                request,
+                authority,
+                Permits {
+                    _account: account,
+                    _global: global,
+                    _warm: Some(ticket.clone()),
+                },
+                None,
+            ) => opened?,
+        };
+        Ok((opened, ticket.cancelled()))
+    }
+
     async fn open_admitted(
         &self,
         base_url: &str,

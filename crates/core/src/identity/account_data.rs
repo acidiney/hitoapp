@@ -110,6 +110,8 @@ fn downloads() -> Vec<String> {
     ));
     plan.extend(owned(
         &[
+            "upcoming_recordings",
+            "automatic_copies",
             "download_playlist_receipts",
             "download_receipts",
             "download_jobs",
@@ -233,6 +235,7 @@ fn personal_catalog() -> Vec<String> {
             "source_readiness_jobs",
             "source_readiness_checks",
             "account_source_readiness_preferences",
+            "account_automatic_copies",
             "account_community_preferences",
             "account_history_preferences",
             "account_avatars",

@@ -81,6 +81,44 @@ impl Plugins {
         origin: &ProviderDownloadOrigin,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
+        let (base_url, token, authority) = self.download_authority(account, origin).await?;
+        self.media
+            .open(
+                &base_url,
+                token.as_deref().map(String::as_str),
+                request,
+                authority,
+            )
+            .await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = account))]
+    pub(crate) async fn open_download_in_background(
+        &self,
+        account: &str,
+        origin: &ProviderDownloadOrigin,
+        request: AudioRequest,
+    ) -> Result<(OpenedAudio, tokio::sync::watch::Receiver<bool>)> {
+        let (base_url, token, authority) = self.download_authority(account, origin).await?;
+        self.media
+            .open_background(
+                &base_url,
+                token.as_deref().map(String::as_str),
+                request,
+                authority,
+            )
+            .await
+    }
+
+    async fn download_authority(
+        &self,
+        account: &str,
+        origin: &ProviderDownloadOrigin,
+    ) -> Result<(
+        String,
+        Option<zeroize::Zeroizing<String>>,
+        super::AudioAuthority,
+    )> {
         let row = sqlx::query("SELECT p.credential,service.base_url FROM plugin_installations p
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1 AND service.revision=?
             WHERE p.id=? AND p.user_id=? AND p.active=1 AND p.revision=? AND p.service_id=? AND p.audio_generation=?
@@ -115,14 +153,7 @@ impl Plugins {
             source_generation: origin.source_generation,
         };
         authority.check().await?;
-        self.media
-            .open(
-                row.try_get("base_url")?,
-                token.as_deref().map(String::as_str),
-                request,
-                authority,
-            )
-            .await
+        Ok((row.try_get("base_url")?, token, authority))
     }
 }
 

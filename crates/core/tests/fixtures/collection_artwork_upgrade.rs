@@ -171,6 +171,21 @@ pub async fn assert_schema_preserved(
             .await
             .unwrap();
     let after = schema(connection).await;
+    let automatic_copies = if version >= 105 {
+        let mut reference = super::schema::reference_105().await;
+        let declared = schema(&mut reference).await;
+        reference.close().await.unwrap();
+        declared
+            .into_iter()
+            .filter(|object| {
+                super::schema::automatic_copies_schema::REPLACED
+                    .iter()
+                    .any(|(kind, name)| *kind == object.0 && *name == object.1)
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
     let credit_targets = artist_credit_target_schema::declarations();
     for object in before.iter().filter(|object| {
         !changed.contains(&object.1.as_str())
@@ -274,6 +289,12 @@ pub async fn assert_schema_preserved(
             })
         {
             expected = view;
+        }
+        if let Some(declared) = automatic_copies
+            .iter()
+            .find(|object| object.0 == expected.0 && object.1 == expected.1)
+        {
+            expected = declared.clone();
         }
         assert!(
             after.contains(&expected),

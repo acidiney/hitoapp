@@ -143,6 +143,7 @@ async fn serve_owned(
         tokio::join!(
             downloads::worker(downloads.clone(), download_stop.clone(), 0),
             downloads::worker(downloads.clone(), download_stop.clone(), 1),
+            downloads::copies(downloads.clone(), download_stop.clone()),
             downloads::reconcile(downloads, download_stop),
         );
     };

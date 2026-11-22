@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod automatic_copies_http;
 mod download_http;
 mod download_restart;
 mod download_runtime;

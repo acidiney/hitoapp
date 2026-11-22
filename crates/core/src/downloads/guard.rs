@@ -12,6 +12,7 @@ pub(super) struct Guard<'a> {
     stopped: &'a mut watch::Receiver<bool>,
     pub(super) bytes: u64,
     pub(super) total: Option<u64>,
+    pub(super) yielded: Option<watch::Receiver<bool>>,
     checked: Instant,
     renewed: Instant,
 }
@@ -28,6 +29,7 @@ impl<'a> Guard<'a> {
             stopped,
             bytes: 0,
             total: None,
+            yielded: None,
             checked: Instant::now(),
             renewed: Instant::now(),
         }
@@ -60,12 +62,20 @@ impl<'a> Guard<'a> {
         if *self.stopped.borrow() {
             return Ok(None);
         }
+        if self
+            .yielded
+            .as_ref()
+            .is_some_and(|yielded| *yielded.borrow())
+        {
+            return Err(super::yielded());
+        }
         self.check().await?;
         tokio::pin!(pending);
         loop {
             tokio::select! {
                 biased;
                 _ = self.stopped.changed() => { if *self.stopped.borrow() { return Ok(None); } },
+                () = playback_arrived(&mut self.yielded) => return Err(super::yielded()),
                 result = &mut pending => { self.check().await?; return result.map(Some); },
                 _ = tokio::time::sleep(self.downloads.authority_interval) => self.check().await?,
             }
@@ -91,6 +101,20 @@ impl<'a> Guard<'a> {
                     if let Err(error) = self.check().await { authority_error = Some(error); }
                 },
             }
+        }
+    }
+}
+
+async fn playback_arrived(yielded: &mut Option<watch::Receiver<bool>>) {
+    let Some(yielded) = yielded else {
+        return std::future::pending().await;
+    };
+    loop {
+        if *yielded.borrow_and_update() {
+            return;
+        }
+        if yielded.changed().await.is_err() && !*yielded.borrow() {
+            return std::future::pending().await;
         }
     }
 }
