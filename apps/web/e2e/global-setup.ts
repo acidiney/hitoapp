@@ -16,6 +16,15 @@ export default async function globalSetup(config: FullConfig) {
       storageState: { cookies: [], origins: [] },
     });
     await enterAdmin(await context.newPage());
+    const copies = await context.request.put(
+      "/api/v1/account/automatic-copies",
+      {
+        headers: { "x-hito-request": "1", origin: new URL(baseURL).origin },
+        data: { keep_played_tracks: false },
+      },
+    );
+    if (!copies.ok())
+      throw new Error("The shared administrator must not keep played tracks");
     await context.storageState({ path: adminSessionPath });
   } finally {
     await browser.close();

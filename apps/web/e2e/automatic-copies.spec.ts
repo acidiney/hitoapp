@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
+import { createMembers, memberPassword } from "./fixtures/member-accounts";
 import type { Schema } from "../src/shared/schema";
 
 const playerPath = (page: Page) =>
@@ -19,27 +20,43 @@ const position = (page: Page) =>
     );
 
 test("the web player announces the next track and then plays it from the copy the server saved", async ({
-  page,
+  page: administrator,
+  browser,
   baseURL,
 }) => {
   test.setTimeout(120_000);
   const prefix = `Copies ${Date.now() % 1_000_000}`;
   const fixture = await providerFixture(prefix);
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
   const headers = {
     "x-hito-request": "1",
     origin: new URL(baseURL!).origin,
   };
+  const accounts = await createMembers(browser, baseURL!, "copies", 1);
+  const listener = await browser.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1440, height: 1000 },
+  });
+  const page = await listener.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   let cleanup: (() => Promise<void>) | null = null;
   try {
-    const offered = await page.request.post("/api/v1/plugins/services", {
+    const login = await page.request.post("/api/v1/login", {
       headers,
-      data: {
-        name: `${prefix} service`,
-        base_url: fixture.address,
-      } satisfies Schema<"OfferPluginService">,
+      data: { username: accounts.names[0], password: memberPassword },
     });
+    expect(login.status()).toBe(200);
+    const offered = await administrator.request.post(
+      "/api/v1/plugins/services",
+      {
+        headers,
+        data: {
+          name: `${prefix} service`,
+          base_url: fixture.address,
+        } satisfies Schema<"OfferPluginService">,
+      },
+    );
     expect(offered.status()).toBe(201);
     const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
@@ -150,6 +167,8 @@ test("the web player announces the next track and then plays it from the copy th
     try {
       await cleanup?.();
     } finally {
+      await listener.close();
+      await accounts.close();
       await fixture.close();
     }
   }
