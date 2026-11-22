@@ -87,7 +87,7 @@ A player tells the server what it is playing and what comes next, so the server 
 }
 ```
 
-- `client` is optional: 1 to 64 letters, digits, dashes, dots, colons or underscores. Each announcement replaces the previous one from the same session and client tag. The web app sends one tag per browser tab and the iOS app one per device, so two tabs on one session do not overwrite each other. This is planned client behavior; the server only keys by the tag.
+- `client` is optional: 1 to 64 letters, digits, dashes, dots, colons or underscores. Each announcement replaces the previous one from the same session and client tag. The web app sends one tag per browser tab, so two tabs on one session do not overwrite each other. The iOS app will send one per device. The server only keys by the tag.
 - `current` is optional. Leave it out or send `null` when nothing is playing.
 - `recording_ids` holds at most 2 recordings, in play order.
 

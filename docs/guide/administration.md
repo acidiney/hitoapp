@@ -27,6 +27,17 @@ To take access away, select **Remove access to** in the same menu. Their playlis
 
 Administrators always have access, so the menu shows these options only for members.
 
+## Set the space for played tracks
+
+Each account can keep private copies of the service tracks it plays, so they start without waiting. See [Keep played tracks](listening.md#keep-played-tracks). You choose how much space each account may use.
+
+1. Open **Settings → Accounts**.
+2. Open the menu next to the person, or next to yourself.
+3. Select **Space for played tracks…**.
+4. Enter an amount in **Space in GiB**, from 0 to 1024, and select **Save**.
+
+The default is 5 GiB. 0 stops saving copies for that account. A lower amount removes that account's least played copies right away. Downloads don't count toward it. You see only the amount you set, never what the account has played or how much it uses.
+
 ## Add music folders for the server
 
 Music folders belong to the server and are shared with everyone who has access to the library.

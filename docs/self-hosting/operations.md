@@ -28,6 +28,14 @@ Scanning is a persistent job. Workers claim queued jobs with a lease and renew i
 
 The backend persists its host identity in `hito.device-id` beside `hito.db`. Preserve this file with the database when backing up or moving the service. An existing prototype database without a sidecar adopts its legacy `server` identity so its audio stays available. Fresh installations generate a UUID. `HITO_DEVICE_ID` explicitly overrides the saved identity without rewriting it. Synchronization client IDs are separate and do not grant access to local files.
 
+### Automatic copies
+
+While an account has **Keep played tracks** on, the server saves private copies of the service tracks it plays and of the next ones in its queue. See [Keep played tracks](../guide/listening.md#keep-played-tracks). The copies live with Downloads in `hito.downloads` beside `hito.db`, inside the data volume, so a whole-volume backup includes them. They can be fetched again, so a backup can do without them.
+
+Each account has its own budget for these copies: 5 GiB by default, from 0 to 1 TiB. The administrator sets it in **Settings → Accounts**; see [Set the space for played tracks](../guide/administration.md#set-the-space-for-played-tracks). Downloads don't count toward it. Plan the volume for the number of accounts times their budgets, plus Downloads.
+
+The server stops saving new copies while less than 10% of the data volume is free. If free space falls below 10% while a copy is being fetched, that copy is not kept, and the server tries again a few minutes later. Playback keeps working from the services meanwhile. Free space on the volume, or lower the budgets, and saving resumes by itself.
+
 ### Music scanning
 
 Hito watches connected server music folders and rescans a folder shortly after its audio files change. `HITO_FOLDER_WATCH` selects `auto` (default: native events, with polling where native events are unavailable or unreliable), `poll` (always poll) or `off`; values are case-insensitive and an empty value means the default. `HITO_FOLDER_WATCH_POLL_SECONDS` sets the polling interval, from 5 to 86400 seconds (default 30, ignored when watching is off). Invalid values stop startup. Changes are grouped for two seconds of quiet before a scan is queued. A scan after a change rereads checksums, so watching a large library that changes often costs disk reads.
