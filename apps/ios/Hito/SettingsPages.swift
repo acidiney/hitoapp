@@ -238,6 +238,7 @@ struct PlaybackSettingsView: View {
     @State private var automaticLyrics: Bool?
     @State private var streaming: StreamingQuality?
     @State private var order: SourceOrder.Order?
+    @State private var keep: KeepPlayedTracks?
     @State private var names: [String: String] = [:]
     @State private var problem: String?
 
@@ -303,6 +304,16 @@ struct PlaybackSettingsView: View {
                             .accessibilityLabel("Streaming quality, \(quality.choice)")
                         }
                     }
+                    if let keep {
+                        SettingsGroup(title: "Played tracks") {
+                            SettingRow(title: "Keep played tracks", detail: "Hito saves a private copy of tracks from services after you play them, and of the next two in your queue, so they start without waiting. Turning this off removes these copies. Your Downloads stay.", divided: keep.on) {
+                                Switch(on: keep.on, label: "Keep played tracks") { on in await keepPlayed(on) }
+                            }
+                            if keep.on {
+                                SettingRow(title: "Space used", detail: keep.space) { EmptyView() }
+                            }
+                        }
+                    }
                     SettingsGroup(title: "Lyrics") {
                         SettingRow(title: "Load lyrics automatically", detail: "Opening Lyrics asks your first lyrics provider for the playing track.") {
                             Switch(on: automaticLyrics ?? LyricChoices.automaticEnabled(account: player.account), label: "Load lyrics automatically") { on in
@@ -349,14 +360,27 @@ struct PlaybackSettingsView: View {
         }
     }
 
+    private func keepPlayed(_ on: Bool) async {
+        guard let api = model.api else { return }
+        problem = nil
+        do {
+            keep = try await AutomaticCopies(api: api).set(on)
+        } catch {
+            problem = on ? "Keep played tracks didn't turn on. Try again." : "Keep played tracks didn't turn off. Try again."
+            model.handle(error)
+        }
+    }
+
     private func load() async {
         guard let api = model.api else { return }
         do {
             async let current = SourceOrder(api: api).load()
             async let plugins = Plugins(api: api).load()
-            let (loaded, state) = try await (current, plugins)
+            async let copies = AutomaticCopies(api: api).load()
+            let (loaded, state, kept) = try await (current, plugins, copies)
             names = Dictionary(uniqueKeysWithValues: state.connections.map { ($0.id, $0.name) })
             order = loaded
+            keep = kept
         } catch {
             problem = "Playback settings didn't load."
             model.handle(error)
