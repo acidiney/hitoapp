@@ -7,6 +7,7 @@ use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;
 use http::call;
 use serde_json::{Value, json};
+use sqlx::Connection;
 use std::{future::pending, time::Duration};
 
 const DEFAULT_BUDGET: u64 = 5 * 1024 * 1024 * 1024;
@@ -102,6 +103,121 @@ async fn an_announced_recording_becomes_a_saved_source_and_the_setting_reports_i
     assert!(copies["keep_played_tracks"] == false && copies["used_bytes"] == 0);
 }
 
+async fn saved(app: &axum::Router, token: &str, recording: &str) -> bool {
+    let (status, sources) = call(
+        app,
+        "GET",
+        &format!("/api/v1/recordings/{recording}/sources"),
+        Value::Null,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    sources
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|source| source["provider"] == "download" && source["ready"] == true)
+}
+
+#[tokio::test]
+async fn the_announced_current_recording_is_saved_and_kept_under_a_zero_budget() {
+    let f = hang_guard("the provider library must open", AudioLibrary::start()).await;
+    f.ready().await;
+    let app = hito_server::router(f.hito.clone());
+    let admin = token(&app, "admin", "indexing test password").await;
+    let recording = f.source.recording_id.clone();
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/playback/upcoming",
+        json!({"client": "web-tab-1f6c", "current": recording, "recording_ids": []}),
+        Some(&admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    drain(&f).await;
+    assert!(saved(&app, &admin, &recording).await);
+
+    let budget = format!("/api/v1/users/{}/automatic-copy-budget", f.actor.user().id);
+    let (status, _) = call(
+        &app,
+        "PUT",
+        &budget,
+        json!({"budget_bytes": 0}),
+        Some(&admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(saved(&app, &admin, &recording).await);
+
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/playback/upcoming",
+        json!({"client": "web-tab-1f6c", "current": null, "recording_ids": []}),
+        Some(&admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &app,
+        "PUT",
+        &budget,
+        json!({"budget_bytes": 0}),
+        Some(&admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!saved(&app, &admin, &recording).await);
+}
+
+#[tokio::test]
+async fn a_full_play_reported_through_sync_counts_once_and_saves_a_copy() {
+    let f = hang_guard("the provider library must open", AudioLibrary::start()).await;
+    f.ready().await;
+    let app = hito_server::router(f.hito.clone());
+    let admin = token(&app, "admin", "indexing test password").await;
+    let recording = f.source.recording_id.clone();
+    let mut database = sqlx::SqliteConnection::connect_with(
+        &sqlx::sqlite::SqliteConnectOptions::new().filename(f.directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE recordings SET duration_ms=200000 WHERE id=?")
+        .bind(&recording)
+        .execute(&mut database)
+        .await
+        .unwrap();
+
+    for position_ms in [20_000, 120_000, 190_000, 200_000] {
+        let (status, body) = call(
+            &app,
+            "POST",
+            "/api/v1/sync",
+            json!({"device_id": "web-tab-1f6c", "operations": [{
+                "id": uuid::Uuid::new_v4(),
+                "action": {"kind": "progress_set", "recording_id": recording, "position_ms": position_ms, "speed": 1.0}
+            }]}),
+            Some(&admin),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+    let plays: i64 = sqlx::query_scalar(
+        "SELECT play_count FROM listening_history WHERE user_id=? AND recording_id=?",
+    )
+    .bind(&f.actor.user().id)
+    .bind(&recording)
+    .fetch_one(&mut database)
+    .await
+    .unwrap();
+    assert_eq!(plays, 1);
+    drain(&f).await;
+    assert!(saved(&app, &admin, &recording).await);
+}
+
 #[tokio::test]
 async fn announcements_are_validated_authenticated_and_paced() {
     let f = hang_guard("the provider library must open", AudioLibrary::start()).await;
@@ -131,6 +247,10 @@ async fn announcements_are_validated_authenticated_and_paced() {
         ),
         (
             json!({"recording_ids": [], "unexpected": true}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        (
+            json!({"current": "not-a-recording", "recording_ids": []}),
             StatusCode::UNPROCESSABLE_ENTITY,
         ),
     ] {
