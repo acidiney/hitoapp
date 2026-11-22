@@ -49,6 +49,8 @@ test("an accepted service outage is retried for three passes, shown once, and se
     "fetch",
     vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);
+      if (path === "/api/v1/playback/upcoming")
+        return new Response(null, { status: 204 });
       requests.push({
         path,
         method: options?.method ?? "GET",

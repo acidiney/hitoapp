@@ -25,6 +25,7 @@ export type SettingId =
   | "streaming-quality"
   | "source-preference"
   | "background-preparation"
+  | "keep-played-tracks"
   | "accounts-access"
   | "shared-corrections"
   | "about-hito";
@@ -219,6 +220,15 @@ const ENTRIES: SettingEntry[] = [
       "Find and check audio for your tracks while you're not listening, so Play starts sooner.",
     keywords:
       "background prepare sources ready play faster find audio check links expire",
+  },
+  {
+    id: "keep-played-tracks",
+    section: "playback",
+    label: "Played tracks",
+    description:
+      "Private copies of service tracks you play and the next ones in your queue, so they start without waiting.",
+    keywords:
+      "keep played tracks automatic copies cache saved space storage budget next track wait gap offline downloads",
   },
   {
     id: "accounts-access",

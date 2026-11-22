@@ -60,6 +60,7 @@ import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
 import { BrowserStream } from "./browser/BrowserStream";
 import { BrowserAcquisition } from "./browser/BrowserAcquisition";
+import type { Upcoming } from "./browser/BrowserUpcoming";
 import {
   streamingQuality,
   subscribeStreamingQuality,
@@ -127,6 +128,7 @@ export class Playback implements Player {
     onSuccess?: (source: string, claim: Schema<"SuccessfulPlayback">) => void,
     sourcePreparer?: SourcePreparer,
     private fallbackAllowed?: () => Promise<boolean>,
+    private onUpcoming?: (upcoming: Upcoming) => void,
   ) {
     this.media = new BrowserStream(media);
     this.community = onSuccess
@@ -518,6 +520,46 @@ export class Playback implements Player {
   subscribe = this.store.subscribe;
   private update(patch: Partial<PlaybackState> & { queueChanged?: true }) {
     this.store.update(patch, this.queue);
+    if (
+      patch.queueChanged ||
+      "current" in patch ||
+      "index" in patch ||
+      "repeat" in patch ||
+      "shuffle" in patch
+    )
+      this.announceUpcoming();
+  }
+
+  private announceUpcoming() {
+    if (!this.onUpcoming) return;
+    const playing = this.restored ? undefined : this.queue.at(this.state.index);
+    const current =
+      playing &&
+      !playing.chapter &&
+      this.state.current?.id === playing.recording.id
+        ? playing.recording.id
+        : null;
+    const next: string[] = [];
+    const serials = this.queue.serials();
+    let index = this.state.index;
+    for (let step = 0; current && step < 2; step++) {
+      const following = this.traversal.completed(
+        serials,
+        index,
+        this.state.repeat,
+      );
+      if (following === null) break;
+      index = following;
+      const entry = this.queue.at(following);
+      const id = entry?.recording.id;
+      if (id && !entry.chapter && id !== current && !next.includes(id))
+        next.push(id);
+    }
+    try {
+      this.onUpcoming({ current, next });
+    } catch {
+      log.debug("playback.upcoming_failed");
+    }
   }
 
   setRecordingField(

@@ -21,6 +21,7 @@ import { BrowserProgress } from "../browser/BrowserProgress";
 import { audiobookApi } from "../../audiobooks/api/audiobookApi";
 import { BrowserCommunityReporting } from "../browser/BrowserCommunityReporting";
 import { QueuePersistence } from "../browser/QueuePersistence";
+import { BrowserUpcoming } from "../browser/BrowserUpcoming";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -53,13 +54,14 @@ function BrowserAccountPlayback({
 }) {
   const notice = useNotice();
   const scope = useRequestScope(account);
-  const [{ audio, media, player, community }] = useState(() => {
+  const [{ audio, media, player, community, upcoming }] = useState(() => {
     const audio = new Audio();
     const media = new Map<MediaPort, HTMLAudioElement>([[audio, audio]]);
     const players = new WeakSet<HTMLAudioElement>([audio]);
     let spare: HTMLAudioElement | null = null;
     let player: Playback;
     const community = new BrowserCommunityReporting(account, scope.capture);
+    const upcoming = new BrowserUpcoming(account, scope.capture);
     const progress = new BrowserProgress(
       account,
       scope.capture,
@@ -136,13 +138,15 @@ function BrowserAccountPlayback({
           sourcePreparationApi.status(account, recording, source, signal),
       },
       () => sourcePreferenceApi.fallbackEnabled(account),
+      (next) => upcoming.announce(next),
     );
-    return { audio, media, player, community };
+    return { audio, media, player, community, upcoming };
   });
   useBrowserMediaSession(player, account);
   useEffect(() => {
     player.activate();
     community.activate();
+    upcoming.activate();
     log.info("playback.account_opened", { account_id: account });
     media.set(audio, audio);
     audio.dataset.hitoPlayer = "";
@@ -163,10 +167,11 @@ function BrowserAccountPlayback({
       stopPersisting?.();
       player.retire();
       community.close();
+      upcoming.close();
       for (const element of media.values()) element.remove();
       media.clear();
     };
-  }, [account, audio, media, player, community]);
+  }, [account, audio, media, player, community, upcoming]);
   useRecordingSync(player);
   return (
     <PlaybackContext.Provider value={player}>

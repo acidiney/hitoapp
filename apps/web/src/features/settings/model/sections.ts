@@ -42,7 +42,7 @@ const SECTIONS: SettingsSection[] = [
   {
     id: "playback",
     label: "Playback",
-    description: "Quality and source order",
+    description: "Quality, source order, played tracks",
   },
   {
     id: "accounts",

@@ -119,6 +119,19 @@ A saved copy plays without contacting the music service. It lives on the server,
 
 If the server runs out of disk space, the page says so and Hito tries again later. If a download fails, remove it and select **Download** again.
 
+## Keep played tracks
+
+A track from a music service starts at once when Hito already has a copy of it. **Keep played tracks** is on by default. While it is on, Hito saves a private copy of a service track after you play it to the end. In the browser and the web app, it also saves the next two tracks in your queue while the current one plays, so the next track doesn't wait for the service.
+
+- The copies belong to your account. Other accounts, including the administrator, can't see or play them.
+- Tracks in your music folders are never copied, because they are already on the server. Neither are tracks from a plugin that allows playback only.
+- The copies stay within the space your administrator sets for your account, 5 GiB unless they change it. When it is full, Hito removes the copies you play least. The track playing now and the next ones are never removed. A removed copy plays from its service again and is saved again the next time you play it to the end.
+- **Settings → Playback → Keep played tracks** shows the space your copies use, for example "1.2 GiB of 5 GiB".
+
+To turn it off, open **Settings → Playback** and turn off **Keep played tracks**. Hito removes your automatic copies right away. It never removes Downloads, downloaded playlists, saved podcast episodes or audiobook chapters, or the files in your music folders. Your library, likes, history and listening progress stay as they are.
+
+The desktop app's own library saves a copy after a full play, but not the next tracks ahead. Its player already prepares the next track.
+
 ## Use the keyboard and media keys
 
 Press ? to see every shortcut. The main ones:
