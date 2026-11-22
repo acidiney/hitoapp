@@ -108,6 +108,21 @@ public struct HitoAPI: Sendable {
         return try await send(request, as: type)
     }
 
+    func answer<Body: Encodable>(_ method: String, _ path: [String], body: Body) async throws -> HTTPURLResponse {
+        var request = request(path)
+        request.httpMethod = method
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        do {
+            return try await ServerConnection.load(request, with: session, staying: address).1
+        } catch ServerConnection.Problem.certificate {
+            throw Problem.certificate
+        } catch is ServerConnection.Problem {
+            throw Problem.noAnswer
+        }
+    }
+
     func head(_ path: [String], query: [URLQueryItem]) async throws -> HTTPURLResponse {
         var request = request(path, query: query)
         request.httpMethod = "HEAD"
