@@ -15,8 +15,12 @@ final class Player {
         case paused
     }
 
-    private(set) var queue = PlayQueue()
-    private(set) var state = State.idle
+    private(set) var queue = PlayQueue() {
+        didSet { announce() }
+    }
+    private(set) var state = State.idle {
+        didSet { announce() }
+    }
     private(set) var position: Double = 0
     private(set) var duration: Double = 0
     private(set) var sourceLabel: String?
@@ -68,6 +72,9 @@ final class Player {
     private var deadline: Task<Void, Never>?
     private var engineStatus: NSKeyValueObservation?
     private let network = NWPathMonitor()
+    private let upcoming: UpcomingTracks
+    @ObservationIgnored private var pace = AnnouncementPace()
+    @ObservationIgnored private var announcing: Task<Void, Never>?
 
     var buffering: Bool { stalls.buffering }
 
@@ -85,6 +92,7 @@ final class Player {
             log.info("player.previous_run_leases_released")
             Task { [playback] in await playback.releaseLeft(by: previousClient) }
         }
+        upcoming = UpcomingTracks(api: api, client: UpcomingTracks.clientTag(account: account))
         likes = Likes(api: api, device: Self.device)
         listening = ListeningProgress(api: api, device: Self.device)
         if let left = UserDefaults.standard.string(forKey: Self.leaseKey) {
@@ -115,6 +123,35 @@ final class Player {
         watchPlayback()
         connectRemote()
         refreshFallback()
+    }
+
+    private func announce() {
+        pace.want(Announcement(queue: queue, playing: state != .idle), at: .now)
+        scheduleAnnouncement()
+    }
+
+    private func scheduleAnnouncement() {
+        announcing?.cancel()
+        announcing = nil
+        guard let due = pace.due else { return }
+        announcing = Task { [weak self] in
+            try? await Task.sleep(until: due, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            self?.sendAnnouncement()
+        }
+    }
+
+    private func sendAnnouncement() {
+        guard let announcement = pace.take(at: .now) else { return scheduleAnnouncement() }
+        let started = ContinuousClock.now
+        Task { [weak self, upcoming] in
+            let outcome = await upcoming.announce(announcement)
+            guard let self else { return }
+            self.pace.finished(outcome, at: .now)
+            let elapsed = Int((ContinuousClock.now - started) / .milliseconds(1))
+            self.log.info("player.upcoming_announced outcome=\(String(describing: outcome), privacy: .public) playing=\(announcement.current != nil, privacy: .public) upcoming=\(announcement.upcoming.count, privacy: .public) ms=\(elapsed, privacy: .public)")
+            self.scheduleAnnouncement()
+        }
     }
 
     private func refreshFallback() {
