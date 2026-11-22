@@ -22,6 +22,7 @@ export const otherRecording: Track = {
   title: "Second private owned title",
   album: null,
 };
+const UPCOMING = "/api/v1/playback/upcoming";
 const source: Schema<"Source"> = {
   id: "49858203-ce08-478f-95fe-482f34e376fb",
   recording_id: recording.id,
@@ -48,6 +49,8 @@ export function playbackRequests(
     vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);
       const method = options?.method ?? "GET";
+      if (path === UPCOMING)
+        return reply?.(path, options) ?? new Response(null, { status: 204 });
       requests.push({
         path,
         method,

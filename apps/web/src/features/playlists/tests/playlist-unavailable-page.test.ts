@@ -48,6 +48,8 @@ test("retained playlists remain editable and known recordings resolve audio only
         expect(new Headers(options.headers).get("x-hito-account")).toBe(
           props.user.id,
         );
+        if (path === "/api/v1/playback/upcoming")
+          return new Response(null, { status: 204 });
         if (path === downloadPath && options.method === "GET")
           return Response.json({ error: "Not found" }, { status: 404 });
         const recording = recordings.find(
@@ -93,6 +95,8 @@ test("retained playlists remain editable and known recordings resolve audio only
         });
       });
     vi.stubGlobal("fetch", fetch);
+    const playbackCalls = () =>
+      fetch.mock.calls.filter(([path]) => path !== "/api/v1/playback/upcoming");
     let player!: Player;
     function Page() {
       player = usePlayer();
@@ -189,12 +193,12 @@ test("retained playlists remain editable and known recordings resolve audio only
         await vi.waitFor(() => {
           expect(player.snapshot().loading).toBe(false);
           expect(player.snapshot().error).toContain("Audio is unavailable");
-          expect(fetch).toHaveBeenCalledTimes(1 + recordings.length * 9);
+          expect(playbackCalls()).toHaveLength(1 + recordings.length * 9);
         });
       } finally {
         vi.useRealTimers();
       }
-      const sourceCalls = fetch.mock.calls.slice(1);
+      const sourceCalls = playbackCalls().slice(1);
       const pass = (recording: string) => [
         [`/api/v1/recordings/${recording}/playback-sources`, "GET"],
         [`/api/v1/recordings/${recording}/sources/refresh`, "POST"],

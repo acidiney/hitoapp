@@ -24,6 +24,8 @@ export function ownedPlaybackHttp(
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (String(input) === "/api/v1/playback/upcoming")
+        return new Response(null, { status: 204 });
       const request: OwnedPlaybackRequest = {
         path: String(input),
         method: options?.method ?? "GET",
