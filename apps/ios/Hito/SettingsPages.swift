@@ -305,14 +305,13 @@ struct PlaybackSettingsView: View {
                         }
                     }
                     if let keep {
-                        SettingsGroup(title: "Automatic copies") {
-                            SettingRow(title: "Keep played tracks", detail: "Saves private copies of plugin tracks on your server as you play them and before they come up in your queue, so they start without waiting. Turning this off removes them. Downloads stay.") {
+                        SettingsGroup(title: "Played tracks") {
+                            SettingRow(title: "Keep played tracks", detail: "Hito saves a private copy of tracks from services after you play them, and of the next two in your queue, so they start without waiting. Turning this off removes these copies. Your Downloads stay.", divided: keep.on) {
                                 Switch(on: keep.on, label: "Keep played tracks") { on in await keepPlayed(on) }
                             }
-                            Text(keep.usage)
-                                .font(Theme.small)
-                                .foregroundStyle(Theme.quiet)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if keep.on {
+                                SettingRow(title: "Space used", detail: keep.space) { EmptyView() }
+                            }
                         }
                     }
                     SettingsGroup(title: "Lyrics") {
