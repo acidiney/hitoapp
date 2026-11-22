@@ -224,11 +224,11 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "keep-played-tracks",
     section: "playback",
-    label: "Keep played tracks",
+    label: "Played tracks",
     description:
       "Private copies of service tracks you play and the next ones in your queue, so they start without waiting.",
     keywords:
-      "automatic copies cache saved space storage budget next track wait gap offline downloads",
+      "keep played tracks automatic copies cache saved space storage budget next track wait gap offline downloads",
   },
   {
     id: "accounts-access",
