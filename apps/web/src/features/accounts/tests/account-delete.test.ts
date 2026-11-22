@@ -52,9 +52,13 @@ async function openDeletion() {
 test("only accounts other than the signed-in one offer deletion", async () => {
   view();
   await screen.findByText("listener");
-  expect(screen.getAllByRole("button", { name: /^More for / })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "More for admin" }));
   expect(
-    screen.getByRole("button", { name: "More for listener" }),
+    screen.queryByRole("menuitem", { name: "Delete account…" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More for listener" }));
+  expect(
+    screen.getByRole("menuitem", { name: "Delete account…" }),
   ).toBeTruthy();
 });
 

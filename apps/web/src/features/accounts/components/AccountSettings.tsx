@@ -10,6 +10,7 @@ import { accountHint } from "../model/accountText";
 import { useAccounts } from "../hooks/useAccounts";
 import AccountDialog from "./AccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
+import PlayedTracksBudgetDialog from "./PlayedTracksBudgetDialog";
 import { setting } from "../../settings/model/settingsCatalog";
 
 export default function AccountSettings({
@@ -24,6 +25,7 @@ export default function AccountSettings({
   const { users, pending, create, remove, access } = useAccounts(account);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Schema<"User"> | null>(null);
+  const [budgeting, setBudgeting] = useState<Schema<"User"> | null>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const wasCreating = useRef(false);
   useEffect(() => {
@@ -54,15 +56,20 @@ export default function AccountSettings({
           }
           hint={accountHint(user)}
           action={
-            user.id === account ? (
-              <span className="setting-line-note">You</span>
-            ) : (
+            <>
+              {user.id === account && (
+                <span className="setting-line-note">You</span>
+              )}
               <ActionMenu
                 label={`More for ${accountName(user)}`}
                 triggerClassName="more-button"
                 align="end"
                 items={[
-                  ...(!user.admin && library
+                  {
+                    label: "Space for played tracks…",
+                    onSelect: () => setBudgeting(user),
+                  },
+                  ...(user.id !== account && !user.admin && library
                     ? [
                         {
                           label: `Give access to ${libraryName}`,
@@ -74,14 +81,18 @@ export default function AccountSettings({
                         },
                       ]
                     : []),
-                  {
-                    label: "Delete account…",
-                    destructive: true,
-                    onSelect: () => setDeleting(user),
-                  },
+                  ...(user.id !== account
+                    ? [
+                        {
+                          label: "Delete account…",
+                          destructive: true,
+                          onSelect: () => setDeleting(user),
+                        },
+                      ]
+                    : []),
                 ]}
               />
-            )
+            </>
           }
         />
       ))}
@@ -90,6 +101,14 @@ export default function AccountSettings({
           pending={pending}
           onCreate={create}
           onClose={() => setCreating(false)}
+        />
+      )}
+      {budgeting && (
+        <PlayedTracksBudgetDialog
+          account={account}
+          user={budgeting.id}
+          name={accountName(budgeting)}
+          onClose={() => setBudgeting(null)}
         />
       )}
       {deleting && (
