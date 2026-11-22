@@ -276,7 +276,7 @@ import Testing
         #expect(setting.on)
         #expect(setting.usedBytes == 1_288_490_189)
         #expect(setting.budgetBytes == 5_368_709_120)
-        #expect(setting.usage == "1.2 GB of 5 GB used")
+        #expect(setting.space == "1.2 GiB of 5 GiB")
     }
 
     @Test func aServerWithoutTheSettingHidesIt() async throws {
@@ -293,7 +293,7 @@ import Testing
         let fake = FakeServer(routes: ["PUT \(route)": .json(200, #"{"keep_played_tracks":false,"used_bytes":0,"budget_bytes":5368709120}"#)])
         let setting = try await copies(fake).set(false)
         #expect(!setting.on)
-        #expect(setting.usage == "0 MB of 5 GB used")
+        #expect(setting.space == "0 MiB of 5 GiB")
         let sent = try #require(fake.requests.first)
         #expect(sent.line == "PUT \(route)")
         #expect(sent.object?["keep_played_tracks"] as? Bool == false)
@@ -301,7 +301,12 @@ import Testing
     }
 
     @Test func smallAmountsReadInMegabytes() {
-        #expect(KeepPlayedTracks(on: true, usedBytes: 52_428_800, budgetBytes: 1_073_741_824).usage == "50 MB of 1 GB used")
-        #expect(KeepPlayedTracks(on: true, usedBytes: 0, budgetBytes: 0).usage == "0 MB of 0 MB used")
+        #expect(KeepPlayedTracks(on: true, usedBytes: 52_428_800, budgetBytes: 1_073_741_824).space == "50 MiB of 1 GiB")
+        #expect(KeepPlayedTracks(on: true, usedBytes: 1_234_567_890, budgetBytes: 5_368_709_120).space == "1.1 GiB of 5 GiB")
+        #expect(KeepPlayedTracks(on: true, usedBytes: 2_090_000_000, budgetBytes: 5_368_709_120).space == "1.9 GiB of 5 GiB")
+    }
+
+    @Test func noBudgetSaysTheAdministratorSetNoSpace() {
+        #expect(KeepPlayedTracks(on: true, usedBytes: 0, budgetBytes: 0).space == "Your administrator has set no space for played tracks.")
     }
 }

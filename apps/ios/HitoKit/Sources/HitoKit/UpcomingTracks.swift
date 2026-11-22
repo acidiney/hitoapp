@@ -161,18 +161,17 @@ public struct KeepPlayedTracks: Equatable, Sendable {
         self.budgetBytes = budgetBytes
     }
 
-    public var usage: String { "\(Self.size(usedBytes)) of \(Self.size(budgetBytes)) used" }
-
-    static func size(_ bytes: Int) -> String {
-        let gigabyte = 1024.0 * 1024 * 1024
-        let value = Double(bytes)
-        if value >= gigabyte { return "\(trimmed(value / gigabyte)) GB" }
-        return "\(Int((value / (1024 * 1024)).rounded())) MB"
+    public var space: String {
+        guard budgetBytes > 0 else { return "Your administrator has set no space for played tracks." }
+        return "\(Self.size(usedBytes)) of \(Self.size(budgetBytes))"
     }
 
-    private static func trimmed(_ value: Double) -> String {
-        let rounded = (value * 10).rounded(.down) / 10
-        return rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+    static func size(_ bytes: Int) -> String {
+        let gibibyte = 1024.0 * 1024 * 1024
+        let value = Double(bytes)
+        guard value >= gibibyte else { return "\(Int((value / (1024 * 1024)).rounded())) MiB" }
+        let tenths = (value / gibibyte * 10).rounded() / 10
+        return tenths == tenths.rounded() ? "\(Int(tenths)) GiB" : String(format: "%.1f GiB", tenths)
     }
 }
 
