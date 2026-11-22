@@ -490,6 +490,11 @@
   align-items: center;
   gap: 16px;
 }
+.settings-page .account-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
 .settings-page .setting-line-link {
   font-size: 14px;
   font-weight: 500;

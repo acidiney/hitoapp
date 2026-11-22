@@ -56,7 +56,7 @@ export default function AccountSettings({
           }
           hint={accountHint(user)}
           action={
-            <>
+            <span className="account-actions">
               {user.id === account && (
                 <span className="setting-line-note">You</span>
               )}
@@ -92,7 +92,7 @@ export default function AccountSettings({
                     : []),
                 ]}
               />
-            </>
+            </span>
           }
         />
       ))}
