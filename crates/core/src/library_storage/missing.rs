@@ -44,9 +44,11 @@ pub(crate) const REFERENCING_TABLES: [&str; 28] = [
 ];
 
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 29] = [
+pub(crate) const REMOVED_TABLES: [&str; 31] = [
     "automatic_copies",
     "upcoming_recordings",
+    "playing_recordings",
+    "played_copy_requests",
     "catalog_appearances",
     "source_readiness_checks",
     "account_recording_credits",
@@ -389,8 +391,10 @@ async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) ->
     Ok(())
 }
 
-const REMOVAL: [&str; 17] = [
+const REMOVAL: [&str; 19] = [
     "DELETE FROM upcoming_recordings WHERE recording_id = ?1",
+    "DELETE FROM playing_recordings WHERE recording_id = ?1",
+    "DELETE FROM played_copy_requests WHERE recording_id = ?1",
     "DELETE FROM automatic_copies WHERE recording_id = ?1",
     "DELETE FROM catalog_appearances WHERE recording_id = ?1",
     "DELETE FROM source_readiness_checks WHERE recording_id = ?1",
