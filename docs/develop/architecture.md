@@ -369,7 +369,7 @@ What each capability owns:
 - `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
 - `LibraryStorage`: music folders, grants, scans, leases and reconciliation.
 - `Plugins`: offered service addresses, personal installations, credential encryption and manifest checks.
-- `Downloads`: persistent and playlist downloads into managed storage, and each account's automatic copies of the tracks its clients announce as upcoming, kept within the account's budget.
+- `Downloads`: persistent and playlist downloads into managed storage, and each account's automatic copies of the tracks its clients announce as playing or upcoming and of tracks played to the end, kept within the account's budget.
 - `Podcasts`: subscriptions, episodes and episode progress.
 - `Replicas`: separate private server profiles, encrypted server sessions, durable offline operations, acknowledgement/echo reconciliation, validated catalog generation installation and joined connection retirement. Current collection projection is limited to empty playlists; the catalog cache adds no ordinary local sources or playback readiness.
 - `CatalogReplication`: authorized immutable local recording/source snapshots, create-or-resume and owned release, bounded construction/pages, current grant checks and joined reader closure. `Replicas` owns client installation separately; incremental catalog delivery remains open.

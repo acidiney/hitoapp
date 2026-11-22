@@ -111,6 +111,8 @@ fn downloads() -> Vec<String> {
     plan.extend(owned(
         &[
             "upcoming_recordings",
+            "playing_recordings",
+            "played_copy_requests",
             "automatic_copies",
             "download_playlist_receipts",
             "download_receipts",

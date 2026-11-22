@@ -27,6 +27,7 @@ Responses include a generated `X-Request-Id` for correlation. Errors use an `err
 | Private recent listening history | `GET /activity` |
 | Pause or resume recording history, delete history | `GET`/`PUT /history/preferences`, `DELETE /history` ([listening history](../guide/account.md)) |
 | Apply operations / pull accepted events | `POST /sync`, `GET /sync?cursor=0` |
+| Name the playing track and the next two ([details](#playing-and-upcoming-tracks)) | `POST /playback/upcoming` |
 | Private change notices for open views ([details](#change-notices)) | `GET /changes/events` |
 
 Artwork returns PNG, JPEG, GIF, or WebP bytes with `Cache-Control: private, no-store`. Access follows the recording's library permissions. Missing images and inaccessible recordings return 404. Embedded front covers take priority, followed by other embedded pictures and neighboring `cover`, `folder`, or `front` JPEG/PNG files. The reader accepts regular files only, limits image bodies to 8 MiB and cumulative metadata reads to 16 MiB, and shares four blocking-reader permits across catalog clones. A canceled HTTP request retains its permit until the blocking read finishes. Compressed ID3 parsing is disabled because decompression bypasses the physical-read budget; artwork falls back to neighboring cover files when those tags cannot be read.
@@ -71,6 +72,28 @@ sequenceDiagram
 ```
 
 This is the server synchronization contract. A desktop cache and durable offline outbox are not implemented yet. The browser currently requires its server connection for edits and playback.
+
+A `progress_set` that moves a recording from below 90% of its duration to 90% or more counts one full play. Later updates in the same playthrough, such as the end position, do not count again; the next play counts once progress has dropped below 90%. A full play adds one to the recording's play count in listening history when history is on, and, while Keep played tracks is on, asks for an automatic copy if the account has none. Recordings with no known duration never count.
+
+## Playing and upcoming tracks
+
+A player tells the server what it is playing and what comes next, so the server can save automatic copies before they are needed:
+
+```json
+{
+  "client": "web-3f9c1a2e",
+  "current": "7d0e2c1a-5b8f-4c33-9a41-2f6e8d1b0c57",
+  "recording_ids": ["0b6f3e2d-9c1a-4f7e-8d25-6a4c3b2e1f90"]
+}
+```
+
+- `client` is optional: 1 to 64 letters, digits, dashes, dots, colons or underscores. Each announcement replaces the previous one from the same session and client tag. The web app sends one tag per browser tab and the iOS app one per device, so two tabs on one session do not overwrite each other. This is planned client behavior; the server only keys by the tag.
+- `current` is optional. Leave it out or send `null` when nothing is playing.
+- `recording_ids` holds at most 2 recordings, in play order.
+
+Recordings the account cannot open are ignored. Announcements expire after 6 hours. An account may announce 30 times a minute.
+
+While Keep played tracks is on, the server saves the upcoming recordings first and then the current one, if it has no copy yet. Copies of a current or upcoming recording are never evicted to stay within the budget. When no player of the account has named a current recording, a copy whose listening progress changed in the last 15 minutes is protected instead. Otherwise eviction removes the copy with the lowest score first: last play plus one week for each full play, counting up to 8. With history paused, copies have no score and leave in the order they were saved.
 
 ## Change notices
 

@@ -13,7 +13,7 @@ use hito_core::{
 };
 
 #[utoipa::path(post, path = "/api/v1/playback/upcoming", operation_id = "announce_upcoming_recordings",
-    description = "Name up to 2 recordings this client will play next. Each list replaces the previous list from the same session and client tag. The server may save private automatic copies of them while Keep played tracks is on. Recordings the account cannot open are ignored.",
+    description = "Name the recording this client is playing and up to 2 it will play next. Each announcement replaces the previous one from the same session and client tag; the web app sends one tag per tab and the iOS app one per device. Leave current out or null when nothing is playing. While Keep played tracks is on, the server may save private automatic copies of them, upcoming recordings first, and never evicts a copy of a current or upcoming recording. Recordings the account cannot open are ignored.",
     request_body = UpcomingRecordings, security(("session" = []), ("bearer" = [])), responses(
     (status = 204), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 413, body = ErrorResponse),

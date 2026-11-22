@@ -21,6 +21,8 @@ pub mod artist_credit_target_schema;
 pub mod artist_images_schema;
 #[path = "automatic_copies_schema.rs"]
 pub mod automatic_copies_schema;
+#[path = "automatic_copy_plays_schema.rs"]
+pub mod automatic_copy_plays_schema;
 #[path = "automatic_metadata_schema.rs"]
 pub mod automation_schema;
 #[path = "catalog_track_link_schema.rs"]
@@ -584,6 +586,10 @@ pub async fn reference_105() -> SqliteConnection {
     automatic_copies_schema::reference(reference_104().await).await
 }
 
+pub async fn reference_106() -> SqliteConnection {
+    automatic_copy_plays_schema::reference(reference_105().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -644,6 +650,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         103 => reference_103().await,
         104 => reference_104().await,
         105 => reference_105().await,
+        106 => reference_106().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
