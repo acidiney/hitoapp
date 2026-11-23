@@ -205,9 +205,9 @@ struct SearchView: View {
     @ViewBuilder private var results: some View {
         if scope == .all {
             switch top {
-            case .artist: if let topArtist { TopResult(artist: topArtist) }
-            case .track: if let first = tracks.items.first { TopTrack(track: first) { model.player?.play([first], at: 0, from: "Search") } }
-            case .album: if let first = albums.first { NavigationLink(value: first) { TopAlbum(album: first) }.buttonStyle(.plain) }
+            case .artist: if let topArtist { TopResult(artist: topArtist).artistActions(topArtist, detail: topArtist.countLabel) }
+            case .track: if let first = tracks.items.first { TopTrack(track: first) { model.player?.play([first], at: 0, from: "Search") }.trackActions(first) }
+            case .album: if let first = albums.first { NavigationLink(value: first) { TopAlbum(album: first) }.buttonStyle(.plain).albumActions(first) }
             case nil: EmptyView()
             }
         }
@@ -220,6 +220,7 @@ struct SearchView: View {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(albums) { album in
                         NavigationLink(value: album) { AlbumCard(album: album, width: 132) }.buttonStyle(.plain)
+                            .albumActions(album)
                     }
                 }
             }
@@ -245,6 +246,7 @@ struct SearchView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .artistActions(artist, detail: artist.countLabel)
             }
         }
     }
@@ -270,6 +272,7 @@ struct SearchView: View {
                     }
                     .accessibilityLabel("More actions for \(track.title)")
                 }
+                .trackActions(track)
             }
             if limited {
                 if tracks.total.map({ $0 > shown.count }) ?? (tracks.items.count > shown.count) {

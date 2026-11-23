@@ -321,5 +321,6 @@ struct EpisodeRow: View {
             }
             .accessibilityLabel("More actions for \(episode.track.title)")
         }
+        .trackActions(episode.track)
     }
 }

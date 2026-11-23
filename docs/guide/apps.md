@@ -73,6 +73,8 @@ The [roadmap](../roadmap.md) lists what the desktop app still needs before the f
 
 The iPhone app connects to a Hito server and plays through it. It keeps no library on the phone. It is in development and is not in the App Store. Building it needs a Mac with Xcode; see [the iOS app](../develop/ios.md).
 
+In the iPhone app, touch and hold a track, album, playlist, artist or Home shortcut to see its actions. They are the same actions as its **More actions** menu.
+
 ## Which one to use
 
 - To listen on a phone, install the web app.

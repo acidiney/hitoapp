@@ -270,6 +270,7 @@ struct ArtistRows: View {
                 row(artist.name, counts(artist))
             }
             .buttonStyle(.plain)
+            .artistActions(artist, detail: counts(artist))
         }
         FeedFooter(feed: feed)
         if !feed.hasMore {
@@ -281,6 +282,9 @@ struct ArtistRows: View {
                     row(group.name, ArtistPage.counts(tracks: group.recordingCount, albums: group.releaseCount, featured: 0))
                 }
                 .buttonStyle(.plain)
+                .collectionActions(group.name, preview: ItemPreview(path: group.artworkPath, title: group.name, detail: nil, mark: "person", round: true)) {
+                    try await ArtistGroups(api: $0).detail(group.id).tracks
+                }
             }
             FeedFooter(feed: chosen)
         }
@@ -342,6 +346,7 @@ struct PlaylistRows: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .playlistActions(playlist, changed: retry)
             }
         } else if failed {
             HStack(spacing: 8) {
@@ -398,6 +403,7 @@ struct HistorySection: View {
                             }
                             .accessibilityLabel("More actions for \(entry.track.title)")
                         }
+                        .trackActions(entry.track)
                     }
                 }
                 .padding(.leading, -6)
@@ -505,34 +511,12 @@ struct TrackRows: View {
                         FindButton(track: track) { feed.replace(track.id, with: $0) }
                     }
                 }
-                .contextMenu {
-                    TrackMenu(track: track)
-                    if selection.wrappedValue == nil, selectable {
-                        Button("Select") { selection.wrappedValue = [track.id] }
-                    }
-                }
+                .trackActions(track, extra: selectable ? [.select] : []) { _ in selection.wrappedValue = [track.id] }
             }
         }
         FeedFooter(feed: feed)
     }
 
-}
-
-struct TrackMenu: View {
-    @Environment(AppModel.self) private var model
-    let track: Track
-
-    var body: some View {
-        Button("Play next") { model.player?.playNext(track) }
-        NavigationLink("Track details", value: track)
-        if let action = track.sourceAction {
-            NavigationLink(action, value: track)
-        }
-        if let player = model.player {
-            Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
-        }
-        ArtworkRetryButton(path: track.artworkPath)
-    }
 }
 
 struct AlbumGrid: View {
@@ -546,6 +530,7 @@ struct AlbumGrid: View {
             ForEach(feed.items) { album in
                 NavigationLink(value: album) { AlbumCard(album: album) }
                     .buttonStyle(.plain)
+                    .albumActions(album)
             }
         }
         FeedFooter(feed: feed)
@@ -681,9 +666,7 @@ struct AlbumView: View {
                     }
                     if !tracks.isEmpty {
                         Menu {
-                            Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
-                            Button("Choose the artist") { choosingArtist = true }
-                            ArtworkRetryButton(path: album.artworkPath)
+                            AlbumMenu(album: album, perform: perform)
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
@@ -769,6 +752,16 @@ struct AlbumView: View {
         .onDisappear { adder?.cancel() }
     }
 
+    private func perform(_ action: ItemAction) {
+        switch action {
+        case .play: model.player?.play(playable, at: 0, from: album.title)
+        case .playNext: tracks.forEach { model.player?.playNext($0) }
+        case .chooseArtist: choosingArtist = true
+        case .retryArtwork: ArtworkRetries.shared.retry(album.artworkPath)
+        default: break
+        }
+    }
+
     private var editionPicker: some View {
         Menu {
             if let options {
@@ -835,6 +828,7 @@ struct AlbumView: View {
             }
             .accessibilityLabel("More actions for \(track.title)")
         }
+        .trackActions(track)
     }
 
     private func missingRow(_ track: EditionTrack, in complete: CompleteAlbum) -> some View {

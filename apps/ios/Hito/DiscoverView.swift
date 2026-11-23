@@ -67,6 +67,7 @@ struct DiscoverView: View {
                     Text("First up").font(Theme.smallStrong).foregroundStyle(Theme.quiet)
                     ForEach(hero.tracks.prefix(3)) { track in
                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                            .trackActions(track)
                     }
                 }
             }
@@ -125,6 +126,12 @@ struct DiscoverView: View {
                 .buttonStyle(.plain)
                 .disabled(starting != nil)
                 .accessibilityLabel("Start \(artist.name) radio")
+                .contextMenu {
+                    ActionItems(actions: ItemMenu.radio) { _ in Task { await start(artist) } }
+                        .disabled(starting != nil)
+                } preview: {
+                    ItemPreview(path: artist.artworkPath, title: "\(artist.name) radio", detail: "\(artist.tracks) \(artist.tracks == 1 ? "track" : "tracks") in your library", mark: "person", round: true)
+                }
             }
         }
     }
@@ -164,6 +171,11 @@ struct DiscoverView: View {
                     }
                     .padding(10)
                     .background(RoundedRectangle(cornerRadius: 14).fill(Theme.field))
+                    .contextMenu {
+                        ActionItems(actions: ItemMenu.featured) { action in Task { action == .play ? await play(item) : await open(item) } }
+                    } preview: {
+                        ItemPreview(path: nil, title: item.title, detail: item.detail, mark: "playlist")
+                    }
                 }
             }
         }

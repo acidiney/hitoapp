@@ -66,13 +66,14 @@ struct HomeView: View {
                     HomeEmpty(admin: user.admin, importPlaylist: { importing = true }, connectService: openPlugins)
                 } else {
                     if let summary {
-                        JumpBackIn(tiles: summary.tiles(playlists: playlists))
+                        JumpBackIn(tiles: summary.tiles(playlists: playlists)) { Task { await loadSummary() } }
                         ForEach(summary.unheard.prefix(1)) { UnheardCard(album: $0) }
                     } else if !albums.isEmpty {
-                        JumpBackIn(tiles: QuickTile.mixed(albums: albums.items, playlists: playlists))
+                        JumpBackIn(tiles: QuickTile.mixed(albums: albums.items, playlists: playlists)) { Task { await loadSummary() } }
                     }
                     if let unready {
                         UnreadyBanner(unready: unready)
+                            .playlistActions(unready.playlist) { Task { await loadSummary() } }
                     }
                     RecentlyAdded(feed: albums)
                     if let summary {
@@ -145,6 +146,7 @@ struct HomeView: View {
 struct JumpBackIn: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let tiles: [QuickTile]
+    let changed: () -> Void
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 8) {
@@ -160,10 +162,14 @@ struct JumpBackIn: View {
                             .frame(width: 56, height: 56)
                         }
                     }
+                    .collectionActions(tile.title, preview: ItemPreview(path: nil, title: tile.title, detail: nil, mark: "heart-filled")) {
+                        try await Library(api: $0).tracks(offset: 0, liked: true).items
+                    }
                 case let .album(album):
                     NavigationLink(value: album) {
                         Tile(title: album.title) { Cover(path: album.artworkPath, size: 56, radius: 0) }
                     }
+                    .albumActions(album)
                 case let .playlist(playlist):
                     NavigationLink(value: playlist) {
                         Tile(title: playlist.name) {
@@ -171,6 +177,7 @@ struct JumpBackIn: View {
                                 .frame(width: 56, height: 56)
                         }
                     }
+                    .playlistActions(playlist, changed: changed)
                 }
             }
         }
@@ -222,6 +229,7 @@ struct UnheardCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .albumActions(album.album)
             Button {
                 if !album.tracks.isEmpty { model.player?.play(album.tracks, at: 0, from: album.title) }
             } label: {
@@ -315,6 +323,7 @@ struct RecentlyPlayed: View {
                         ForEach(albums) { album in
                             NavigationLink(value: album) { AlbumCard(album: album, width: 136) }
                                 .buttonStyle(.plain)
+                                .albumActions(album)
                         }
                     }
                 }
@@ -350,6 +359,7 @@ struct RecentlyAdded: View {
                         ForEach(feed.items.prefix(20)) { album in
                             NavigationLink(value: album) { AlbumCard(album: album, width: 136) }
                                 .buttonStyle(.plain)
+                                .albumActions(album)
                         }
                     }
                 }
@@ -405,6 +415,7 @@ struct YourArtists: View {
                             .accessibilityElement(children: .combine)
                         }
                         .buttonStyle(.plain)
+                        .artistActions(artist, detail: artist.countLabel)
                     }
                 }
             }

@@ -140,6 +140,7 @@ extension View {
             .navigationDestination(for: ArtistGroup.self) { ArtistGroupView(group: $0).pushed() }
             .navigationDestination(for: CatalogRelease.self) { CatalogAlbumView(route: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
+            .navigationDestination(for: PlaylistEditing.self) { PlaylistView(playlist: $0.playlist, editing: true).pushed(tint: Theme.header) }
             .navigationDestination(for: Podcasts.Subscription.self) { PodcastView(subscription: $0).pushed() }
             .navigationDestination(for: AudiobookRoute.self) { AudiobookView(route: $0).pushed() }
             .navigationDestination(for: PluginConnection.self) { PluginDetailView(connection: $0).pushed(back: "Plugins") }

@@ -783,6 +783,18 @@ struct QueueRow: View {
     var played = false
 
     var body: some View {
+        if played {
+            row
+        } else {
+            row.contextMenu {
+                QueueMenu(track: track, player: player, among: among)
+            } preview: {
+                ItemPreview(path: track.artworkPath, title: track.title, detail: track.artist)
+            }
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 12) {
             Button { player.jump(to: track) } label: {
                 HStack(spacing: 12) {
@@ -797,21 +809,13 @@ struct QueueRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Play \(track.title), \(track.artist)")
-            if !played { actions }
+            if !played {
+                Menu { QueueMenu(track: track, player: player, among: among) } label: {
+                    Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+                }
+                .accessibilityLabel("Actions for \(track.title): move up, move down, remove")
+            }
         }
         .frame(minHeight: 60)
-    }
-
-    private var actions: some View {
-            Menu {
-                Button("Move up") { player.move(upcoming: track.id, by: -1) }
-                    .disabled(among.first?.id == track.id)
-                Button("Move down") { player.move(upcoming: track.id, by: 1) }
-                    .disabled(among.last?.id == track.id)
-                Button("Remove from queue", role: .destructive) { player.remove(upcoming: track) }
-            } label: {
-                Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
-            }
-            .accessibilityLabel("Actions for \(track.title): move up, move down, remove")
     }
 }

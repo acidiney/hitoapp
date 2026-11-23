@@ -41,6 +41,9 @@ struct GenreTiles: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(genre.title), \(genre.count)")
+                        .collectionActions(genre.title, preview: ItemPreview(path: nil, title: genre.title, detail: genre.count)) {
+                            try await Genres(api: $0).detail(genre.key).tracks
+                        }
                     }
                 }
             }
@@ -95,6 +98,7 @@ struct GenreView: View {
                                 ForEach(detail.albums) { album in
                                     NavigationLink(value: album) { AlbumCard(album: album, width: 136) }
                                         .buttonStyle(.plain)
+                                        .albumActions(album)
                                 }
                             }
                         }
@@ -119,6 +123,7 @@ struct GenreView: View {
                                 }
                                 .accessibilityLabel("More actions for \(track.title)")
                             }
+                            .trackActions(track)
                         }
                     }
                     .padding(.trailing, -8)

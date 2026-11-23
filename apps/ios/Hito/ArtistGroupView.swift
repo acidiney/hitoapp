@@ -25,6 +25,7 @@ struct ArtistGroupView: View {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 16) {
                             ForEach(detail.albums) { album in
                                 NavigationLink(value: album) { AlbumCard(album: album) }.buttonStyle(.plain)
+                                    .albumActions(album)
                             }
                         }
                     }
@@ -86,6 +87,7 @@ struct ArtistGroupView: View {
                     }
                     .accessibilityLabel("More actions for \(track.title)")
                 }
+                .trackActions(track)
             }
         }
     }
