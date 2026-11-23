@@ -7,10 +7,14 @@ struct NowPlayingView: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let player: Player
     let openQueue: () -> Void
     @State private var panel = Panel.artwork
     @State private var details: Track?
+    @State private var pull = PullDown()
+    @State private var height = 0.0
+    @State private var closing = false
 
     var body: some View {
         Group {
@@ -27,19 +31,64 @@ struct NowPlayingView: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .gesture(pullToClose)
             }
         }
         .background(Theme.stage.ignoresSafeArea())
         .foregroundStyle(Theme.text)
+        .onGeometryChange(for: Double.self) { $0.size.height } action: { height = $0 }
+        .offset(y: pulledOffset)
+        .opacity(pulledOpacity)
+        .presentationBackground(.clear)
+        .accessibilityAction(.escape, close)
         .sheet(item: $details) { track in
             NavigationStack { TrackView(track: track).pushed().browsing() }
+        }
+    }
+
+    private var pullToClose: some Gesture {
+        DragGesture(minimumDistance: PullDown.directionDistance, coordinateSpace: .global)
+            .onChanged { drag in
+                guard !closing else { return }
+                pull.drag(x: drag.translation.width, y: drag.translation.height)
+            }
+            .onEnded { drag in
+                guard !closing else { return }
+                if pull.closes(velocity: drag.velocity.height, height: height) {
+                    close()
+                } else {
+                    withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.25)) { pull = PullDown() }
+                }
+            }
+    }
+
+    private var pulledOffset: Double {
+        if reduceMotion { return 0 }
+        return closing ? height * 1.2 : pull.offset
+    }
+
+    private var pulledOpacity: Double {
+        guard reduceMotion else { return 1 }
+        if closing { return 0 }
+        return 1 - min(pull.offset / max(height, 1), 0.5)
+    }
+
+    private func close() {
+        guard !closing else { return }
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.3, bounce: 0)) {
+            closing = true
+        } completion: {
+            var instant = Transaction()
+            instant.disablesAnimations = true
+            withTransaction(instant) { dismiss() }
         }
     }
 
     private func artwork(_ track: Track) -> some View {
         VStack(spacing: 20) {
             HStack {
-                IconButton(icon: "chevron-down", label: "Close now playing", glyph: 22) { dismiss() }
+                IconButton(icon: "chevron-down", label: "Close now playing", glyph: 22, action: close)
                 Spacer()
                 Menu {
                     Picker("Playback speed", selection: Binding(get: { player.speed }, set: player.setSpeed)) {
@@ -114,6 +163,8 @@ struct NowPlayingView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 4)
+        .contentShape(Rectangle())
+        .gesture(pullToClose)
     }
 
     private func panels(_ track: Track) -> some View {
@@ -128,6 +179,8 @@ struct NowPlayingView: View {
                 Spacer(minLength: 0)
                 PlayButton(player: player, size: 48, light: true)
             }
+            .contentShape(Rectangle())
+            .gesture(pullToClose)
             HStack(spacing: 10) {
                 Text(Duration.seconds(player.position).clock)
                 Seek(player: player)
