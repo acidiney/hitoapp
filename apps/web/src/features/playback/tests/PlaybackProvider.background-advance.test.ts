@@ -36,7 +36,9 @@ afterEach(() => {
 async function playFirstWithBufferedSuccessor() {
   const media = browserPreparationMedia();
   const system = browserMediaSession();
-  const requests = playbackRequests([recording, otherRecording]);
+  const requests = playbackRequests([recording, otherRecording], (path) =>
+    path === "/health" ? new Response("ok") : undefined,
+  );
   const view = renderAccount();
   await act(async () => {
     await view.player().playQueue([recording, otherRecording]);
@@ -102,66 +104,62 @@ test("a locked page advances on the buffered element with play called inside the
   }
 });
 
-test("a hidden page retries a stalled track once on the same element at the same position and then falls back to source recovery", async () => {
-  pageIs("hidden");
-  const { media, system, requests, view, player } =
-    await playFirstWithBufferedSuccessor();
-  try {
-    act(() => {
-      player.currentTime = 30;
-      player.dispatchEvent(new Event("timeupdate"));
-    });
-    const requestsBefore = requests.length;
-    const playsBefore = media.played.length;
+for (const visibility of ["hidden", "visible"] as const)
+  test(`a ${visibility} page that stalls shows Buffering, stops the system clock and reopens the same element at the same position after fifteen seconds`, async () => {
+    pageIs(visibility);
+    const { media, system, requests, view, player } =
+      await playFirstWithBufferedSuccessor();
+    try {
+      act(() => {
+        player.currentTime = 30;
+        player.dispatchEvent(new Event("timeupdate"));
+      });
+      const requestsBefore = requests.length;
+      const playsBefore = media.played.length;
 
-    act(() => {
-      player.dispatchEvent(new Event("stalled"));
-    });
-    expect(media.played).toHaveLength(playsBefore + 1);
-    expect(media.played.at(-1)).toMatchObject({
-      media: player,
-      source: firstAudio,
-    });
-    expect(view.player().snapshot().loading).toBe(false);
-    act(() => media.canPlay(player));
-    expect(player.currentTime).toBe(30);
-    expect(requests).toHaveLength(requestsBefore);
+      act(() => {
+        player.dispatchEvent(new Event("waiting"));
+      });
+      expect(view.player().snapshot()).toMatchObject({
+        buffering: true,
+        playing: true,
+      });
+      expect(system.session.playbackState).toBe("paused");
+      expect(system.session.position).toMatchObject({ position: 30 });
 
-    act(() => {
-      player.dispatchEvent(new Event("stalled"));
-    });
-    expect(media.played).toHaveLength(playsBefore + 1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(14_999);
+      });
+      expect(media.played).toHaveLength(playsBefore);
 
-    act(() => {
-      player.dispatchEvent(new Event("error"));
-    });
-    expect(media.played).toHaveLength(playsBefore + 1);
-    expect(view.player().snapshot().loading).toBe(true);
-  } finally {
-    view.unmount();
-    system.close();
-    media.close();
-  }
-});
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(media.played).toHaveLength(playsBefore + 1);
+      expect(media.played.at(-1)).toMatchObject({
+        media: player,
+        source: firstAudio,
+      });
+      expect(document.querySelector("audio[data-hito-player]")).toBe(player);
+      act(() => media.canPlay(player));
+      expect(player.currentTime).toBe(30);
+      expect(
+        requests
+          .slice(requestsBefore)
+          .filter((request) => request.path !== "/api/v1/sync"),
+      ).toEqual([{ path: "/health", method: "GET", account: null }]);
 
-test("a visible page leaves a stall to the browser", async () => {
-  pageIs("visible");
-  const { media, system, view, player } =
-    await playFirstWithBufferedSuccessor();
-  try {
-    act(() => {
-      media.canPlay(player);
-      player.currentTime = 30;
-      player.dispatchEvent(new Event("timeupdate"));
-    });
-    const playsBefore = media.played.length;
-    act(() => {
-      player.dispatchEvent(new Event("stalled"));
-    });
-    expect(media.played).toHaveLength(playsBefore);
-  } finally {
-    view.unmount();
-    system.close();
-    media.close();
-  }
-});
+      act(() => {
+        player.dispatchEvent(new Event("playing"));
+      });
+      expect(view.player().snapshot()).toMatchObject({
+        buffering: false,
+        playing: true,
+      });
+      expect(system.session.playbackState).toBe("playing");
+    } finally {
+      view.unmount();
+      system.close();
+      media.close();
+    }
+  });

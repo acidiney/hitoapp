@@ -60,6 +60,7 @@ export type PlaybackView = {
   controlsAvailable?: boolean;
   resumeFailed?: boolean;
   retrying?: { attempt: number; of: number } | null;
+  buffering?: boolean;
 };
 export type PlaybackPosition = { position: number; duration: number };
 export type QueueView = {
@@ -130,6 +131,9 @@ export interface Player {
 
 export const UNSUPPORTED_FORMAT_MESSAGE =
   "This device can't play this audio format.";
+
+export const SERVER_UNREACHABLE_MESSAGE =
+  "Hito can't reach your server. Press play to try again.";
 
 export const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
 

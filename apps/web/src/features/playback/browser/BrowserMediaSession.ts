@@ -234,7 +234,7 @@ function connectSession(player: Player, account: string) {
     }
     attempt("state", () => {
       session.playbackState = current
-        ? state.playing
+        ? state.playing && !state.buffering
           ? "playing"
           : "paused"
         : "none";

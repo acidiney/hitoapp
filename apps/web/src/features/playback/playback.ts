@@ -3,6 +3,7 @@ import type { Schema } from "../../shared/schema";
 import {
   MAX_QUEUE_ENTRIES,
   MEDIA_ERR_SRC_NOT_SUPPORTED,
+  SERVER_UNREACHABLE_MESSAGE,
   UNSUPPORTED_FORMAT_MESSAGE,
   type MediaPort,
   type PlaybackQueueInput,
@@ -17,6 +18,7 @@ import {
 
 export type { MediaPort, Track } from "./model";
 import { log } from "../../shared/log";
+import { checkServer } from "../../shared/connection";
 import {
   PlaybackSources,
   refusal,
@@ -60,6 +62,11 @@ import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
 import { BrowserStream } from "./browser/BrowserStream";
 import { BrowserAcquisition } from "./browser/BrowserAcquisition";
+import {
+  BrowserStallWatch,
+  type StallEngine,
+  type StallStep,
+} from "./browser/BrowserStallWatch";
 import type { Upcoming } from "./browser/BrowserUpcoming";
 import {
   streamingQuality,
@@ -68,7 +75,6 @@ import {
 export type { Source } from "./api/playbackSources";
 
 const NEXT_RECHECK_SECONDS = 20;
-const RETRY_RESET_SECONDS = 10;
 
 export class Playback implements Player {
   readonly mode = "browser";
@@ -96,9 +102,8 @@ export class Playback implements Player {
   private durationChanged: (() => void) | null = null;
   private serverBound: number | null = null;
   private entryEnded = false;
-  private hiddenRetries = 0;
   private unavailableRecording: string | null = null;
-  private retryPosition = 0;
+  private stalls = new BrowserStallWatch((step) => this.stallStep(step));
   private restored = false;
   private formatProbe: Promise<boolean> = Promise.resolve(false);
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
@@ -227,11 +232,6 @@ export class Playback implements Player {
           this.traversal.resetFailures();
           this.prepareNext();
           this.recheckNext();
-          if (
-            this.hiddenRetries > 0 &&
-            media.currentTime > this.retryPosition + RETRY_RESET_SECONDS
-          )
-            this.hiddenRetries = 0;
         }
         this.update({ position: this.pendingSeek ?? media.currentTime });
         this.progress.observe();
@@ -248,8 +248,9 @@ export class Playback implements Player {
         }
         log.info("playback.started", { recording_id: this.state.current?.id });
         const recovered =
-          this.unavailableRecording !== null &&
-          this.unavailableRecording === this.state.current?.id;
+          (this.unavailableRecording !== null &&
+            this.unavailableRecording === this.state.current?.id) ||
+          this.state.error === SERVER_UNREACHABLE_MESSAGE;
         if (recovered) this.unavailableRecording = null;
         this.update({
           playing: true,
@@ -261,6 +262,7 @@ export class Playback implements Player {
       playing: () => {
         this.community?.observe();
         this.progress.observe();
+        if (this.activeSource) this.observeEngine("playing");
       },
       seeked: () => {
         this.community?.seeked();
@@ -272,6 +274,7 @@ export class Playback implements Player {
         this.community?.reset();
         this.endGuard.cancel();
         log.debug("playback.paused", { recording_id: this.state.current?.id });
+        this.observeEngine("stopped");
         if (!this.progress.stopping) this.persist();
         this.update({ playing: false });
         if (!media.ended) this.cancelLookahead();
@@ -283,15 +286,20 @@ export class Playback implements Player {
           recording_id: this.state.current?.id,
           reason: rejected ? "format_rejected" : "media_error",
         });
-        if (this.activeSource) {
-          if (rejected) this.probeFormat(this.activeSource);
-          if (rejected || !this.retryInPlace()) void this.recover();
-        }
+        if (!this.activeSource) return;
+        if (rejected) this.probeFormat(this.activeSource);
+        if (rejected || this.acquisition) void this.recover();
+        else void this.mediaFailed(this.activeSource);
       },
       stalled: () => {
-        if (!media.paused && (media.readyState ?? 4) < 3) this.retryInPlace();
+        if (this.activeSource && !media.paused && (media.readyState ?? 4) < 3)
+          this.observeEngine("waiting");
+      },
+      waiting: () => {
+        if (this.activeSource && !media.paused) this.observeEngine("waiting");
       },
       ended: () => {
+        this.observeEngine("stopped");
         if (!this.activeSource || this.entryEnded) return;
         this.entryEnded = true;
         this.endGuard.cancel();
@@ -387,31 +395,123 @@ export class Playback implements Player {
     void this.next(true);
   }
 
-  private retryInPlace() {
+  private observeEngine(engine: StallEngine) {
+    this.stalls.observe(engine);
+    this.showBuffering();
+  }
+
+  private resetStalls() {
+    this.stalls.reset();
+    this.showBuffering();
+  }
+
+  private showBuffering() {
+    const buffering = this.stalls.buffering;
+    if ((this.state.buffering ?? false) === buffering) return;
+    log.debug(buffering ? "playback.buffering" : "playback.buffered", {
+      recording_id: this.state.current?.id,
+      position_ms: Math.floor(this.state.position * 1000),
+    });
+    this.update({ buffering });
+  }
+
+  private stallStep(step: StallStep) {
     const source = this.activeSource;
-    if (
-      !source ||
-      document.visibilityState !== "hidden" ||
-      this.hiddenRetries >= 1
-    )
-      return false;
     const acquisition = this.acquisition;
-    if (acquisition?.overdue) {
-      acquisition.expireNow();
-      return true;
+    if (!source) return;
+    if (acquisition) {
+      if (acquisition.overdue) acquisition.expireNow();
+      return;
     }
-    this.hiddenRetries++;
+    if (step === "giveUp") this.serverGone();
+    else void this.whenServerAnswers(source, step);
+  }
+
+  private async mediaFailed(source: Source) {
+    const generation = this.generation;
+    const attempt = this.sourceAttempt;
+    const started = performance.now();
+    this.observeEngine("waiting");
+    const answered = await checkServer();
+    if (
+      generation !== this.generation ||
+      attempt !== this.sourceAttempt ||
+      source !== this.activeSource
+    )
+      return;
+    const fields = {
+      recording_id: this.state.current?.id,
+      source_id: source.id,
+      duration_ms: Math.round(performance.now() - started),
+    };
+    if (answered) {
+      log.info("playback.media_failed_recovery", fields);
+      void this.recover();
+      return;
+    }
+    log.warn("playback.stall_server_unreachable", fields);
+    this.observeEngine("waiting");
+    this.stalls.rebuilt("unreachable");
+  }
+
+  private async whenServerAnswers(
+    source: Source,
+    step: "rebuild" | "nextSource",
+  ) {
+    const generation = this.generation;
+    const attempt = this.sourceAttempt;
+    const recording = this.state.current?.id;
+    const started = performance.now();
+    log.info("playback.stall_recovery", {
+      recording_id: recording,
+      source_id: source.id,
+      action: step,
+      position_ms: Math.floor(this.state.position * 1000),
+    });
+    const answered = await checkServer();
+    if (
+      generation !== this.generation ||
+      attempt !== this.sourceAttempt ||
+      source !== this.activeSource ||
+      !this.stalls.buffering
+    )
+      return;
+    const fields = {
+      recording_id: recording,
+      source_id: source.id,
+      action: step,
+      duration_ms: Math.round(performance.now() - started),
+    };
+    if (!answered) {
+      log.warn("playback.stall_server_unreachable", fields);
+      this.stalls.rebuilt("unreachable");
+      return;
+    }
+    if (step === "nextSource") {
+      log.warn("playback.stall_next_source", fields);
+      void this.recover();
+      return;
+    }
+    this.stalls.rebuilt("answered");
     const position =
       this.media.currentTime > 0 ? this.media.currentTime : this.state.position;
-    this.retryPosition = position;
     this.pendingSeek =
       this.pendingSeek === 0 ? 0 : position > 0 ? position : null;
-    log.warn("playback.recovering_in_place", {
-      recording_id: this.state.current?.id,
+    log.info("playback.recovering_in_place", {
+      ...fields,
+      position_ms: Math.floor(position * 1000),
     });
     this.openSourceAudio(source, position);
     void this.playSource(this.generation, ++this.sourceAttempt);
-    return true;
+  }
+
+  private serverGone() {
+    log.warn("playback.stall_gave_up", {
+      recording_id: this.state.current?.id,
+      position_ms: Math.floor(this.state.position * 1000),
+    });
+    this.standDown();
+    this.update({ error: SERVER_UNREACHABLE_MESSAGE });
   }
 
   private recheckNext() {
@@ -726,7 +826,7 @@ export class Playback implements Player {
     const instant =
       natural && !continuation ? (prepared?.readyNow() ?? null) : null;
     const generation = ++this.generation;
-    this.hiddenRetries = 0;
+    this.resetStalls();
     this.acquisition?.stop();
     this.acquisition = occurrence ? this.acquire(occurrence) : null;
     this.blockedUnheard = false;
@@ -840,6 +940,8 @@ export class Playback implements Player {
     }
     this.acquisition = null;
     acquisition?.stop();
+    this.stalls.reset();
+    this.observeEngine("playing");
     if (acquisition)
       log.info("playback.acquisition_heard", {
         recording_id: this.state.current?.id,
@@ -970,7 +1072,12 @@ export class Playback implements Player {
       duration_ms: acquisition?.elapsedMs,
       reason: this.activeSource ? "granted" : "searching",
     });
+    this.standDown();
+  }
+
+  private standDown() {
     const position = this.pendingSeek ?? this.state.position;
+    this.resetStalls();
     this.generation++;
     this.sourceAttempt++;
     this.sources?.close();
@@ -1045,6 +1152,7 @@ export class Playback implements Player {
     }
     this.pendingSeek ??= position > 0 ? position : null;
     this.activeSource = { ...source };
+    this.resetStalls();
     log.info("playback.source_changed", {
       recording_id: this.state.current?.id,
       source_id: source.id,
@@ -1384,6 +1492,7 @@ export class Playback implements Player {
     this.selection++;
     log.info("queue.clear", { count });
     this.generation++;
+    this.resetStalls();
     this.acquisition?.stop();
     this.acquisition = null;
     this.blockedUnheard = false;

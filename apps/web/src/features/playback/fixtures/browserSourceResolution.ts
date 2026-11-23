@@ -26,6 +26,7 @@ export function ownedPlaybackHttp(
     vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       if (String(input) === "/api/v1/playback/upcoming")
         return new Response(null, { status: 204 });
+      if (String(input) === "/health") return new Response("ok");
       const request: OwnedPlaybackRequest = {
         path: String(input),
         method: options?.method ?? "GET",

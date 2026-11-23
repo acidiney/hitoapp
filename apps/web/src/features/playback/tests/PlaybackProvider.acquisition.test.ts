@@ -180,10 +180,14 @@ test("the control shows Pause while granted audio has not been heard and while h
     act(() => {
       audio.dispatchEvent(new Event("error"));
     });
-    expect(player.snapshot().loading).toBe(true);
-    expect(player.snapshot().desiredPlaying).toBe(true);
-    const pause = screen.getByRole("button", { name: "Pause" });
-    expect((pause as HTMLButtonElement).disabled).toBe(false);
+    expect(player.snapshot().buffering).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Pause" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(unexpected).toEqual([]);
   } finally {
     unmount();
