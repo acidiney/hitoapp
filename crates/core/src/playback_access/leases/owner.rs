@@ -112,7 +112,7 @@ pub(super) async fn serve(
     let mut streams = HashMap::<Uuid, Stream>::new();
     let mut pending = JoinSet::<Pending>::new();
     let mut pending_bodies = 0usize;
-    let mut opened = 0u64;
+    let mut bodies_opened = 0u64;
     let mut stop = entry.cancel.subscribe();
     let grant = entry.grant.get().expect("published lease has its grant");
     loop {
@@ -161,13 +161,13 @@ pub(super) async fn serve(
                                 closed: AtomicBool::new(false),
                                 wake: entry.wake.clone(),
                             });
-                            opened += 1;
+                            bodies_opened += 1;
                             streams.insert(
                                 id,
                                 Stream {
                                     input: Input::Converted(stream),
                                     control: control.clone(),
-                                    opened,
+                                    opened: bodies_opened,
                                 },
                             );
                             Ok(LeaseConversion::Converted(Some(AudioStream::lease(
@@ -264,13 +264,13 @@ pub(super) async fn serve(
                                         closed: AtomicBool::new(false),
                                         wake: entry.wake.clone(),
                                     });
-                                    opened += 1;
+                                    bodies_opened += 1;
                                     streams.insert(
                                         id,
                                         Stream {
                                             input,
                                             control: control.clone(),
-                                            opened,
+                                            opened: bodies_opened,
                                         },
                                     );
                                     audio.body = Some(AudioStream::lease(
