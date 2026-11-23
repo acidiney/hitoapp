@@ -83,7 +83,7 @@ impl Drop for Observer {
 impl PlaybackAccess {
     /// Retains exact session and source authority for at most 24 hours without renewal.
     /// Limits are eight leases and five pending creations per account, 32 and eight globally.
-    /// Each lease admits two audio bodies. Indexed originals are retained without copying or hashing.
+    /// Each lease keeps at most two audio bodies; a new one replaces the oldest. Indexed originals are retained without copying or hashing.
     /// Managed sources keep their existing verification policy.
     #[tracing::instrument(level="debug", skip_all, err(Debug), fields(account_id=actor.id(), playback_lease=tracing::field::Empty))]
     pub async fn begin_lease(
