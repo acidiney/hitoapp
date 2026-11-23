@@ -20,10 +20,13 @@ async fn from(f: &Case, path: &str, first: usize) -> Response {
 }
 
 async fn delivered(response: Response) -> Option<Vec<u8>> {
-    hang_guard("a lease audio body must settle", response.into_body().collect())
-        .await
-        .ok()
-        .map(|collected| collected.to_bytes().to_vec())
+    hang_guard(
+        "a lease audio body must settle",
+        response.into_body().collect(),
+    )
+    .await
+    .ok()
+    .map(|collected| collected.to_bytes().to_vec())
 }
 
 #[tokio::test]
