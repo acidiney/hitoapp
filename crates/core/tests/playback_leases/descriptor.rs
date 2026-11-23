@@ -75,7 +75,7 @@ async fn head_suffix_open_range_and_eof_share_the_pinned_representation() {
 }
 
 #[tokio::test]
-async fn simultaneous_ranges_keep_independent_positions_and_drop_releases_body_admission() {
+async fn simultaneous_ranges_keep_independent_positions_and_a_third_replaces_the_oldest() {
     let f = Case::new().await;
     let lease = f
         .services
@@ -97,12 +97,16 @@ async fn simultaneous_ranges_keep_independent_positions_and_drop_releases_body_a
         )
     };
     let (first, second) = tokio::join!(open(3, 7000), open(7001, 15000));
-    let first = first.unwrap();
+    let OpenedAudio::Content(mut first) = first.unwrap() else {
+        panic!("expected content")
+    };
     let second = second.unwrap();
-    assert!(open(0, 1).await.is_err());
-    let (first, second) = tokio::join!(content(first), content(second));
-    assert_eq!(first, f.original[3..=7000]);
+    let third = open(0, 1).await.unwrap();
+    let replaced = first.body.take().expect("body").chunk().await;
+    assert!(replaced.is_err(), "the oldest body must stop for the third");
+    let (second, third) = tokio::join!(content(second), content(third));
     assert_eq!(second, f.original[7001..=15000]);
+    assert_eq!(third, f.original[0..=1]);
     drop(open(0, 1).await.unwrap());
     tokio::task::yield_now().await;
     assert_eq!(content(open(5, 9).await.unwrap()).await, f.original[5..=9]);

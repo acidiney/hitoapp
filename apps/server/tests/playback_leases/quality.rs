@@ -218,7 +218,7 @@ async fn lease_quality_queries_are_validated() {
 }
 
 #[tokio::test]
-async fn two_concurrent_lease_conversions_each_decode_and_a_third_body_is_refused() {
+async fn a_third_lease_conversion_replaces_the_oldest_and_two_stay_open() {
     let f = hang_guard("the lease quality fixture must start", flac_case()).await;
     let path = audio_path(&f).await.expect("the lease must begin");
     let first = f
@@ -241,24 +241,26 @@ async fn two_concurrent_lease_conversions_each_decode_and_a_third_body_is_refuse
         .request("GET", &format!("{path}?quality=saver"), &[], None)
         .await;
     let statuses = (first.status(), second.status(), third.status());
-    drop(third);
-    let (first, second) = hang_guard("both converted lease bodies must finish", async {
-        tokio::join!(first.into_body().collect(), second.into_body().collect())
+    let (first, second, third) = hang_guard("every converted lease body must settle", async {
+        tokio::join!(
+            first.into_body().collect(),
+            second.into_body().collect(),
+            third.into_body().collect()
+        )
     })
     .await;
-    let first = tones::probe(&first.unwrap().to_bytes());
+    let replaced = first.is_err();
     let second = tones::probe(&second.unwrap().to_bytes());
+    let third = tones::probe(&third.unwrap().to_bytes());
     f.close().await;
+    assert_eq!(statuses, (StatusCode::OK, StatusCode::OK, StatusCode::OK));
+    assert!(replaced, "the oldest conversion must stop for the third");
     assert_eq!(
-        statuses,
-        (StatusCode::OK, StatusCode::OK, StatusCode::CONFLICT)
-    );
-    assert_eq!(
-        (first.codec.as_str(), second.codec.as_str()),
+        (second.codec.as_str(), third.codec.as_str()),
         ("aac", "aac")
     );
-    assert!((8.0..10.0).contains(&first.seconds), "{}", first.seconds);
     assert!((3.0..5.0).contains(&second.seconds), "{}", second.seconds);
+    assert!((9.0..11.0).contains(&third.seconds), "{}", third.seconds);
 }
 
 #[tokio::test]

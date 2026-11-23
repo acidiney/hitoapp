@@ -101,6 +101,7 @@ enum Input {
 struct Stream {
     input: Input,
     control: Arc<BodyControl>,
+    opened: u64,
 }
 
 pub(super) async fn serve(
@@ -111,6 +112,7 @@ pub(super) async fn serve(
     let mut streams = HashMap::<Uuid, Stream>::new();
     let mut pending = JoinSet::<Pending>::new();
     let mut pending_bodies = 0usize;
+    let mut bodies_opened = 0u64;
     let mut stop = entry.cancel.subscribe();
     let grant = entry.grant.get().expect("published lease has its grant");
     loop {
@@ -159,11 +161,13 @@ pub(super) async fn serve(
                                 closed: AtomicBool::new(false),
                                 wake: entry.wake.clone(),
                             });
+                            bodies_opened += 1;
                             streams.insert(
                                 id,
                                 Stream {
                                     input: Input::Converted(stream),
                                     control: control.clone(),
+                                    opened: bodies_opened,
                                 },
                             );
                             Ok(LeaseConversion::Converted(Some(AudioStream::lease(
@@ -204,10 +208,8 @@ pub(super) async fn serve(
                 }
                 let result = async {
                     entry.check().await?;
-                    if streams.len() + pending_bodies >= 2 && !request.head {
-                        return Err(Error::Conflict(
-                            "This playback lease already has two audio bodies".into(),
-                        ));
+                    if !request.head {
+                        make_room(entry, &mut streams, pending_bodies).await?;
                     }
                     if let Some(file) = &file {
                         if let Err(error) = file.check() {
@@ -262,11 +264,13 @@ pub(super) async fn serve(
                                         closed: AtomicBool::new(false),
                                         wake: entry.wake.clone(),
                                     });
+                                    bodies_opened += 1;
                                     streams.insert(
                                         id,
                                         Stream {
                                             input,
                                             control: control.clone(),
+                                            opened: bodies_opened,
                                         },
                                     );
                                     audio.body = Some(AudioStream::lease(
@@ -298,12 +302,10 @@ pub(super) async fn serve(
                 let head = open.request.original.head;
                 let admitted = async {
                     entry.check().await?;
-                    if streams.len() + pending_bodies >= 2 && !head {
-                        return Err(Error::Conflict(
-                            "This playback lease already has two audio bodies".into(),
-                        ));
+                    if !head {
+                        make_room(entry, &mut streams, pending_bodies).await?;
                     }
-                    Ok(())
+                    Ok::<_, Error>(())
                 };
                 if let Err(error) = admitted.await {
                     let _ = reply.send(Err(error));
@@ -460,6 +462,34 @@ async fn negotiation(
         head,
         result,
     }
+}
+
+async fn make_room(
+    entry: &Entry,
+    streams: &mut HashMap<Uuid, Stream>,
+    pending_bodies: usize,
+) -> Result<()> {
+    if streams.len() + pending_bodies < 2 {
+        return Ok(());
+    }
+    let oldest = streams
+        .iter()
+        .min_by_key(|(_, stream)| stream.opened)
+        .map(|(id, _)| *id);
+    let Some(stream) = oldest.and_then(|id| streams.remove(&id)) else {
+        return Err(Error::Conflict(
+            "This playback lease is still preparing two audio bodies".into(),
+        ));
+    };
+    stream.control.close();
+    retire_stream(stream).await;
+    tracing::debug!(
+        event = "playback_lease_body_replaced",
+        playback_lease = entry.correlation,
+        open_bodies = streams.len() + pending_bodies,
+        "A new audio body replaced the oldest one on its playback lease"
+    );
+    Ok(())
 }
 
 async fn retire_stream(stream: Stream) {
