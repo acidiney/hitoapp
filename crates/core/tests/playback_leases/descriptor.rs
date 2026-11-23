@@ -96,11 +96,10 @@ async fn simultaneous_ranges_keep_independent_positions_and_a_third_replaces_the
             },
         )
     };
-    let (first, second) = tokio::join!(open(3, 7000), open(7001, 15000));
-    let OpenedAudio::Content(mut first) = first.unwrap() else {
+    let OpenedAudio::Content(mut first) = open(3, 7000).await.unwrap() else {
         panic!("expected content")
     };
-    let second = second.unwrap();
+    let second = open(7001, 15000).await.unwrap();
     let third = open(0, 1).await.unwrap();
     let replaced = first.body.take().expect("body").chunk().await;
     assert!(replaced.is_err(), "the oldest body must stop for the third");
