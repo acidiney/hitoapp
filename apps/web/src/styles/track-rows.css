@@ -239,14 +239,26 @@
   }
 }
 @media (hover: hover) {
-  :is(a.track-title, a.track-name, .player-link, .np-artist-link):hover {
+  :is(
+    a.track-title,
+    a.track-name,
+    .player-link,
+    .np-artist-link,
+    .np-title-link
+  ):hover {
     text-decoration: underline;
   }
   a.track-name:hover {
     color: var(--ink);
   }
 }
-:is(a.track-title, a.track-name, .player-link, .np-artist-link):focus-visible {
+:is(
+  a.track-title,
+  a.track-name,
+  .player-link,
+  .np-artist-link,
+  .np-title-link
+):focus-visible {
   text-decoration: underline;
   outline-offset: -2px;
   border-radius: 3px;

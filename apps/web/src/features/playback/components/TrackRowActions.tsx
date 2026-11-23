@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Heart } from "lucide-react";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import { useToggleLike } from "../hooks/useToggleLike";
+import type { ActionMenuItem } from "../../../shared/ui/ActionMenu";
 import TrackRowMenu from "./TrackRowMenu";
 import type { TrackRow } from "./TrackTable";
 
@@ -16,12 +17,14 @@ export default function TrackRowActions({
   liking = true,
   queueActions = true,
   onNavigate,
+  leading,
   children,
 }: {
   replaceMenu?: ReactNode;
   liking?: boolean;
   queueActions?: boolean;
   onNavigate?: () => void;
+  leading?: ActionMenuItem[];
   children?: ReactNode;
   track: TrackRow;
   playlists: Schema<"Playlist">[];
@@ -52,6 +55,7 @@ export default function TrackRowActions({
           onMutationAccepted={onMutationAccepted}
           queueActions={queueActions}
           onNavigate={onNavigate}
+          leading={leading}
         />
       )}
     </div>
