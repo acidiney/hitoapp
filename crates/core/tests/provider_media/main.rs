@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod played_search;
 mod provider_artists;
 mod provider_artwork;
 mod provider_artwork_authority;

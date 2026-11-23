@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod played_search;
 mod plugin_install_preview;
 mod plugins_logging;
 mod provider_audio;

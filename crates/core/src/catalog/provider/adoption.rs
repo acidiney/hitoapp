@@ -1,6 +1,10 @@
 use super::{Catalog, bindings, metadata, persist, resolution::CatalogDecision};
-use crate::{Actor, ChangeNotice, Error, Recording, Result, identity::recording_readers};
-use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest};
+use crate::{
+    Actor, ChangeNotice, Error, Recording, Result, identity::recording_readers, plugins::Operation,
+};
+use hito_plugin_sdk::{
+    Capability, CreditRole, ProviderRecording, ProviderRelease, RecordingRequest,
+};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
@@ -56,7 +60,7 @@ impl Catalog {
                 "This plugin has not been approved for the requested capability".into(),
             ));
         }
-        let (details, sources) = operation.recording_for_saving(&request_id).await?;
+        let (mut details, sources) = operation.recording_for_saving(&request_id).await?;
         if let Some(accepted) = accepted {
             let current: Vec<(String, bool)> = sources
                 .iter()
@@ -71,6 +75,9 @@ impl Catalog {
                 );
                 return Ok(None);
             }
+        }
+        if details.release.is_none() {
+            details.release = musical_album(&operation, &request_id, &details).await;
         }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
@@ -137,4 +144,51 @@ impl Catalog {
         );
         Ok(Some(result))
     }
+}
+
+async fn musical_album(
+    operation: &Operation,
+    request: &RecordingRequest,
+    details: &ProviderRecording,
+) -> Option<ProviderRelease> {
+    if !operation.metadata_approved() {
+        return None;
+    }
+    let artist = details
+        .artists
+        .iter()
+        .find(|artist| artist.role == CreditRole::Main)?
+        .name
+        .clone();
+    let Ok(metadata) = operation.recording_metadata(request).await else {
+        tracing::debug!(
+            event = "provider_album_lookup",
+            outcome = "unavailable",
+            "Provider musical album was not available"
+        );
+        return None;
+    };
+    let release = metadata
+        .album_title
+        .and_then(|title| {
+            Some(ProviderRelease {
+                id: serde_json::to_string(&("musical_album", &artist, &title)).ok()?,
+                title,
+                artist: Some(artist),
+            })
+        })
+        .filter(|release| {
+            ProviderRecording {
+                release: Some(release.clone()),
+                ..details.clone()
+            }
+            .validate()
+            .is_ok()
+        });
+    tracing::debug!(
+        event = "provider_album_lookup",
+        outcome = if release.is_some() { "named" } else { "none" },
+        "Provider musical album looked up"
+    );
+    release
 }
