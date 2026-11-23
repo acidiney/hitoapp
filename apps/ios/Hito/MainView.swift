@@ -1,4 +1,5 @@
 import HitoKit
+import OSLog
 import SwiftUI
 
 enum Tab: CaseIterable, Hashable {
@@ -34,6 +35,9 @@ struct MainView: View {
     @State private var showingQueue = false
     @State private var typing = false
     @State private var visited: Set<Tab> = [.home]
+    @State private var paths: [Tab: NavigationPath] = [:]
+    @State private var servicesArtist: ArtistGroup?
+    private static let log = Logger(subsystem: "app.hito", category: "player")
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,7 +57,7 @@ struct MainView: View {
             }
             if !typing {
                 if let player = model.player, player.current != nil {
-                    MiniPlayer(player: player) { showingNowPlaying = true }
+                    MiniPlayer(player: player, routes: routes(player), go: go) { showingNowPlaying = true }
                 }
                 TabBar(tab: $tab)
             }
@@ -63,12 +67,49 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in typing = false }
         .foregroundStyle(Theme.text)
         .onChange(of: tab) { visited.insert(tab) }
+        .task(id: model.player?.current?.id) { await findServicesArtist() }
         .fullScreenCover(isPresented: $showingNowPlaying) {
             if let player = model.player {
-                NowPlayingView(player: player, openQueue: { showingQueue = true })
+                NowPlayingView(player: player, routes: routes(player), openQueue: { showingQueue = true }, go: go)
                     .sheet(isPresented: $showingQueue) { QueueSheet(player: player) }
             }
         }
+    }
+
+    private func routes(_ player: Player) -> PlayerRoutes? {
+        guard let track = player.current else { return nil }
+        return PlayerRoutes(track: track, playlist: player.queue.playlist, identity: servicesArtist?.recordingId == track.id ? servicesArtist : nil)
+    }
+
+    private func go(_ route: PlayerRoute) {
+        var path = paths[tab] ?? NavigationPath()
+        switch route {
+        case let .artist(artist): path.append(artist)
+        case let .artistGroup(group): path.append(group)
+        case let .album(album): path.append(album)
+        case let .playlist(playlist): path.append(playlist)
+        }
+        paths[tab] = path
+        Self.log.info("player.go_to kind=\(route.kind, privacy: .public)")
+    }
+
+    private func findServicesArtist() async {
+        guard let track = model.player?.current, let api = model.api, PlayerRoutes(track: track).needsIdentity,
+              servicesArtist?.recordingId != track.id else { return }
+        let started = ContinuousClock.now
+        var outcome = "unmatched"
+        do {
+            servicesArtist = try await ArtistIdentity(api: api).group(for: track)
+            if servicesArtist != nil { outcome = "matched" }
+        } catch {
+            outcome = Task.isCancelled ? "cancelled" : "failed"
+        }
+        let elapsed = Int((ContinuousClock.now - started) / .milliseconds(1))
+        Self.log.debug("player.artist_link outcome=\(outcome, privacy: .public) ms=\(elapsed, privacy: .public)")
+    }
+
+    private func path(_ item: Tab) -> Binding<NavigationPath> {
+        Binding(get: { paths[item] ?? NavigationPath() }, set: { paths[item] = $0 })
     }
 }
 
@@ -76,15 +117,15 @@ extension MainView {
     @ViewBuilder func screen(_ item: Tab) -> some View {
         switch item {
         case .home:
-            NavigationStack { HomeView(user: user, openSearch: { tab = .search }, openDiscover: { tab = .discover }, openPlugins: { tab = .plugins }).browsing() }
+            NavigationStack(path: path(item)) { HomeView(user: user, openSearch: { tab = .search }, openDiscover: { tab = .discover }, openPlugins: { tab = .plugins }).browsing() }
         case .search:
-            NavigationStack { SearchView(active: tab == .search).browsing() }
+            NavigationStack(path: path(item)) { SearchView(active: tab == .search).browsing() }
         case .discover:
-            NavigationStack { DiscoverView(openSearch: { tab = .search }).browsing() }
+            NavigationStack(path: path(item)) { DiscoverView(openSearch: { tab = .search }).browsing() }
         case .library:
-            NavigationStack { LibraryView().browsing() }
+            NavigationStack(path: path(item)) { LibraryView().browsing() }
         case .plugins:
-            NavigationStack { PluginsView().browsing() }
+            NavigationStack(path: path(item)) { PluginsView().browsing() }
         }
     }
 }
@@ -214,6 +255,8 @@ struct TabBar: View {
 
 struct MiniPlayer: View {
     let player: Player
+    let routes: PlayerRoutes?
+    let go: (PlayerRoute) -> Void
     let open: () -> Void
 
     var body: some View {
@@ -243,6 +286,7 @@ struct MiniPlayer: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .contextMenu { GoToMenu(routes: routes, go: go) }
                     .accessibilityLabel("\(track.title), \(track.artist). Open now playing")
                     PlayButton(player: player, size: 44)
                     IconButton(icon: "next", label: "Next track", glyph: 20, action: player.next)
@@ -254,6 +298,28 @@ struct MiniPlayer: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
+        }
+    }
+}
+
+struct GoToMenu: View {
+    let routes: PlayerRoutes?
+    let go: (PlayerRoute) -> Void
+
+    var body: some View {
+        if let routes {
+            if routes.artists.count > 1 {
+                Menu("Go to artist") {
+                    ForEach(routes.artists, id: \.self) { route in
+                        Button(route.title) { go(route) }
+                    }
+                }
+            } else if let artist = routes.artists.first {
+                Button("Go to artist") { go(artist) }
+            }
+            if let album = routes.album {
+                Button("Go to album") { go(album) }
+            }
         }
     }
 }
