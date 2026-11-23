@@ -57,25 +57,39 @@ function schedule() {
   timer = setTimeout(() => void probe(), delay);
 }
 
-async function probe() {
-  if (state.reachable || probing) return;
-  probing = true;
-  probes += 1;
+async function answers() {
   const attempt = new AbortController();
   const limit = setTimeout(() => attempt.abort(), probeTimeoutMs);
-  let up = false;
   try {
     const response = await fetch("/health", {
       cache: "no-store",
       credentials: "omit",
       signal: attempt.signal,
     });
-    up = response.ok;
     void response.body?.cancel().catch(() => {});
+    return response.ok;
   } catch {
-    up = false;
+    return false;
   } finally {
     clearTimeout(limit);
+  }
+}
+
+export async function checkServer() {
+  const up = await answers();
+  if (up) reportReachable();
+  else reportUnreachable("network");
+  return up;
+}
+
+async function probe() {
+  if (state.reachable || probing) return;
+  probing = true;
+  probes += 1;
+  let up = false;
+  try {
+    up = await answers();
+  } finally {
     probing = false;
   }
   log.debug("connection.probe", { count: probes, enabled: up });
