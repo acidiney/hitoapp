@@ -15,7 +15,8 @@ const audio = (page: Page) => page.locator("audio[data-hito-player]");
 
 class HeldAudio {
   ranges: string[] = [];
-  private held: Route | null = null;
+  private held: Route[] = [];
+  private released = false;
   private enter!: () => void;
   entered = new Promise<void>((resolve) => {
     this.enter = resolve;
@@ -26,12 +27,12 @@ class HeldAudio {
     const range = headers.range ?? "";
     this.ranges.push(range);
     const start = Number(/^bytes=(\d+)-/.exec(range)?.[1] ?? 0);
-    if (this.held !== null || start >= tailBytes) {
+    if (this.released || start >= tailBytes) {
       await route.continue();
       return;
     }
     if (start >= deliveredBytes) {
-      this.held = route;
+      this.held.push(route);
       this.enter();
       return;
     }
@@ -41,10 +42,16 @@ class HeldAudio {
     await route.fulfill({ response });
   };
 
+  release() {
+    this.released = true;
+  }
+
   async close() {
-    try {
-      await this.held?.abort();
-    } catch {}
+    for (const route of this.held) {
+      try {
+        await route.abort();
+      } catch {}
+    }
   }
 }
 
@@ -128,6 +135,7 @@ test("audio held mid-track shows Buffering and stops the system clock, then reop
     ).toBeEnabled();
     const rangesBeforeDeadline = held.ranges.length;
 
+    held.release();
     await page.clock.runFor(15_000);
 
     await expect(status(page)).toHaveCount(0);
