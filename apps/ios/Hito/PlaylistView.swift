@@ -10,6 +10,7 @@ struct PlaylistView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     let playlist: Playlist
+    var editing = false
     @State private var detail: PlaylistDetail?
     @State private var failed = false
     @State private var filter = Filter.all
@@ -72,15 +73,13 @@ struct PlaylistView: View {
                                     }
                                     .buttonStyle(.plain)
                                     Menu {
-                                        TrackMenu(track: track)
-                                        if playlist.kind == .local, let entry = entry(for: track) {
-                                            Button("Remove from playlist", role: .destructive) { Task { await remove(entry) } }
-                                        }
+                                        TrackMenu(track: track, extra: extra(for: track)) { _ in removeEntry(of: track) }
                                     } label: {
                                         Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
                                     }
                                     .accessibilityLabel("More actions for \(track.title)")
                                 }
+                                .trackActions(track, extra: extra(for: track)) { _ in removeEntry(of: track) }
                             }
                         }
                         .padding(.trailing, -8)
@@ -92,12 +91,16 @@ struct PlaylistView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .task { if detail == nil { await load() } }
+        .task {
+            guard detail == nil else { return }
+            await load()
+            if editing { startEditing() }
+        }
         .onDisappear { search?.cancel() }
         .confirmationDialog("Delete \(detail?.playlist.name ?? playlist.name)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete playlist", role: .destructive) { Task { await deletePlaylist() } }
         } message: {
-            Text(playlist.kind == .followed ? "The playlist and its updates are removed from your account. The tracks stay in your library." : "The playlist is removed from your account. The tracks stay in your library.")
+            Text(PlaylistMenu.deleteMessage(playlist))
         }
     }
 
@@ -164,24 +167,37 @@ struct PlaylistView: View {
     @ViewBuilder private var moreMenu: some View {
         if !ready.isEmpty || detail != nil {
             Menu {
-                if !ready.isEmpty {
-                    Button("Play next") { ready.forEach { model.player?.playNext($0) } }
-                }
-                if playlist.kind == .local, let detail {
-                    Button("Edit playlist") {
-                        draft = PlaylistDraft(name: detail.playlist.name, entries: detail.entries)
-                        editProblem = nil
-                    }
-                }
-                ArtworkRetryButton(path: playlist.artworkPath)
-                if detail != nil {
-                    Button("Delete playlist", role: .destructive) { confirmingDelete = true }
-                }
+                PlaylistMenu(playlist: playlist, ready: ready.count, editsHere: true, perform: perform)
             } label: {
                 Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
             }
             .accessibilityLabel("More actions")
         }
+    }
+
+    private func perform(_ action: ItemAction) {
+        switch action {
+        case .play: model.player?.play(ready, at: 0, from: playlist.name)
+        case .playNext: ready.forEach { model.player?.playNext($0) }
+        case .edit: startEditing()
+        case .retryArtwork: ArtworkRetries.shared.retry(playlist.artworkPath)
+        case .delete: confirmingDelete = true
+        default: break
+        }
+    }
+
+    private func startEditing() {
+        guard playlist.kind == .local, let detail else { return }
+        draft = PlaylistDraft(name: detail.playlist.name, entries: detail.entries)
+        editProblem = nil
+    }
+
+    private func extra(for track: Track) -> [ItemAction] {
+        playlist.kind == .local && entry(for: track) != nil ? [.removeFromPlaylist] : []
+    }
+
+    private func removeEntry(of track: Track) {
+        if let entry = entry(for: track) { Task { await remove(entry) } }
     }
 
     private func editor(_ current: PlaylistDraft) -> some View {

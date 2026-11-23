@@ -88,16 +88,6 @@ final class ArtworkRetries {
     }
 }
 
-struct ArtworkRetryButton: View {
-    let path: [String]
-
-    var body: some View {
-        if let subject = ArtworkRetrieval.Subject(path: path), ArtworkRetries.shared.unavailable.contains(subject) {
-            Button("Retry artwork") { ArtworkRetries.shared.retry(subject) }
-        }
-    }
-}
-
 struct Cover: View {
     @Environment(AppModel.self) private var model
     let path: [String]

@@ -133,6 +133,7 @@ struct CatalogAlbumView: View {
             }
             .accessibilityLabel("More actions for \(track.title)")
         }
+        .trackActions(track)
     }
 
     private func missingRow(_ track: EditionTrack, in complete: CompleteAlbum) -> some View {
