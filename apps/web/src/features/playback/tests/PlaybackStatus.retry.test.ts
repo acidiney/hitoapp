@@ -58,3 +58,15 @@ test("a host that does not report retries shows the usual loading line", () => {
   render(createElement(PlaybackStatus));
   expect(screen.getByRole("status").textContent).toBe("Finding audio…");
 });
+
+test("a playing track that waits for audio says it is buffering", () => {
+  view({ playing: true, buffering: true });
+  render(createElement(PlaybackStatus));
+  expect(screen.getByRole("status").textContent).toBe("Buffering…");
+});
+
+test("a retry still wins over buffering", () => {
+  view({ playing: true, buffering: true, retrying: { attempt: 2, of: 3 } });
+  render(createElement(PlaybackStatus));
+  expect(screen.getByRole("status").textContent).toBe("Trying again (2 of 3)…");
+});
