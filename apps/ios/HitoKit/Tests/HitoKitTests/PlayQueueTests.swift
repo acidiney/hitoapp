@@ -33,6 +33,21 @@ import Testing
         #expect(queue.upNext.map(\.id) == ["c", "d"])
     }
 
+    @Test func previousGoesBackOnlyNearTheStartOfATrack() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.preceding(at: 0)?.id == "b")
+        #expect(queue.preceding(at: PlayQueue.restartsAfter)?.id == "b")
+        #expect(queue.preceding(at: PlayQueue.restartsAfter + 0.5) == nil)
+        #expect(queue.current?.id == "c")
+    }
+
+    @Test func theFirstTrackHasNothingBeforeIt() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 0, from: "Fixture Album")
+        #expect(queue.preceding(at: 0) == nil)
+    }
+
     @Test func theEndOfTheListStopsWithoutWrapping() {
         var queue = PlayQueue()
         queue.start(tracks, at: 3, from: "Fixture Album")
