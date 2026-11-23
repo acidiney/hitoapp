@@ -61,9 +61,13 @@ public struct Playlists: Sendable {
         let available: Bool
         let playsFromServices: Bool
         let liked: Bool
+        let artistId: String?
+        let credits: [Track.Credit]?
 
         enum CodingKeys: String, CodingKey {
             case title, artist, album, available, liked, position
+            case artistId = "artist_id"
+            case credits = "credited_artists"
             case entryId = "entry_id"
             case recordingId = "recording_id"
             case releaseId = "release_id"
@@ -81,7 +85,9 @@ public struct Playlists: Sendable {
                 durationMs: durationMs,
                 available: recordingId != nil && available,
                 playsFromServices: recordingId != nil && playsFromServices,
-                liked: liked
+                liked: liked,
+                artistId: artistId,
+                credits: credits
             )
         }
     }
