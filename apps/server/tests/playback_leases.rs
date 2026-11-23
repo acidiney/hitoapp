@@ -1,3 +1,5 @@
+#[path = "playback_leases/bodies.rs"]
+mod bodies;
 #[path = "playback_leases/contract.rs"]
 mod contract;
 #[path = "playback_leases/fixture.rs"]
