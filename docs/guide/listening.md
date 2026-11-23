@@ -51,6 +51,17 @@ Clearing stops playback and empties the queue on this device. Your library and p
 
 Select **Open now playing** in the player, or press N. On a phone, Now playing has three panels: **Lyrics**, **Up next** and **Source**. On a larger screen they sit side by side.
 
+### Go to the artist or album
+
+From the player you can open the playing track's artist or album. Now playing closes first.
+
+- Select the title in Now playing or in the player to open the album. In the browser, a track with no album in your library opens its track page instead.
+- Select the artist name to open the artist. When a track credits several artists, each name opens its own artist.
+- The menu in the player and in Now playing has **Go to artist** and **Go to album**. With several artists, **Go to artist** lists them.
+- In the iPhone app, select the "Playing from" line to open the playlist the queue started from, or the album. Press and hold the mini player for **Go to artist** and **Go to album**; a tap still opens Now playing.
+
+A track from a music service that has no artist in your library opens the artist's discography when Hito has matched one. When there is no artist or album to open, the menu leaves that option out. In the browser, the artist name then searches your library for it.
+
 ### Read lyrics
 
 Lyrics need a lyrics plugin, such as LRCLIB. Without one, the panel shows "No lyrics plugin" and a link to connect one. See [Plugins](plugins.md).
