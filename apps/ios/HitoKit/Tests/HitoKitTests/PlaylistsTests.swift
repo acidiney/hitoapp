@@ -28,6 +28,15 @@ import Testing
         #expect(detail.ready == 1)
     }
 
+    @Test func aPlaylistEntryKeepsItsArtistsForThePlayer() async throws {
+        let credited = entry.replacingOccurrences(of: #""liked":false"#, with: #""liked":false,"artist_id":"a1","credited_artists":[{"id":"a1","name":"Fixture Band","role":"main"}]"#)
+        let body = #"{"playlist":{"id":"p2","name":"Banger","kind":"followed"},"entries":[\#(credited)]}"#
+        let fake = FakeServer(routes: ["GET /api/v1/playlists/p2": .json(200, body)])
+        let track = try #require(try await playlists(fake).detail("p2").tracks.first)
+        #expect(track.artistId == "a1")
+        #expect(track.credits == [Track.Credit(id: "a1", name: "Fixture Band")])
+    }
+
     @Test func onlyTracksLinkedToTheLibraryCanBeFound() async throws {
         let unlinkedReady = entry.replacingOccurrences(of: #""entry_id":"e1""#, with: #""entry_id":"e3""#).replacingOccurrences(of: #""recording_id":"r1""#, with: #""recording_id":"r3""#).replacingOccurrences(of: #""available":true"#, with: #""available":false"#)
         let body = #"{"playlist":{"id":"p2","name":"Banger","kind":"followed"},"entries":[\#(entry),\#(missing),\#(unlinkedReady)]}"#

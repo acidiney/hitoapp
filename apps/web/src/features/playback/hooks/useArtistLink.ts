@@ -27,6 +27,15 @@ export function useArtistLink(
   account: string,
   track: Pick<Track, "id" | "artist"> | null,
 ) {
+  const matched = useArtistGroupLink(account, track);
+  if (!track) return null;
+  return matched ?? artistSearchLink(track.artist);
+}
+
+export function useArtistGroupLink(
+  account: string,
+  track: Pick<Track, "id"> | null,
+) {
   const id = track?.id ?? null;
   const key = id ? `${account}/${id}` : null;
   const [resolved, setResolved] = useState<{ key: string; href: string }>();
@@ -57,8 +66,6 @@ export function useArtistLink(
       );
     return () => controller.abort();
   }, [account, id, key]);
-  if (!track || !key) return null;
-  const matched =
-    remembered.get(key) ?? (resolved?.key === key ? resolved.href : null);
-  return matched ?? artistSearchLink(track.artist);
+  if (!key) return null;
+  return remembered.get(key) ?? (resolved?.key === key ? resolved.href : null);
 }

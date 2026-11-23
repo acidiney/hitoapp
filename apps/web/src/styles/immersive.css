@@ -103,7 +103,8 @@
   margin: 0;
   color: var(--ink-soft);
 }
-.np-artist a {
+.np-artist a,
+.np-title-link {
   color: inherit;
   text-decoration: none;
 }

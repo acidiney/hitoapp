@@ -57,6 +57,8 @@ test("the player bar likes and manages the playing track, and a reload keeps the
 
   const menu = await openTrackMenu(bar, second);
   await expect(menu.getByRole("menuitem")).toHaveText([
+    "Go to artist",
+    "Go to album",
     "Track details",
     "Add to playlist",
     "Fix source",

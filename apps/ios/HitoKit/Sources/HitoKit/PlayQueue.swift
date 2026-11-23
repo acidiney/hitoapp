@@ -14,6 +14,7 @@ public struct PlayQueue: Equatable, Sendable {
     public private(set) var queued: [Track] = []
     public private(set) var current: Track?
     public private(set) var context: String?
+    public private(set) var playlist: Playlist?
     public private(set) var shuffled = false
     public var repeatMode = RepeatMode.off
     private var original: [Track] = []
@@ -53,7 +54,7 @@ public struct PlayQueue: Equatable, Sendable {
 
     public var hasNext: Bool { !queued.isEmpty || !upNext.isEmpty || (repeatMode == .list && !list.isEmpty) }
 
-    public mutating func start(_ tracks: [Track], at index: Int, from context: String) {
+    public mutating func start(_ tracks: [Track], at index: Int, from context: String, playlist: Playlist? = nil) {
         list = tracks
         original = list
         position = tracks.indices.contains(index) ? index : 0
@@ -61,6 +62,7 @@ public struct PlayQueue: Equatable, Sendable {
         shuffled = false
         current = list.indices.contains(position) ? list[position] : nil
         self.context = context
+        self.playlist = playlist
     }
 
     public mutating func setShuffle<Generator: RandomNumberGenerator>(_ on: Bool, using generator: inout Generator) {
