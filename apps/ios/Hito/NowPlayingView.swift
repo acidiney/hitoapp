@@ -15,6 +15,9 @@ struct NowPlayingView: View {
     @State private var pull = PullDown()
     @State private var height = 0.0
     @State private var closing = false
+    @State private var swipe: TrackSwipe?
+    @State private var coverFrame = CGRect.zero
+    @State private var turning = false
 
     var body: some View {
         Group {
@@ -50,12 +53,20 @@ struct NowPlayingView: View {
     private var pullToClose: some Gesture {
         DragGesture(minimumDistance: PullDown.directionDistance, coordinateSpace: .global)
             .onChanged { drag in
-                guard !closing else { return }
+                guard !closing, !turning else { return }
                 pull.drag(x: drag.translation.width, y: drag.translation.height)
+                guard pull.axis == .horizontal else { return }
+                if swipe == nil, panel == .artwork, coverFrame.contains(drag.startLocation) {
+                    swipe = TrackSwipe(hasNext: player.queue.hasNext, hasPrevious: player.queue.preceding(at: player.position) != nil)
+                }
+                swipe?.drag(x: drag.translation.width)
             }
             .onEnded { drag in
-                guard !closing else { return }
-                if pull.closes(velocity: drag.velocity.height, height: height) {
+                guard !closing, !turning else { return }
+                if let swipe {
+                    pull = PullDown()
+                    finish(swipe, velocity: drag.velocity.width)
+                } else if pull.closes(velocity: drag.velocity.height, height: height) {
                     close()
                 } else {
                     withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.25)) { pull = PullDown() }
@@ -113,8 +124,7 @@ struct NowPlayingView: View {
                 .accessibilityLabel("More actions")
             }
             .padding(.horizontal, -10)
-            Cover(path: track.artworkPath, radius: 16)
-                .shadow(color: .black.opacity(0.45), radius: 28, y: 24)
+            covers(track)
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     if let context = player.queue.context {
@@ -165,6 +175,75 @@ struct NowPlayingView: View {
         .padding(.bottom, 4)
         .contentShape(Rectangle())
         .gesture(pullToClose)
+    }
+
+    private struct CoverSlot: Identifiable {
+        let track: Track
+        let place: Double
+        var id: String { track.id }
+    }
+
+    private static let coverGap = 32.0
+
+    private func covers(_ track: Track) -> some View {
+        ZStack {
+            ForEach(coverSlots(track)) { slot in
+                Cover(path: slot.track.artworkPath, radius: 16)
+                    .shadow(color: .black.opacity(0.45), radius: 28, y: 24)
+                    .offset(x: slot.place * (coverFrame.width + Self.coverGap))
+            }
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { coverFrame = $0 }
+        .offset(x: reduceMotion ? 0 : swipe?.offset ?? 0)
+        .opacity(reduceMotion ? 1 - min(abs(swipe?.translation ?? 0) / max(coverFrame.width, 1), 0.5) : 1)
+    }
+
+    private func coverSlots(_ track: Track) -> [CoverSlot] {
+        var slots = [CoverSlot(track: track, place: 0)]
+        guard let swipe, !reduceMotion else { return slots }
+        if swipe.hasPrevious, let previous = player.queue.played.last, previous.id != track.id {
+            slots.insert(CoverSlot(track: previous, place: -1), at: 0)
+        }
+        if swipe.hasNext, let next = player.queue.following, next.id != track.id, !slots.contains(where: { $0.id == next.id }) {
+            slots.append(CoverSlot(track: next, place: 1))
+        }
+        return slots
+    }
+
+    private func finish(_ ended: TrackSwipe, velocity: Double) {
+        guard let turn = ended.turn(velocity: velocity, width: coverFrame.width) else { return springBack() }
+        guard ended.slides, !reduceMotion else {
+            play(turn)
+            return springBack()
+        }
+        turning = true
+        let landing = (coverFrame.width + Self.coverGap) * (turn == .next ? -1 : 1)
+        withAnimation(.spring(duration: 0.3, bounce: 0)) {
+            swipe?.drag(x: landing)
+        } completion: {
+            var instant = Transaction()
+            instant.disablesAnimations = true
+            withTransaction(instant) {
+                play(turn)
+                swipe = nil
+                turning = false
+            }
+        }
+    }
+
+    private func springBack() {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.35, bounce: 0.25)) {
+            swipe?.drag(x: 0)
+        } completion: {
+            if swipe?.translation == 0 { swipe = nil }
+        }
+    }
+
+    private func play(_ turn: TrackSwipe.Turn) {
+        switch turn {
+        case .next: player.next()
+        case .previous: player.previous()
+        }
     }
 
     private func panels(_ track: Track) -> some View {

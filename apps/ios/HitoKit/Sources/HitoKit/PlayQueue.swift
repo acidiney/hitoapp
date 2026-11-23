@@ -102,6 +102,13 @@ public struct PlayQueue: Equatable, Sendable {
         return current
     }
 
+    public static let restartsAfter = 3.0
+
+    public func preceding(at seconds: Double) -> Track? {
+        guard seconds <= Self.restartsAfter, position > 0 else { return nil }
+        return list[position - 1]
+    }
+
     @discardableResult
     public mutating func back() -> Track? {
         guard position > 0 else { return nil }

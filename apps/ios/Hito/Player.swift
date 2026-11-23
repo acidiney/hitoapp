@@ -255,7 +255,7 @@ final class Player {
 
     func previous() {
         resumeAt = nil
-        if position > 3 || queue.back() == nil {
+        if queue.preceding(at: position) == nil || queue.back() == nil {
             seek(to: 0)
             return
         }
