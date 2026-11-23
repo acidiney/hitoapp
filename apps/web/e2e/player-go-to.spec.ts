@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { openTrackMenu } from "./fixtures/track-row";
+import { connectFixtures } from "./fixtures/streaming-quality";
 
 const title = "Fixture 440 Hz";
 const album = "Fixture collection 440 Hz";
@@ -14,7 +15,9 @@ function nowPlaying(page: Page) {
   return page.getByRole("dialog", { name: "Now playing" });
 }
 
-async function playFixture(page: Page) {
+async function playFixture(page: Page, baseURL: string) {
+  await page.goto("/home");
+  await connectFixtures(page, baseURL);
   await page.goto("/library?q=Hz");
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
@@ -48,11 +51,12 @@ async function expectPage(page: Page, heading: string) {
 
 test("the player goes to the playing track's album and artist and closes Now playing first", async ({
   page,
+  baseURL,
 }) => {
   if (!sharedAdminSession) await enterAdmin(page);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await playFixture(page);
+  await playFixture(page, baseURL!);
 
   await openNowPlaying(page);
   await nowPlaying(page)
@@ -76,10 +80,11 @@ test("the player goes to the playing track's album and artist and closes Now pla
 
 test("on a phone, Now playing's menu goes to the album and closes the full-screen player", async ({
   page,
+  baseURL,
 }) => {
   if (!sharedAdminSession) await enterAdmin(page);
+  await playFixture(page, baseURL!);
   await page.setViewportSize({ width: 390, height: 844 });
-  await playFixture(page);
   await openNowPlaying(page, true);
   const menu = await openTrackMenu(nowPlaying(page), title);
   await expect(menu.getByRole("menuitem")).toHaveText([
