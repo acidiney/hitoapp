@@ -1,5 +1,5 @@
 import { setImmediate as flushTasks } from "node:timers/promises";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import {
   audioPath,
   browserPreparationModes,
@@ -7,6 +7,7 @@ import {
 } from "../fixtures/browserPreparationModes";
 
 afterEach(() => {
+  vi.useRealTimers();
   Reflect.deleteProperty(document, "visibilityState");
 });
 
@@ -116,7 +117,7 @@ test("seeking the current track keeps the buffer for the boundary and later seek
   }
 });
 
-test("a stall while the next track buffers leaves current audio alone and a later hidden stall retries the element that now plays", async () => {
+test("a stall while the next track buffers leaves current audio alone and a later stall rebuilds the element that now plays after the deadline", async () => {
   Object.defineProperty(document, "visibilityState", {
     configurable: true,
     get: () => "hidden",
@@ -138,8 +139,20 @@ test("a stall while the next track buffers leaves current audio alone and a late
     expect(fixture.playing()).toBe(prepared);
     prepared.currentTime = 30;
     prepared.dispatchEvent(new Event("timeupdate"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === "/health"
+          ? new Response("ok")
+          : Promise.reject(new Error("Only the health check is expected")),
+      ),
+    );
     prepared.readyState = 2;
     prepared.dispatchEvent(new Event("stalled"));
+    expect(player.snapshot().buffering).toBe(true);
+    expect(prepared.loads).toEqual([audioPath("next-audio")]);
+    await vi.advanceTimersByTimeAsync(15_000);
 
     expect(prepared.loads).toEqual([
       audioPath("next-audio"),

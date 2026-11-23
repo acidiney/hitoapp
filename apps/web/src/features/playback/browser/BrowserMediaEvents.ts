@@ -13,6 +13,7 @@ export type MediaHandlers = {
   ended(): void;
   canPlay(): void;
   stalled(): void;
+  waiting(): void;
   interrupted(): void;
 };
 
@@ -44,7 +45,11 @@ export function listenToMedia(
     handlers.interrupted();
     handlers.stalled();
   });
-  for (const event of ["waiting", "ratechange", "loadstart"])
+  listen("waiting", () => {
+    handlers.interrupted();
+    handlers.waiting();
+  });
+  for (const event of ["ratechange", "loadstart"])
     listen(event, handlers.interrupted);
   return () => {
     for (const [event, listener] of listeners)

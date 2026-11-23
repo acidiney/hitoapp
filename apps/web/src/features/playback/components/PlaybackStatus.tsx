@@ -23,6 +23,10 @@ export default function PlaybackStatus({
     player.subscribe,
     () => player.snapshot().retrying ?? null,
   );
+  const buffering = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().buffering ?? false,
+  );
   const resumeFailed = useSyncExternalStore(
     player.subscribe,
     () => player.snapshot().resumeFailed,
@@ -42,6 +46,7 @@ export default function PlaybackStatus({
   if (
     !loading &&
     !retrying &&
+    !buffering &&
     !error &&
     connection === "ready" &&
     known &&
@@ -54,7 +59,13 @@ export default function PlaybackStatus({
         </span>
       </div>
     );
-  if (!loading && !retrying && !error && connection !== "connecting")
+  if (
+    !loading &&
+    !retrying &&
+    !buffering &&
+    !error &&
+    connection !== "connecting"
+  )
     return null;
   return (
     <div className={className} role="status">
@@ -65,7 +76,9 @@ export default function PlaybackStatus({
             ? `Trying again (${retrying.attempt} of ${retrying.of})…`
             : loading
               ? "Finding audio…"
-              : error}
+              : buffering
+                ? "Buffering…"
+                : error}
       </span>
       {connection === "ready" && resumeFailed && player.retrySaved && (
         <button

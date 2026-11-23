@@ -133,7 +133,11 @@ test("Original fallback and authorized source recovery retain resume position wi
   media.ready(63);
   await vi.waitFor(() => expect(media.paused).toBe(false));
   media.dispatchEvent(new Event("timeupdate"));
-  expect(requests).toHaveBeenCalledTimes(2);
+  expect(requests.mock.calls.map(([input]) => String(input))).toEqual([
+    "/api/v1/sources/source/audio?quality=high&start_ms=26000",
+    "/health",
+    "/api/v1/sources/replacement/audio?quality=high&start_ms=27000",
+  ]);
   expect(loaded).toEqual([
     "/api/v1/sources/source/audio?quality=high&start_ms=26000",
     "/api/v1/sources/source/audio",
