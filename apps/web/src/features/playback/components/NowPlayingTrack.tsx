@@ -7,7 +7,8 @@ import PlaybackStatus from "./PlaybackStatus";
 import NowPlayingLike from "./NowPlayingLike";
 import StatusDot from "../../../shared/ui/StatusDot";
 import { ArtistNames, artistHref } from "./TrackNames";
-import { artistSearchLink } from "../hooks/useArtistLink";
+import { trackLink, useArtistLink } from "../hooks/useArtistLink";
+import RouteLink from "../../../shared/ui/RouteLink";
 import { usePlayingSource } from "../hooks/usePlayingSource";
 import { sourceLabels } from "../../sources/model/sourceLabels";
 
@@ -38,6 +39,8 @@ export default function NowPlayingTrack({
   close: () => void;
 }) {
   const title = useRef<HTMLHeadingElement>(null);
+  const knownArtist = current ? artistHref(current) : null;
+  const matchedArtist = useArtistLink(account, knownArtist ? null : current);
   return (
     <section className="np-track" aria-label="Track">
       <div className="np-cover" ref={cover}>
@@ -49,15 +52,25 @@ export default function NowPlayingTrack({
       </div>
       <div className="np-title" data-np-fade="">
         <div className="np-title-copy">
-          <h1 ref={title}>{current?.title ?? "Ready when you are"}</h1>
+          <h1 ref={title}>
+            {current ? (
+              <RouteLink
+                className="np-title-link"
+                href={trackLink(current)}
+                onNavigate={close}
+              >
+                {current.title}
+              </RouteLink>
+            ) : (
+              "Ready when you are"
+            )}
+          </h1>
           {current ? (
             <>
               <p className="np-artist">
                 <ArtistNames
                   artist={current.artist}
-                  artistHref={
-                    artistHref(current) ?? artistSearchLink(current.artist)
-                  }
+                  artistHref={knownArtist ?? matchedArtist}
                   credited={current.credited_artists}
                   routed={{ className: "np-artist-link", onNavigate: close }}
                 />

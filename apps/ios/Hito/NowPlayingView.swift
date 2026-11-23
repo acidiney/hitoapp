@@ -9,7 +9,9 @@ struct NowPlayingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let player: Player
+    let routes: PlayerRoutes?
     let openQueue: () -> Void
+    let go: (PlayerRoute) -> Void
     @State private var panel = Panel.artwork
     @State private var details: Track?
     @State private var pull = PullDown()
@@ -18,6 +20,7 @@ struct NowPlayingView: View {
     @State private var swipe: TrackSwipe?
     @State private var coverFrame = CGRect.zero
     @State private var turning = false
+    @State private var choosingArtist = false
 
     var body: some View {
         Group {
@@ -47,6 +50,11 @@ struct NowPlayingView: View {
         .accessibilityAction(.escape, close)
         .sheet(item: $details) { track in
             NavigationStack { TrackView(track: track).pushed().browsing() }
+        }
+        .confirmationDialog("Go to artist", isPresented: $choosingArtist, titleVisibility: .visible) {
+            ForEach(routes?.artists ?? [], id: \.self) { route in
+                Button(route.title) { open(route) }
+            }
         }
     }
 
@@ -86,6 +94,14 @@ struct NowPlayingView: View {
     }
 
     private func close() {
+        shut(then: nil)
+    }
+
+    private func open(_ route: PlayerRoute) {
+        shut { go(route) }
+    }
+
+    private func shut(then next: (() -> Void)?) {
         guard !closing else { return }
         withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.3, bounce: 0)) {
             closing = true
@@ -93,6 +109,26 @@ struct NowPlayingView: View {
             var instant = Transaction()
             instant.disablesAnimations = true
             withTransaction(instant) { dismiss() }
+            next?()
+        }
+    }
+
+    private func openArtist() {
+        guard let artists = routes?.artists else { return }
+        if artists.count > 1 {
+            choosingArtist = true
+        } else if let artist = artists.first {
+            open(artist)
+        }
+    }
+
+    @ViewBuilder private func link<Label: View>(_ route: PlayerRoute?, hint: String, action: @escaping () -> Void, @ViewBuilder label: () -> Label) -> some View {
+        if route != nil {
+            Button(action: action) { label().multilineTextAlignment(.leading).contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint(hint)
+        } else {
+            label()
         }
     }
 
@@ -116,6 +152,7 @@ struct NowPlayingView: View {
                 .accessibilityValue(PlaybackSpeed.label(player.speed))
                 Menu {
                     Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
+                    GoToMenu(routes: routes, go: open)
                     Button("Up next", action: openQueue)
                     Button("Track details") { details = track }
                 } label: {
@@ -128,10 +165,16 @@ struct NowPlayingView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     if let context = player.queue.context {
-                        Text("Playing from \(context)").font(Theme.label).foregroundStyle(Theme.soft).lineLimit(1)
+                        link(routes?.playingFrom, hint: routes?.playingFrom.map(hint) ?? "", action: { if let route = routes?.playingFrom { open(route) } }) {
+                            Text("Playing from \(context)").font(Theme.label).foregroundStyle(Theme.soft).lineLimit(1)
+                        }
                     }
-                    Text(track.title).font(Theme.playing).fixedSize(horizontal: false, vertical: true)
-                    Text(track.artist).foregroundStyle(Theme.soft).lineLimit(1)
+                    link(routes?.album, hint: "Opens the album", action: { if let route = routes?.album { open(route) } }) {
+                        Text(track.title).font(Theme.playing).fixedSize(horizontal: false, vertical: true)
+                    }
+                    link(routes?.artists.first, hint: (routes?.artists.count ?? 0) > 1 ? "Chooses an artist to open" : "Opens the artist", action: openArtist) {
+                        Text(track.artist).foregroundStyle(Theme.soft).lineLimit(1)
+                    }
                     HStack(spacing: 8) {
                         Circle().fill(player.notice == nil ? Theme.text : Theme.warning).frame(width: 9, height: 9)
                         Text(status).foregroundStyle(player.notice == nil ? Theme.soft : Theme.warning).lineLimit(2).fixedSize(horizontal: false, vertical: true)
@@ -284,6 +327,14 @@ struct NowPlayingView: View {
         case .lyrics: panel = .lyrics
         case .next: openQueue()
         case .source: panel = .source
+        }
+    }
+
+    private func hint(_ route: PlayerRoute) -> String {
+        switch route {
+        case .playlist: "Opens the playlist"
+        case .album: "Opens the album"
+        case .artist, .artistGroup: "Opens the artist"
         }
     }
 

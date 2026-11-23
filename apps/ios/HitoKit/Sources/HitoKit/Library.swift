@@ -1,6 +1,16 @@
 import Foundation
 
 public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
+    public struct Credit: Decodable, Equatable, Hashable, Sendable {
+        public let id: String
+        public let name: String
+
+        public init(id: String, name: String) {
+            self.id = id
+            self.name = name
+        }
+    }
+
     public let id: String
     public let title: String
     public let artist: String
@@ -11,8 +21,10 @@ public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
     public let playsFromServices: Bool
     public let liked: Bool
     public var trackNumber: Int?
+    public let artistId: String?
+    public let credits: [Credit]?
 
-    public init(id: String, title: String, artist: String, album: String?, releaseId: String?, durationMs: Int, available: Bool, playsFromServices: Bool, liked: Bool, trackNumber: Int? = nil) {
+    public init(id: String, title: String, artist: String, album: String?, releaseId: String?, durationMs: Int, available: Bool, playsFromServices: Bool, liked: Bool, trackNumber: Int? = nil, artistId: String? = nil, credits: [Credit]? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -23,6 +35,8 @@ public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
         self.playsFromServices = playsFromServices
         self.liked = liked
         self.trackNumber = trackNumber
+        self.artistId = artistId
+        self.credits = credits
     }
 
     public var isPlayable: Bool { available || playsFromServices }
@@ -43,6 +57,8 @@ public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
         case durationMs = "duration_ms"
         case playsFromServices = "plays_from_services"
         case trackNumber = "track_number"
+        case artistId = "artist_id"
+        case credits = "credited_artists"
     }
 }
 

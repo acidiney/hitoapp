@@ -67,7 +67,7 @@ struct PlaylistView: View {
                             ForEach(shown) { track in
                                 HStack(spacing: 12) {
                                     Button {
-                                        model.player?.play(shown, at: shown.firstIndex(of: track) ?? 0, from: playlist.name)
+                                        model.player?.play(shown, at: shown.firstIndex(of: track) ?? 0, from: playlist.name, playlist: playlist)
                                     } label: {
                                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false, gap: 12, dimsUnavailable: true)
                                     }
@@ -140,7 +140,7 @@ struct PlaylistView: View {
                 actions {
                     if !ready.isEmpty {
                         PlayAllButton(label: "Play \(ready.count) ready", stretch: true) {
-                            model.player?.play(ready, at: 0, from: playlist.name)
+                            model.player?.play(ready, at: 0, from: playlist.name, playlist: playlist)
                         }
                     }
                     if let finding {

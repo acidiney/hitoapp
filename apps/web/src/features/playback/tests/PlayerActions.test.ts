@@ -105,7 +105,7 @@ test("the player bar likes the playing track and keeps the heart in step", async
   expect(queued.entries[0].recording.liked).toBe(true);
 });
 
-test("the player bar menu offers details, playlists and source but not queue actions", async () => {
+test("the player bar menu offers the artist, album, details, playlists and source but not queue actions", async () => {
   render(shell(createElement(PlayerDock, { account: "alice" })));
   const dock = within(screen.getByRole("contentinfo"));
   const menu = await openMenu(dock, "Salt Flats");
@@ -113,7 +113,13 @@ test("the player bar menu offers details, playlists and source but not queue act
     within(menu)
       .getAllByRole("menuitem")
       .map((item) => item.textContent),
-  ).toEqual(["Track details", "Add to playlist", "Fix source"]);
+  ).toEqual([
+    "Go to artist",
+    "Go to album",
+    "Track details",
+    "Add to playlist",
+    "Fix source",
+  ]);
   fireEvent.click(
     within(menu).getByRole("menuitem", { name: "Add to playlist" }),
   );

@@ -16,6 +16,15 @@ import Testing
         #expect(queue.context == "Liked tracks")
     }
 
+    @Test func aQueueRemembersThePlaylistItStartedFromUntilAnotherListStarts() {
+        var queue = PlayQueue()
+        let playlist = Playlist(id: "p1", name: "Late night", kind: .local)
+        queue.start(tracks, at: 0, from: playlist.name, playlist: playlist)
+        #expect(queue.playlist == playlist)
+        queue.start(tracks, at: 0, from: "Fixture Album")
+        #expect(queue.playlist == nil)
+    }
+
     @Test func tracksYouQueuePlayBeforeTheRestOfTheList() {
         var queue = PlayQueue()
         queue.start(tracks, at: 0, from: "Fixture Album")

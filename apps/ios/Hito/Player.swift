@@ -216,10 +216,10 @@ final class Player {
         chapters = Dictionary(anchors.map { ($0.recordingId, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
-    func play(_ tracks: [Track], at index: Int, from context: String, startingAt seconds: Double = 0) {
+    func play(_ tracks: [Track], at index: Int, from context: String, playlist: Playlist? = nil, startingAt seconds: Double = 0) {
         chapters = [:]
         resumeAt = seconds > 0 ? seconds : nil
-        queue.start(tracks, at: index, from: context)
+        queue.start(tracks, at: index, from: context, playlist: playlist)
         load(queue.current)
     }
 
