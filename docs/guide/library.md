@@ -60,7 +60,7 @@ Right after adding, **Undo** takes the tracks out again. A track you have alread
 
 Open **Search** in the sidebar and start typing. Results update as you type and are grouped into tracks, albums and artists. Search ignores case and accents, so "bjork" finds "Björk".
 
-Search covers your library first. If you connected plugins that can search, Hito can also search them. You choose this in [Privacy settings](#choose-what-hito-looks-up-online).
+Search covers your library first. That includes every track you played or saved from a connected service, with its artist and, when the service names it, its album. Only you see them. If you connected plugins that can search, Hito can also search them. You choose this in [Privacy settings](#choose-what-hito-looks-up-online).
 
 ## Edit track details
 

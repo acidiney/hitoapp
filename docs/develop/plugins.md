@@ -121,7 +121,7 @@ Hito waits two seconds to connect, ten seconds for headers and fifteen seconds f
 
 ### Metadata
 
-`/v1/recordings/metadata` takes a `recording_id`. It returns the recording plus an optional `musical_title`, `album_title` and `source_ids`. Use it when your detail titles are noisy, such as video titles. The response is at most 32 KiB. Hito's use of this capability is still in development.
+`/v1/recordings/metadata` takes a `recording_id`. It returns the recording plus an optional `musical_title`, `album_title` and `source_ids`. Use it when your detail titles are noisy, such as video titles. The response is at most 32 KiB. When Hito saves a recording whose detail has no `release`, it files the recording under `album_title`, credited to the first main artist in `artists`. Hito's other uses of this capability are still in development.
 
 ### Artwork
 
